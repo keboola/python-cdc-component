@@ -118,6 +118,8 @@
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.1.1</version>
                 <configuration>
+                    <finalName>kbcDebeziumEngine</finalName>
+                   <outputDirectory>jars</outputDirectory>
                     <archive>
                         <manifest>
                             <mainClass>keboola.cdc.debezium.DebeziumKBCWrapper</mainClass>
