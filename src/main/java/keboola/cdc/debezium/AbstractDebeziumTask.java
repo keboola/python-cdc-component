@@ -133,6 +133,8 @@ public class AbstractDebeziumTask {
 			return true;
 		}
 
+//		this.logger.info("Time elapsed: {}, Last record before: {}", lastRecord.plus(this.maxWait).toEpochSecond(),
+//				ZonedDateTime.now().toEpochSecond());
 		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > lastRecord.plus(this.maxWait).toEpochSecond()) {
 			return true;
 		}
