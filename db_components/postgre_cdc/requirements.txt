@@ -1,0 +1,10 @@
+keboola.component==1.4.3
+keboola.utils
+jaydebeapi
+dataconf
+snowflake-connector-python
+sshtunnel
+paramiko
+# tests
+mock
+freezegun
