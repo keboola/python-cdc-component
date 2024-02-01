@@ -19,7 +19,7 @@ from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
 from configuration import Configuration, DbOptions, SnapshotMode
-from db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
+from ...db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from extractor.debezium import DebeziumExecutor
 from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
@@ -100,7 +100,12 @@ class Component(ComponentBase):
         Returns: Updated DBOptions
 
         """
-        config: DbOptions = DbOptions.load_from_dict(self.configuration.parameters['db_settings'])
+        params = self.configuration.parameters
+        # fix eternal KBC issue
+        if isinstance(params.get('db_settings', {}).get('ssh_options'), list):
+            params['db_settings']['ssh_options'] = {}
+
+        config: DbOptions = DbOptions.load_from_dict(params['db_settings'])
         tunnel = None
         self._client = None
         try:
@@ -143,8 +148,12 @@ class Component(ComponentBase):
 
     def _init_configuration(self):
         self.validate_configuration_parameters(Configuration.get_dataclass_required_parameters())
+        params = self.configuration.parameters
+        # fix eternal KBC issue
+        if isinstance(params.get('db_settings', {}).get('ssh_options'), list):
+            params['db_settings']['ssh_options'] = {}
         self._configuration: Configuration = Configuration.load_from_dict(
-            self.configuration.parameters)
+            params)
 
     def _reconstruct_offsset_from_state(self):
         last_state = self.get_state_file()
@@ -333,7 +342,6 @@ class Component(ComponentBase):
     @sync_action('get_schemas')
     def get_schemas(self):
         with self._init_client():
-            self._client.connect()
             schemas = self._client.metadata_provider.get_schemas()
             return [
                 SelectElement(schema) for schema in schemas
