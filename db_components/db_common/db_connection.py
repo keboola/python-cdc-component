@@ -194,7 +194,7 @@ class JDBCConnection(DbConnection):
         """
 
         for row in self._call_jdbc_metadata_system_function('getSchemas'):
-            yield row[0]
+            yield row['TABLE_SCHEM']
 
     def perform_query(self, query: str, bind_parameters: Optional[dict] = None) -> Iterable[dict]:
         """
