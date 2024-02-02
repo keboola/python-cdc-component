@@ -4,10 +4,10 @@ import tempfile
 
 from jaydebeapi import DatabaseError
 
-from configuration import DbOptions
-from db_common.db_connection import JDBCConnection
-from db_common.metadata import JDBCMetadataProvider
-from db_common.table_schema import BaseTypeConverter
+from db_components.components.postgre.src.configuration import DbOptions
+from db_components.db_common.db_connection import JDBCConnection
+from db_components.db_common.metadata import JDBCMetadataProvider
+from db_components.db_common.table_schema import BaseTypeConverter
 
 JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
 
