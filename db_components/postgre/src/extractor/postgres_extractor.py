@@ -4,7 +4,7 @@ import tempfile
 
 from jaydebeapi import DatabaseError
 
-from db_components.components.postgre.src.configuration import DbOptions
+from db_components.postgre.src.configuration import DbOptions
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
