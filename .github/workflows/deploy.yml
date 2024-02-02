@@ -1,0 +1,82 @@
+name: Deploy Project
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-python:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.11
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+
+    - name: Build and Deploy
+      run: |
+        export APP_IMAGE=keboola-component
+        docker build . --tag=$APP_IMAGE
+        docker images
+        docker run $APP_IMAGE flake8 /code/ --config=/code/flake8.cfg
+        echo "Running unit-tests..."
+        docker run $APP_IMAGE python -m unittest discover
+
+        # Additional steps for specific branches and tags
+        if [[ ${{ github.ref }} == 'refs/heads/master' ]]; then
+          echo 'Pushing test image to repo. [tag=test]'
+          export REPOSITORY=`docker run --rm -e KBC_DEVELOPERPORTAL_USERNAME -e KBC_DEVELOPERPORTAL_PASSWORD -e KBC_DEVELOPERPORTAL_URL quay.io/keboola/developer-portal-cli-v2:latest ecr:get-repository $KBC_DEVELOPERPORTAL_VENDOR $KBC_DEVELOPERPORTAL_APP`
+          docker tag $APP_IMAGE:latest $REPOSITORY:test
+          eval $(docker run --rm -e KBC_DEVELOPERPORTAL_USERNAME -e KBC_DEVELOPERPORTAL_PASSWORD -e KBC_DEVELOPERPORTAL_URL quay.io/keboola/developer-portal-cli-v2:latest ecr:get-login $KBC_DEVELOPERPORTAL_VENDOR $KBC_DEVELOPERPORTAL_APP)
+          docker push $REPOSITORY:test
+          chmod +x ./scripts/update_dev_portal_properties.sh
+          ./scripts/update_dev_portal_properties.sh
+        elif [[ ${{ github.ref }} == 'refs/tags/'* ]]; then
+          echo 'Preparing KBC test image'
+          docker pull quay.io/keboola/developer-portal-cli-v2:latest
+          # Additional steps for tag deployment
+          # Uncomment the following lines when initialized
+          # export REPOSITORY=`docker run --rm -e KBC_DEVELOPERPORTAL_USERNAME -e KBC_DEVELOPERPORTAL_PASSWORD -e KBC_DEVELOPERPORTAL_URL quay.io/keboola/developer-portal-cli-v2:latest ecr:get-repository $KBC_DEVELOPERPORTAL_VENDOR $KBC_DEVELOPERPORTAL_APP`
+          # docker tag $APP_IMAGE:latest $REPOSITORY:test
+          # eval $(docker run --rm -e KBC_DEVELOPERPORTAL_USERNAME -e KBC_DEVELOPERPORTAL_PASSWORD -e KBC_DEVELOPERPORTAL_URL quay.io/keboola/developer-portal-cli-v2:latest ecr:get-login $KBC_DEVELOPERPORTAL_VENDOR $KBC_DEVELOPERPORTAL_APP)
+          # docker push $REPOSITORY:test
+          # docker run --rm -e KBC_STORAGE_TOKEN quay.io/keboola/syrup-cli:latest run-job $KBC_DEVELOPERPORTAL_APP $BASE_KBC_CONFIG test
+          # docker run --rm -e KBC_STORAGE_TOKEN quay.io/keboola/syrup-cli:latest run-job $KBC_DEVELOPERPORTAL_APP $KBC_CONFIG_1 test
+          chmod +x ./scripts/update_dev_portal_properties.sh
+          chmod +x ./deploy.sh
+          ./scripts/update_dev_portal_properties.sh
+          ./deploy.sh
+        fi
+
+  deploy-java:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Java
+      uses: actions/setup-java@v2
+      with:
+        distribution: 'adopt'  # Change this to your Java distribution
+        java-version: '11'     # Change this to your Java version
+
+    - name: Build Java Project
+      run: |
+        # Add commands to build your Java project
+        # For example, using Maven or Gradle
+
+    - name: Deploy Java Project
+      run: |
+        # Add commands to deploy your Java project
+        # For example, copying JAR files, restarting services, etc.
