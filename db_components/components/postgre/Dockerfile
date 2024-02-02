@@ -3,7 +3,7 @@ ENV PYTHONIOENCODING utf-8
 
 COPY /src /code/src/
 COPY /jdbc /code/jdbc/
-COPY ../../debezium /code/debezium/
+COPY /db_components/debezium /code/debezium/
 COPY /tests /code/tests/
 COPY /scripts /code/scripts/
 COPY requirements.txt /code/requirements.txt
