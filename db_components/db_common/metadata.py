@@ -1,8 +1,8 @@
 from abc import ABC
 from typing import Iterable
 
-from db_common.db_connection import JDBCConnection
-from db_common.table_schema import TableSchema, ColumnSchema, BaseTypeConverter
+from db_components.db_common.db_connection import JDBCConnection
+from db_components.db_common.table_schema import TableSchema, ColumnSchema, BaseTypeConverter
 
 
 class JDBCMetadataProvider(ABC):

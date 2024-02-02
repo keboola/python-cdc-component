@@ -19,8 +19,8 @@ from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
 from configuration import Configuration, DbOptions, SnapshotMode
-from ...db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from extractor.debezium import DebeziumExecutor
+from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
+from db_components.debezium.executor import DebeziumExecutor
 from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
 from extractor.postgres_extractor import build_postgres_property_file
