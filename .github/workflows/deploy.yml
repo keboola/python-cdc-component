@@ -26,7 +26,7 @@ jobs:
     - name: Build and Deploy
       run: |
         export APP_IMAGE=keboola-component
-        docker build . --tag=$APP_IMAGE
+        docker build -t $APP_IMAGE -f db_components/components/postgre/Dockerfile .
         docker images
         docker run $APP_IMAGE flake8 /code/ --config=/code/flake8.cfg
         echo "Running unit-tests..."
