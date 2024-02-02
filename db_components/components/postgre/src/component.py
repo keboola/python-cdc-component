@@ -80,7 +80,7 @@ class Component(ComponentBase):
 
             self._collect_source_metadata()
 
-            debezium_executor = DebeziumExecutor('./debezium/keboola_cdc.jar')
+            debezium_executor = DebeziumExecutor('../res/postgresql-42.6.0.jar')
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
 
