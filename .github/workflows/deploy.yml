@@ -28,7 +28,7 @@ jobs:
         export APP_IMAGE=keboola-component
         docker build -t $APP_IMAGE -f db_components/postgre/Dockerfile .
         docker images
-        docker run $APP_IMAGE flake8 . --config=db_components/postgre/flake8.cfg
+        docker run $APP_IMAGE flake8 . --config=code/db_components/postgre/flake8.cfg
         echo "Running unit-tests..."
         docker run $APP_IMAGE python -m unittest discover
 
