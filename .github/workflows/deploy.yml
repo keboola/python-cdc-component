@@ -6,6 +6,37 @@ on:
       - main
 
 jobs:
+
+  deploy-java:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Java
+      uses: actions/setup-java@v2
+      with:
+        distribution: 'adopt'  # Change this to your Java distribution
+        java-version: '11'     # Change this to your Java version
+
+    - name: Build Java Project
+      run: |
+        cd debezium_core
+        mvn clean install
+
+    - name: Extract JAR Artifact
+      id: extract-jar
+      run: |
+        cp debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar ${{ runner.workspace }}/deployed-artifact
+
+    - name: Upload JAR Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: java-artifact
+        path: ${{ runner.workspace }}/java-artifact
+
+
   deploy-python:
     runs-on: ubuntu-latest
 
@@ -17,6 +48,12 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.11
+
+    - name: Download JAR Artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: java-artifact
+        path: ${{ runner.workspace }}/debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Install Dependencies
       run: |
@@ -57,26 +94,3 @@ jobs:
           ./scripts/update_dev_portal_properties.sh
           ./deploy.sh
         fi
-
-  deploy-java:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
-
-    - name: Set up Java
-      uses: actions/setup-java@v2
-      with:
-        distribution: 'adopt'  # Change this to your Java distribution
-        java-version: '11'     # Change this to your Java version
-
-    - name: Build Java Project
-      run: |
-        cd debezium_core
-        mvn clean install
-
-    - name: Deploy Java Project
-      run: |
-        # Add commands to deploy your Java project
-        # For example, copying JAR files, restarting services, etc.
