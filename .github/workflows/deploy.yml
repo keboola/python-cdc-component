@@ -73,8 +73,8 @@ jobs:
 
     - name: Build Java Project
       run: |
-        # Add commands to build your Java project
-        # For example, using Maven or Gradle
+        cd debezium_core
+        mvn clean install
 
     - name: Deploy Java Project
       run: |
