@@ -8,3 +8,6 @@ __pycache__/
 # kbc datafolder
 */data
 */venv
+
+# java builds
+*kbcDebeziumEngine-jar-with-dependencies.jar

@@ -9,6 +9,7 @@ jobs:
 
   deploy-java:
     runs-on: ubuntu-latest
+    needs: deploy-java
 
     steps:
     - name: Checkout Repository
