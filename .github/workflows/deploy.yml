@@ -7,7 +7,7 @@ on:
 
 jobs:
 
-  deploy-java:
+  build-java:
     runs-on: ubuntu-latest
 
     steps:
@@ -50,6 +50,8 @@ jobs:
       with:
         name: java-artifact
         path: kbcDebeziumEngine-jar-with-dependencies.jar
+      run: |
+        cp kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Install Dependencies
       run: |
