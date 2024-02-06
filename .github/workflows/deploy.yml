@@ -49,7 +49,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: java-artifact
-        path: /debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+        path: kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Install Dependencies
       run: |
