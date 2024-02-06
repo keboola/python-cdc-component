@@ -75,6 +75,12 @@ jobs:
         echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
         echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
 
+    - name: Debug secrets
+      run: |
+        echo "KBC_DEVELOPERPORTAL_VENDOR: ${{ secrets.KBC_DEVELOPERPORTAL_VENDOR }}"
+        echo "KBC_DEVELOPERPORTAL_APP: ${{ secrets.KBC_DEVELOPERPORTAL_APP }}"
+        echo "KBC_DEVELOPERPORTAL_USERNAME: ${{ secrets.KBC_DEVELOPERPORTAL_USERNAME }}"
+
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
       with:
