@@ -1,9 +1,12 @@
 name: Github Actions
-
 on:
   push:
     branches:
       - main
+concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
+env:
+  # Name of the image in the ECR
+  APP_IMAGE: keboola-component
 
 jobs:
   build-java:
