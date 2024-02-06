@@ -64,7 +64,7 @@ jobs:
       run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
 
     - name: Build image
-      run: docker build -t ${{env.APP_IMAGE}} -f db_components/postgre/Dockerfile .
+      run: docker build -t ${{APP_IMAGE}} -f db_components/postgre/Dockerfile .
 
     - name: Set image tag
       id: tag
@@ -78,13 +78,13 @@ jobs:
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
       with:
-        vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
-        username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
-        password: ${{ env.KBC_DEVELOPERPORTAL_PASSWORD }}
+        vendor: ${{ KBC_DEVELOPERPORTAL_VENDOR }}
+        app_id: ${{ KBC_DEVELOPERPORTAL_APP }}
+        username: ${{ KBC_DEVELOPERPORTAL_USERNAME }}
+        password: ${{ KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
-        source_image: ${{ env.APP_IMAGE}}
+        source_image: ${{ APP_IMAGE}}
 
   tests:
     needs: build-python
@@ -96,19 +96,19 @@ jobs:
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
         with:
-          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
-          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
-          password: ${{ env.KBC_DEVELOPERPORTAL_PASSWORD }}
+          vendor: ${{ KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: ${{ KBC_DEVELOPERPORTAL_APP }}
+          username: ${{ KBC_DEVELOPERPORTAL_USERNAME }}
+          password: ${{ KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build.outputs.app_image_tag }}
-          target_image: ${{ env.APP_IMAGE}}
+          target_image: ${{ APP_IMAGE}}
           tag_as_latest: true
 
       - name: Run tests
         run: |
-          docker run ${{env.APP_IMAGE}} flake8 . --config=/code/db_components/postgre/flake8.cfg
+          docker run ${{APP_IMAGE}} flake8 . --config=/code/db_components/postgre/flake8.cfg
           echo "Running unit-tests..."
-          docker run $APP_IMAGE python -m unittest discover
+          docker run ${{APP_IMAGE}} python -m unittest discover
 
   tests-in-kbc:
     needs: build-python
@@ -135,10 +135,10 @@ jobs:
       - name: Set tag in the Developer Portal
         uses: keboola/action-set-tag-developer-portal@master
         with:
-          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
-          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
-          password: ${{ env.KBC_DEVELOPERPORTAL_PASSWORD }}
+          vendor: ${{ KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: ${{ KBC_DEVELOPERPORTAL_APP }}
+          username: ${{ KBC_DEVELOPERPORTAL_USERNAME }}
+          password: ${{ KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build.outputs.app_image_tag }}
 
       - name: Set developer portal properties
