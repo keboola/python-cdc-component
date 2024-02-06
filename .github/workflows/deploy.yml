@@ -50,8 +50,9 @@ jobs:
       with:
         name: java-artifact
         path: kbcDebeziumEngine-jar-with-dependencies.jar
-      run: |
-        mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+
+    - name: Move JAR Artifact
+      run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Install Dependencies
       run: |
