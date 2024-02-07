@@ -2,8 +2,11 @@ name: Github Actions
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
-  # Name of the image in the ECR
-  APP_IMAGE: keboola-component
+  APP_IMAGE: keboola-component # Name of the image in the ECR
+  KBC_DEVELOPERPORTAL_APP: kds-team.app-python-cdc-component-test
+  KBC_DEVELOPERPORTAL_URL: https://apps-api.keboola.com
+  KBC_DEVELOPERPORTAL_USERNAME: data_ca@keboola.com
+  KBC_DEVELOPERPORTAL_VENDOR: kds-team
 
 jobs:
   build-java:
@@ -77,9 +80,9 @@ jobs:
 
     - name: Debug secrets
       run: |
-        echo "KBC_DEVELOPERPORTAL_VENDOR: $KBC_DEVELOPERPORTAL_VENDOR"
-        echo "KBC_DEVELOPERPORTAL_APP: $KBC_DEVELOPERPORTAL_APP"
-        echo "KBC_DEVELOPERPORTAL_USERNAME: $KBC_DEVELOPERPORTAL_USERNAME"
+        echo "KBC_DEVELOPERPORTAL_VENDOR: {{ env.$KBC_DEVELOPERPORTAL_VENDOR }}"
+        echo "KBC_DEVELOPERPORTAL_APP: {{ env.$KBC_DEVELOPERPORTAL_APP }}"
+        echo "KBC_DEVELOPERPORTAL_USERNAME: {{ env.$KBC_DEVELOPERPORTAL_USERNAME }}"
 
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
