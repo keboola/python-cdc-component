@@ -7,7 +7,7 @@ docker pull quay.io/keboola/developer-portal-cli-v2:latest
 
 # Update properties in Keboola Developer Portal
 echo "Updating long description"
-value=`cat component_config/component_long_description.md`
+value=`cat /db_components/postgre/component_config/component_long_description.md`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -22,7 +22,7 @@ else
 fi
 
 echo "Updating config schema"
-value=`cat component_config/configSchema.json`
+value=`cat /db_components/postgre/component_config/configSchema.json`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -36,7 +36,7 @@ else
 fi
 
 echo "Updating row config schema"
-value=`cat component_config/configRowSchema.json`
+value=`cat /db_components/postgre/component_config/configRowSchema.json`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -52,7 +52,7 @@ fi
 
 echo "Updating config description"
 
-value=`cat component_config/configuration_description.md`
+value=`cat /db_components/postgre/component_config/configuration_description.md`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -68,7 +68,7 @@ fi
 
 echo "Updating short description"
 
-value=`cat component_config/component_short_description.md`
+value=`cat /db_components/postgre/component_config/component_short_description.md`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -83,7 +83,7 @@ fi
 
 echo "Updating logger settings"
 
-value=`cat component_config/logger`
+value=`cat /db_components/postgre/component_config/logger`
 echo "$value"
 if [ ! -z "$value" ]
 then
@@ -97,7 +97,7 @@ else
 fi
 
 echo "Updating logger configuration"
-value=`cat component_config/loggerConfiguration.json`
+value=`cat /db_components/postgre/component_config/loggerConfiguration.json`
 echo "$value"
 if [ ! -z "$value" ]
 then
