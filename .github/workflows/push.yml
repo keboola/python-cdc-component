@@ -147,7 +147,7 @@ jobs:
           app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
           username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
-          tag: ${{ needs.build.outputs.app_image_tag }}
+          tag: ${{ needs.build-python.outputs.app_image_tag }}
 
       - name: Set developer portal properties
         run: |
