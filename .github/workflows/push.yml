@@ -80,9 +80,9 @@ jobs:
 
     - name: Debug secrets
       run: |
-        echo "KBC_DEVELOPERPORTAL_VENDOR: {{ env.KBC_DEVELOPERPORTAL_VENDOR }}"
-        echo "KBC_DEVELOPERPORTAL_APP: {{ env.KBC_DEVELOPERPORTAL_APP }}"
-        echo "KBC_DEVELOPERPORTAL_USERNAME: {{ env.KBC_DEVELOPERPORTAL_USERNAME }}"
+        echo "KBC_DEVELOPERPORTAL_VENDOR: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}"
+        echo "KBC_DEVELOPERPORTAL_APP: ${{ env.KBC_DEVELOPERPORTAL_APP }}"
+        echo "KBC_DEVELOPERPORTAL_USERNAME: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}"
 
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
