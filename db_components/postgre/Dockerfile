@@ -3,14 +3,12 @@ FROM python:3.11-buster
 ENV PYTHONIOENCODING utf-8
 ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_components/debezium
 
-
-# install gcc to be able to build packages - e.g. required by regex, dateparser, also required for pandas
-RUN apt-get update && apt-get install -y build-essential
-
-# Install Java dependencies needed for Tabula
-RUN apt-get update && \
-    apt-get install -y openjdk-11-jre-headless && \
-    apt-get clean;
+# Install required packages
+RUN apt update && \
+    apt install -y \
+    build-essential \
+    openjdk-11-jre-headless && \
+    apt clean
 
 COPY . /code
 
