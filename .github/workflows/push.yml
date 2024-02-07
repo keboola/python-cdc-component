@@ -151,5 +151,5 @@ jobs:
 
       - name: Set developer portal properties
         run: |
-            chmod +x ./scripts/update_dev_portal_properties.sh
-            ./scripts/update_dev_portal_properties.sh
+            chmod +x db_components/scripts/update_dev_portal_properties.sh
+            db_components/scripts/update_dev_portal_properties.sh
