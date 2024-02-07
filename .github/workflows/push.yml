@@ -78,18 +78,12 @@ jobs:
         echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
         echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
 
-    - name: Debug secrets
-      run: |
-        echo "KBC_DEVELOPERPORTAL_VENDOR: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}"
-        echo "KBC_DEVELOPERPORTAL_APP: ${{ env.KBC_DEVELOPERPORTAL_APP }}"
-        echo "KBC_DEVELOPERPORTAL_USERNAME: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}"
-
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
       with:
-        vendor: ${{ secrets.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ secrets.KBC_DEVELOPERPORTAL_APP }}
-        username: ${{ secrets.KBC_DEVELOPERPORTAL_USERNAME }}
+        vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
+        app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
+        username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
@@ -105,9 +99,9 @@ jobs:
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
         with:
-          vendor: ${{ secrets.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ secrets.KBC_DEVELOPERPORTAL_APP }}
-          username: ${{ secrets.KBC_DEVELOPERPORTAL_USERNAME }}
+          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
+          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build.outputs.app_image_tag }}
           target_image: ${{ env.APP_IMAGE}}
@@ -129,7 +123,7 @@ jobs:
         uses: keboola/action-run-configs-parallel@master
         with:
           token: ${{ secrets.KBC_STORAGE_TOKEN }}
-          componentId: ${{ secrets.KBC_DEVELOPERPORTAL_APP }}
+          componentId: ${{ env.KBC_DEVELOPERPORTAL_APP }}
           tag: ${{ needs.build.outputs.app_image_tag }}
           configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}
 
@@ -144,9 +138,9 @@ jobs:
       - name: Set tag in the Developer Portal
         uses: keboola/action-set-tag-developer-portal@master
         with:
-          vendor: ${{ secrets.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ secrets.KBC_DEVELOPERPORTAL_APP }}
-          username: ${{ secrets.KBC_DEVELOPERPORTAL_USERNAME }}
+          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
+          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build.outputs.app_image_tag }}
 
