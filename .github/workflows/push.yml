@@ -2,11 +2,11 @@ name: Github Actions
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
-  APP_IMAGE: keboola-component # Name of the image in the ECR
-  KBC_DEVELOPERPORTAL_APP: kds-team.app-python-cdc-component-test
-  KBC_DEVELOPERPORTAL_URL: https://apps-api.keboola.com
-  KBC_DEVELOPERPORTAL_USERNAME: data_ca@keboola.com
-  KBC_DEVELOPERPORTAL_VENDOR: kds-team
+  APP_IMAGE: "keboola-component"
+  KBC_DEVELOPERPORTAL_APP: "kds-team.app-python-cdc-component-test"
+  KBC_DEVELOPERPORTAL_URL: "https://apps-api.keboola.com"
+  KBC_DEVELOPERPORTAL_USERNAME: "data_ca@keboola.com"
+  KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
 
 jobs:
   build-java:
