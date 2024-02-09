@@ -80,7 +80,8 @@ class Component(ComponentBase):
 
             self._collect_source_metadata()
 
-            debezium_executor = DebeziumExecutor('../../../debezium_core/kbcDebeziumEngine-jar-with-dependencies.jar')
+            debezium_path = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+            debezium_executor = DebeziumExecutor(debezium_path)
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
 
@@ -114,7 +115,7 @@ class Component(ComponentBase):
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
                 config.port = config.ssh_options.LOCAL_BIND_PORT
-            self._client = PostgresDebeziumExtractor(config, jdbc_path='./jdbc/postgresql-42.6.0.jar')
+            self._client = PostgresDebeziumExtractor(config, jdbc_path='../jdbc/postgresql-42.6.0.jar')
             try:
                 self._client.connect()
             except Exception as e:
