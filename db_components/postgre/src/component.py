@@ -83,7 +83,7 @@ class Component(ComponentBase):
             debezium_path = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
             if not os.path.exists(debezium_path):
-                raise UserException(f"Debezium jar not found at {debezium_path}")
+                raise Exception(f"Debezium jar not found at {debezium_path}")
 
             debezium_executor = DebeziumExecutor(debezium_path)
             logging.info("Running Debezium Engine")
