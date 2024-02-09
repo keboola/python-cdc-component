@@ -81,6 +81,10 @@ class Component(ComponentBase):
             self._collect_source_metadata()
 
             debezium_path = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+
+            if not os.path.exists(debezium_path):
+                raise UserException(f"Debezium jar not found at {debezium_path}")
+            
             debezium_executor = DebeziumExecutor(debezium_path)
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
