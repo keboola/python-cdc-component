@@ -8,6 +8,7 @@ env:
   KBC_DEVELOPERPORTAL_URL: "https://apps-api.keboola.com"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
+  KBC_DEVELOPERPORTAL_PASSWORD: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
 
   # DockerHub login
   DOCKERHUB_USER: "keboolabot"
