@@ -6,8 +6,8 @@ __pycache__/
 .DS_Store
 
 # kbc datafolder
-*/data
-*/venv
+**/data/
+**/venv
 
 # java builds
 *kbcDebeziumEngine-jar-with-dependencies.jar
