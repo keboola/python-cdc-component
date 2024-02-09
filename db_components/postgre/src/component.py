@@ -84,7 +84,7 @@ class Component(ComponentBase):
 
             if not os.path.exists(debezium_path):
                 raise UserException(f"Debezium jar not found at {debezium_path}")
-            
+
             debezium_executor = DebeziumExecutor(debezium_path)
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
