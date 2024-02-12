@@ -14,8 +14,10 @@ on:
         required: true
         type: string
     outputs:
-      app_image_tag: ${{ jobs.build-python.outputs.app_image_tag }}
-      is_semantic_tag: ${{ jobs.build-python.outputs.is_semantic_tag }}
+      app_image_tag:
+        value: ${{ jobs.build-python.outputs.app_image_tag }}
+      is_semantic_tag:
+        value: ${{ jobs.build-python.outputs.is_semantic_tag }}
 
 jobs:
   build-python:
