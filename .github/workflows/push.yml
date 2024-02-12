@@ -38,10 +38,10 @@ jobs:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
 
-  tests-in-kbc:
+  tests-kbc:
     name: test-in-kbc-app-python-cdc-component-test
     needs: build-python
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@pipeline-polish
     with:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
@@ -50,7 +50,7 @@ jobs:
     needs:
       - build-python
       - tests
-      - tests-in-kbc
+      - tests-kbc
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     steps:
