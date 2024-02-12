@@ -28,6 +28,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/build.yml@pipeline-polish
     with:
       APP_NAME: "app-python-cdc-component-test"
+    secrets: inherit
 
   tests:
     "name": app-python-cdc-component-test
@@ -36,6 +37,7 @@ jobs:
     with:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
+    secrets: inherit
 
   tests-kbc:
     name: app-python-cdc-component-test
@@ -44,6 +46,7 @@ jobs:
     with:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
+    secrets: inherit
 
   deploy:
     needs:
