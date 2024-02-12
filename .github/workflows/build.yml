@@ -38,7 +38,7 @@ jobs:
       run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Docker login
-      if: ${{ inputs.DOCKERHUB_TOKEN }}
+      if: $DOCKERHUB_TOKEN
       run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
 
     - name: Build image
