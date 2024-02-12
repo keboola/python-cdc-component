@@ -10,7 +10,7 @@ fi
 echo "Component names to update: KBC_COMPONENT"
 
 # Split the string into an array using comma as delimiter
-IFS=',' read -r -a COMPONENTS <<< "KBC_COMPONENT"
+IFS=',' read -ra COMPONENTS <<< "$KBC_COMPONENT"
 
 # Obtain the component repository and log in
 docker pull quay.io/keboola/developer-portal-cli-v2:latest
