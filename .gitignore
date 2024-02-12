@@ -10,4 +10,4 @@ __pycache__/
 **/venv
 
 # java builds
-*kbcDebeziumEngine-jar-with-dependencies.jar
+# *kbcDebeziumEngine-jar-with-dependencies.jar
