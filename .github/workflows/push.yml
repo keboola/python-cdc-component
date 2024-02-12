@@ -14,6 +14,11 @@ env:
   DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  # Test KBC project
+  KBC_STORAGE_TOKEN: ${{ secrets.KBC_STORAGE_TOKEN }}
+  KBC_TEST_PROJECT_URL: "https://connection.keboola.com/admin/projects/9382" # INFO ONLY
+  KBC_TEST_PROJECT_CONFIGS: "1083217486" # space separated list
+
 jobs:
   build-java:
     runs-on: ubuntu-latest
