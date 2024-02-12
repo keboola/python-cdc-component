@@ -16,7 +16,7 @@ env:
   # Test KBC project
   KBC_STORAGE_TOKEN: ${{ secrets.KBC_STORAGE_TOKEN }}
   KBC_TEST_PROJECT_URL: "https://connection.keboola.com/admin/projects/9382" # INFO ONLY
-  KBC_TEST_PROJECT_CONFIGS: "1083217486" # space separated list
+  KBC_TEST_PROJECT_CONFIGS:
 
 jobs:
   build-java:
@@ -51,8 +51,7 @@ jobs:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
-      KBC_TEST_PROJECT_CONFIGS: "1083217486"
-      KBC_STORAGE_TOKEN: ${{ secrets.KBC_STORAGE_TOKEN }}
+      KBC_TEST_PROJECT_CONFIGS: "1083217486" # space separated list of config ids
     secrets: inherit
 
   deploy:
