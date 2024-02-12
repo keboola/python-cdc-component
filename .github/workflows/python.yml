@@ -59,7 +59,7 @@ jobs:
         uses: keboola/action-pull-from-ecr@master
         with:
           vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: {{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
+          app_id: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
           username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build-python.outputs.app_image_tag }}
