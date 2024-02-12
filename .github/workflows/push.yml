@@ -20,11 +20,11 @@ env:
 
 jobs:
   build-java:
-    uses: keboola/python-cdc-component/.github/workflows/java.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   build-python:
     needs: build-java
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
     with:
       APP_NAME: "app-python-cdc-component-test"
       APP_IMAGE: "keboola-component"
@@ -34,7 +34,7 @@ jobs:
 
   tests:
     needs: build-python
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/tests.yml@main
     with:
       VENDOR: "kds-team"
       APP_NAME: "app-python-cdc-component-test"
@@ -45,7 +45,7 @@ jobs:
 
   tests-kbc:
     needs: build-python
-    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
     with:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
@@ -56,10 +56,11 @@ jobs:
       - build-python
       - tests
       - tests-kbc
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       VENDOR: "kds-team"
       APP_ID: "kds-team.app-python-cdc-component-test"
       USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.app_image_tag }}
     secrets: inherit
