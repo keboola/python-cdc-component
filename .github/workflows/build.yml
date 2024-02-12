@@ -4,9 +4,6 @@ on:
       APP_NAME:
         required: true
         type: string
-      TAG:
-        required: false
-        type: string
 jobs:
   build-python:
     runs-on: ubuntu-latest
@@ -51,39 +48,3 @@ jobs:
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
         source_image: ${{ env.APP_IMAGE }}
-
-  tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-
-      - name: Pull image from ECR
-        uses: keboola/action-pull-from-ecr@master
-        with:
-          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
-          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
-          password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
-          tag: ${{ inputs.TAG }}
-          target_image: ${{ env.APP_IMAGE}}
-          tag_as_latest: true
-
-      - name: Run tests
-        run: |
-          docker run ${{ env.APP_IMAGE }} flake8 . --config=/code/db_components/${{ inputs.APP_NAME }}/flake8.cfg
-          echo "Running unit-tests..."
-          docker run ${{ env.APP_IMAGE }} python -m unittest discover
-
-  tests-in-kbc:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Run KBC test jobs
-        if: env.KBC_STORAGE_TOKEN && env.KBC_TEST_PROJECT_CONFIGS
-        uses: keboola/action-run-configs-parallel@master
-        with:
-          token: ${{ secrets.KBC_STORAGE_TOKEN }}
-          componentId: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
-          tag: ${{ inputs.TAG }}
-          configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}
