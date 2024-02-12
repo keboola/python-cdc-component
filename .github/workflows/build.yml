@@ -47,7 +47,7 @@ jobs:
       run: echo "APP_PATH=$(echo ${{ inputs.APP_NAME }} | tr '-' '_')" >> $GITHUB_ENV
 
     - name: Build image
-      run: docker build -t ${{ env.APP_PATH }} -f db_components/${{ env.APP_PATH }}/Dockerfile .
+      run: docker build -t ${{ inputs.APP_NAME }} -f db_components/${{ env.APP_PATH }}/Dockerfile .
 
     - name: Set image tag
       id: tag
@@ -67,4 +67,4 @@ jobs:
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
-        source_image: ${{ inputs.APP_IMAGE }}
+        source_image: ${{ inputs.APP_NAME }}
