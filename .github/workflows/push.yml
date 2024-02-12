@@ -56,11 +56,11 @@ jobs:
       - build-python
       - tests
       - tests-kbc
+    if: startsWith(github.ref, 'refs/tags/') && ${{ needs.build-python.outputs.is_semantic_tag}} == 'true'
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       VENDOR: "kds-team"
       APP_ID: "kds-team.app-python-cdc-component-test"
       USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag}}
     secrets: inherit
