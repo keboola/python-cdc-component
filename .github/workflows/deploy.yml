@@ -39,4 +39,3 @@ jobs:
         run: |
             chmod +x scripts/update_dev_portal_properties.sh
             scripts/update_dev_portal_properties.sh
-          
