@@ -2,9 +2,8 @@ name: Github Actions
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
-  # Name of the image in the ECR
+  KBC_COMPONENTS: "app-python-cdc-component-test"
   APP_IMAGE: "keboola-component"
-  KBC_DEVELOPERPORTAL_APP: "kds-team.app-python-cdc-component-test"
   KBC_DEVELOPERPORTAL_URL: "https://apps-api.keboola.com"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
@@ -45,56 +44,57 @@ jobs:
         path: debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
         if-no-files-found: error
 
-  build-python:
+  build-and-push-component:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component_name: ${{ split(env.KBC_COMPONENTS, ',') }}
+
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
-    needs: build-java
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Download JAR Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: java-artifact
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: java-artifact
 
-    - name: Move JAR Artifact
-      run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+      - name: Move JAR Artifact
+        run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
-    - name: Display structure of debezium_core
-      run: ls -R debezium_core
+      - name: Docker login
+        if: env.DOCKERHUB_TOKEN
+        run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
 
-    - name: Docker login
-      if: env.DOCKERHUB_TOKEN
-      run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
+      - name: Build image
+        run: docker build -t ${{ env.APP_IMAGE }} -f db_components/${{ matrix.component_name }}/Dockerfile .
 
-    - name: Build image
-      run: docker build -t ${{ env.APP_IMAGE }} -f db_components/postgre/Dockerfile .
+      - name: Set image tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          IS_SEMANTIC_TAG=$(echo "$TAG" | grep -q '^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$' && echo true || echo false)
+          echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
+          echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
+          echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
 
-    - name: Set image tag
-      id: tag
-      run: |
-        TAG="${GITHUB_REF##*/}"
-        IS_SEMANTIC_TAG=$(echo "$TAG" | grep -q '^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$' && echo true || echo false)
-        echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
-        echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
-        echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
-
-    - name: Push image to ECR
-      uses: keboola/action-push-to-ecr@master
-      with:
-        vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
-        username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
-        password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
-        tag: ${{ steps.tag.outputs.app_image_tag }}
-        push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
-        source_image: ${{ env.APP_IMAGE }}
+      - name: Push image to ECR
+        uses: keboola/action-push-to-ecr@master
+        with:
+          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: "kds-team.${{ matrix.component }}"
+          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
+          password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
+          tag: ${{ steps.tag.outputs.app_image_tag }}
+          push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
+          source_image: ${{ env.APP_IMAGE }}
 
   tests:
-    needs: build-python
+    needs: build-and-push-component
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -104,7 +104,7 @@ jobs:
         uses: keboola/action-pull-from-ecr@master
         with:
           vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ env.KBC_DEVELOPERPORTAL_APP }}
+          app_id: "kds-team.app-python-cdc-component-test"
           username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ needs.build-python.outputs.app_image_tag }}
@@ -113,7 +113,7 @@ jobs:
 
       - name: Run tests
         run: |
-          docker run ${{ env.APP_IMAGE }} flake8 . --config=/code/db_components/postgre/flake8.cfg
+          docker run ${{ env.APP_IMAGE }} flake8 . --config=/code/db_components/app-python-cdc-component-test/flake8.cfg
           echo "Running unit-tests..."
           docker run ${{ env.APP_IMAGE }} python -m unittest discover
 
@@ -127,13 +127,13 @@ jobs:
         uses: keboola/action-run-configs-parallel@master
         with:
           token: ${{ secrets.KBC_STORAGE_TOKEN }}
-          componentId: ${{ env.KBC_DEVELOPERPORTAL_APP }}
+          componentId: "kds-team.app-python-cdc-component-test"
           tag: ${{ needs.build.outputs.app_image_tag }}
           configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}
 
   deploy:
     needs:
-      - build-python
+      - build-and-push-component
       - tests
       - tests-in-kbc
     runs-on: ubuntu-latest
@@ -153,5 +153,5 @@ jobs:
 
       - name: Set developer portal properties
         run: |
-            chmod +x db_components/scripts/update_dev_portal_properties.sh
-            db_components/scripts/update_dev_portal_properties.sh
+            chmod +x scripts/update_dev_portal_properties.sh
+            scripts/update_dev_portal_properties.sh
