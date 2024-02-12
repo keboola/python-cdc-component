@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-java:
-    uses: keboola/python-cdc-component/.github/java/build.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/java.yml@pipeline-polish
 
   build-python:
     runs-on: ubuntu-latest
