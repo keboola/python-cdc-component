@@ -34,8 +34,7 @@ jobs:
   tests-in-kbc:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Run KBC test jobs
+      - name: Run KBC test jobs
         if: env.KBC_STORAGE_TOKEN && env.KBC_TEST_PROJECT_CONFIGS
         uses: keboola/action-run-configs-parallel@master
         with:
