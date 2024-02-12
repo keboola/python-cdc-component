@@ -57,7 +57,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       VENDOR: "kds-team"
-      APP_ID: "app-python-cdc-component-test"
+      APP_NAME: "app-python-cdc-component-test"
       KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
