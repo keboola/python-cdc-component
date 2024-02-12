@@ -40,6 +40,8 @@ jobs:
     name: test-in-kbc-app-python-cdc-component-test
     needs: build-python
     uses: keboola/python-cdc-component/.github/workflows/python.yml@pipeline-polish
+    with:
+      APP_NAME: "app-python-cdc-component-test"
 
   deploy:
     needs:
