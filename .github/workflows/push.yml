@@ -50,6 +50,7 @@ jobs:
     secrets: inherit
 
   deploy:
+    if : ${{ needs.build-python.outputs.is_semantic_tag == 'true' }}
     needs:
       - build-python
       - tests
