@@ -7,16 +7,12 @@ env:
   KBC_DEVELOPERPORTAL_URL: "https://apps-api.keboola.com"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
-  KBC_DEVELOPERPORTAL_PASSWORD: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
 
   # DockerHub login
   DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # Test KBC project
-  KBC_STORAGE_TOKEN: ${{ secrets.KBC_STORAGE_TOKEN }}
-  KBC_TEST_PROJECT_URL: "https://connection.keboola.com/admin/projects/9382" # INFO ONLY
-  KBC_TEST_PROJECT_CONFIGS:
+  # Test KBC project: https://connection.keboola.com/admin/projects/9382
 
 jobs:
   build-java:
@@ -29,7 +25,7 @@ jobs:
       APP_NAME: "app-python-cdc-component-test"
       APP_IMAGE: "keboola-component"
       VENDOR: "kds-team"
-      USERNAME: "kds-team+github"
+      KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
       DOCKERHUB_USER: "keboolabot"
     secrets: inherit
 
@@ -39,7 +35,7 @@ jobs:
     with:
       VENDOR: "kds-team"
       APP_NAME: "app-python-cdc-component-test"
-      USERNAME: "kds-team+github"
+      KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       APP_IMAGE: "app-python-cdc-component-test"
     secrets: inherit
@@ -63,7 +59,7 @@ jobs:
     with:
       VENDOR: "kds-team"
       APP_ID: "app-python-cdc-component-test"
-      USERNAME: "kds-team+github"
+      KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
     secrets: inherit

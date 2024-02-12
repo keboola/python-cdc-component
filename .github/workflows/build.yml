@@ -10,7 +10,7 @@ on:
       VENDOR:
         required: true
         type: string
-      USERNAME:
+      KBC_DEVELOPERPORTAL_USERNAME:
         required: true
         type: string
       DOCKERHUB_USER:
