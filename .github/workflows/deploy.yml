@@ -20,6 +20,7 @@ jobs:
         KBC_COMPONENT: ${{ inputs.APP_ID }}
         KBC_DEVELOPERPORTAL_USERNAME: ${{ inputs.USERNAME }}
         KBC_DEVELOPERPORTAL_VENDOR: ${{ inputs.VENDOR }}
+        KBC_DEVELOPERPORTAL_PASSWORD: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
     steps:
       - name: Set tag in the Developer Portal
         uses: keboola/action-set-tag-developer-portal@master
@@ -27,17 +28,13 @@ jobs:
           vendor: ${{ inputs.VENDOR }}
           app_id: ${{ inputs.APP_ID }}
           username: ${{ inputs.USERNAME }}
-          password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
+          password: ${{ env.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
 
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Debug Step
+      - name: Update developer portal properties
         run: |
-          echo "Value of KBC_COMPONENT passed from calling workflow: $KBC_COMPONENT"
-          echo "Value of KBC_COMPONENT within env block: ${{ env.KBC_COMPONENT }}"
-          echo "Current environment variables:"
-          echo "KBC_COMPONENT=${KBC_COMPONENT}"
           chmod +x scripts/update_dev_portal_properties.sh
           scripts/update_dev_portal_properties.sh
