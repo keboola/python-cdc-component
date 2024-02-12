@@ -32,6 +32,7 @@ update_property() {
         echo "Property $prop_name updated successfully for $app_name"
     else
         echo "$prop_name is empty for $app_name!"
+        exit 1
     fi
 }
 

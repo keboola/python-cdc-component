@@ -31,9 +31,9 @@ jobs:
 
       - name: Set App Environment Variables
         run: |
-          echo "KBC_COMPONENT=${{ inputs.APP_ID }}" >> $GITHUB_ENV
-          echo "KBC_DEVELOPERPORTAL_USERNAME=${{ inputs.USERNAME }}" >> $GITHUB_ENV
-          echo "KBC_DEVELOPERPORTAL_VENDOR=${{ inputs.VENDOR }}" >> $GITHUB_ENV
+          echo "KBC_COMPONENT=${{ inputs.APP_ID }}" >> KBC_COMPONENT
+          echo "KBC_DEVELOPERPORTAL_USERNAME=${{ inputs.USERNAME }}" >> KBC_DEVELOPERPORTAL_USERNAME
+          echo "KBC_DEVELOPERPORTAL_VENDOR=${{ inputs.VENDOR }}" >> KBC_DEVELOPERPORTAL_VENDOR
 
       - name: Set developer portal properties
         run: |
