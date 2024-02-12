@@ -50,11 +50,16 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-#    - name: Download JAR Artifact
-#      uses: actions/download-artifact@v4
-#      with:
-#        name: java-artifact
-#        path: debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+    - name: Download JAR Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: java-artifact
+
+    - name: Move JAR Artifact
+      run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+
+    - name: Display structure of debezium_core
+      run: ls -R debezium_core
 
     - name: Docker login
       if: env.DOCKERHUB_TOKEN
