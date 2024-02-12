@@ -36,6 +36,6 @@ jobs:
 
       - name: Run tests
         run: |
-          docker run ${{ env.APP_IMAGE }} flake8 . --config=/code/db_components/${{ inputs.APP_NAME }}/flake8.cfg
+          docker run ${{ inputs.APP_IMAGE }} flake8 . --config=/code/db_components/${{ inputs.APP_NAME }}/flake8.cfg
           echo "Running unit-tests..."
-          docker run ${{ env.APP_IMAGE }} python -m unittest discover
+          docker run ${{ inputs.APP_IMAGE }} python -m unittest discover
