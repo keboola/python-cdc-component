@@ -15,7 +15,7 @@ on:
         type: string
       IS_SEMANTIC_TAG:
         required: true
-        type: boolean
+        type: string
 jobs:
   deploy:
     runs-on: ubuntu-latest

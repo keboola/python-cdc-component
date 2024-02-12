@@ -62,5 +62,5 @@ jobs:
       APP_ID: "kds-team.app-python-cdc-component-test"
       USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag}}
     secrets: inherit
