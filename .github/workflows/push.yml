@@ -57,7 +57,7 @@ jobs:
       - build-python
       - tests
       - tests-kbc
-    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@pipeline-polish
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@pipeline-polish
     with:
       VENDOR: "kds-team"
       APP_ID: "kds-team.app-python-cdc-component-test"
