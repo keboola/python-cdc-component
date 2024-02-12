@@ -38,12 +38,6 @@ jobs:
           echo "Value of KBC_COMPONENT passed from calling workflow: $KBC_COMPONENT"
           echo "Value of KBC_COMPONENT within env block: ${{ env.KBC_COMPONENT }}"
           echo "Current environment variables:"
-          env
-
-      - name: Step using KBC_COMPONENT
-        run: echo "KBC_COMPONENT=${KBC_COMPONENT}"
-
-      - name: Set developer portal properties
-        run: |
-            chmod +x scripts/update_dev_portal_properties.sh
-            scripts/update_dev_portal_properties.sh
+          echo "KBC_COMPONENT=${KBC_COMPONENT}"
+          chmod +x scripts/update_dev_portal_properties.sh
+          scripts/update_dev_portal_properties.sh
