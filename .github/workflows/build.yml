@@ -25,8 +25,6 @@ on:
 jobs:
   build-python:
     runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_USER = ${{ inputs.DOCKERHUB_USER }}
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
@@ -43,7 +41,7 @@ jobs:
       run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Docker login
-      if: env.DOCKERHUB_TOKEN
+      if: ${{ secrets.DOCKERHUB_TOKEN }}
       run: docker login --username "$DOCKERHUB_USER" --password ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build image
