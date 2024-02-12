@@ -1,3 +1,4 @@
+# Test KBC project: https://connection.keboola.com/admin/projects/9382
 name: Github Actions
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
@@ -10,8 +11,6 @@ env:
   # DockerHub login
   DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  # Test KBC project: https://connection.keboola.com/admin/projects/9382
 
 jobs:
   build-java:
