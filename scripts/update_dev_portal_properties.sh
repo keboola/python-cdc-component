@@ -8,7 +8,6 @@ if [ -z "$APP_NAME" ]; then
 fi
 
 component_path=$(echo "$APP_NAME" | tr '-' '_')
-KBC_DEV_PORTAL_VENDOR="kds-team"
 
 echo "Component name to update: $APP_NAME"
 echo "Component path: $component_path"

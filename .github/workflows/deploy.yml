@@ -19,6 +19,11 @@ on:
 
 jobs:
   deploy:
+    env:
+        KBC_DEVELOPERPORTAL_USERNAME: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
+        KBC_DEVELOPERPORTAL_VENDOR: ${{ inputs.VENDOR }}
+        APP_NAME: ${{ inputs.APP_NAME }}
+
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && ${{ inputs.IS_SEMANTIC_TAG }} == 'true'
     steps:
@@ -30,9 +35,6 @@ jobs:
           username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
-
-      - name: Set APP_NAME variable
-        run: echo "APP_NAME=$(echo ${{ inputs.APP_NAME }})" >> $GITHUB_ENV
 
       - name: Checkout Repository
         uses: actions/checkout@v4
