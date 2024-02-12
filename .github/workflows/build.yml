@@ -28,9 +28,6 @@ on:
 jobs:
   build-python:
     runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_TOKEN = ${{ inputs.DOCKERHUB_TOKEN }}
-      DOCKERHUB_USER = ${{ inputs.APP_IMAGE }}
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
