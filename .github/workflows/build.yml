@@ -13,6 +13,9 @@ on:
       USERNAME:
         required: true
         type: string
+      DOCKERHUB_USER:
+        required: true
+        type: string
     outputs:
       app_image_tag:
         value: ${{ jobs.build-python.outputs.app_image_tag }}
@@ -24,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKERHUB_TOKEN = ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USER = ${{ inputs.APP_IMAGE }}
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
