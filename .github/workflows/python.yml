@@ -4,6 +4,9 @@ on:
       APP_NAME:
         required: true
         type: string
+      TAG:
+        required: false
+        type: string
 jobs:
   build-python:
     runs-on: ubuntu-latest
@@ -62,7 +65,7 @@ jobs:
           app_id: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
           username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
-          tag: ${{ needs.build-python.outputs.app_image_tag }}
+          tag: ${{ inputs.TAG }}
           target_image: ${{ env.APP_IMAGE}}
           tag_as_latest: true
 
@@ -73,7 +76,6 @@ jobs:
           docker run ${{ env.APP_IMAGE }} python -m unittest discover
 
   tests-in-kbc:
-    needs: build-python
     runs-on: ubuntu-latest
     steps:
       -
@@ -83,5 +85,5 @@ jobs:
         with:
           token: ${{ secrets.KBC_STORAGE_TOKEN }}
           componentId: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
-          tag: ${{ needs.build.outputs.app_image_tag }}
+          tag: ${{ inputs.TAG }}
           configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}
