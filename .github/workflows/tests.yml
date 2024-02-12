@@ -33,12 +33,12 @@ jobs:
           tag: ${{ inputs.TAG }}
           target_image: ${{ inputs.APP_NAME}}
           tag_as_latest: true
-          
+
       - name: Set APP_PATH variable
         run: echo "APP_PATH=$(echo ${{ inputs.APP_NAME }} | tr '-' '_')" >> $GITHUB_ENV
 
       - name: Run tests
         run: |
-          docker run ${{ inputs.APP_NAME }} flake8 . --config=/code/db_components/${{ inputs.APP_PATH }}/flake8.cfg
+          docker run ${{ inputs.APP_NAME }} flake8 . --config=/code/db_components/${{ env.APP_PATH }}/flake8.cfg
           echo "Running unit-tests..."
           docker run ${{ inputs.APP_NAME }} python -m unittest discover
