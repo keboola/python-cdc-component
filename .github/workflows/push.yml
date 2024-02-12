@@ -52,7 +52,7 @@ jobs:
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
       KBC_TEST_PROJECT_CONFIGS: "1083217486"
-      KBC_STORAGE_TOKEN: ${{ secrets.KBC_STORAGE_TOKEN }}
+      KBC_STORAGE_TOKEN: env.KBC_STORAGE_TOKEN
     secrets: inherit
 
   deploy:
