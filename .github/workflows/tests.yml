@@ -7,7 +7,7 @@ on:
       APP_NAME:
         required: true
         type: string
-      USERNAME:
+      KBC_DEVELOPERPORTAL_USERNAME:
         required: true
         type: string
       TAG:
@@ -28,7 +28,7 @@ jobs:
         with:
           vendor: ${{ inputs.VENDOR }}
           app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
-          username: ${{ inputs.USERNAME }}
+          username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
           target_image: ${{ inputs.APP_IMAGE}}
