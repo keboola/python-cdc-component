@@ -51,7 +51,7 @@ jobs:
       APP_NAME: "app-python-cdc-component-test"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
-      KBC_TEST_PROJECT_CONFIGS: "1083217486"
+      KBC_TEST_PROJECT_CONFIGS: env.KBC_TEST_PROJECT_CONFIGS
       KBC_STORAGE_TOKEN: env.KBC_STORAGE_TOKEN
     secrets: inherit
 
