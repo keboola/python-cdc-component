@@ -28,9 +28,9 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/build.yml@pipeline-polish
     with:
       APP_NAME: "app-python-cdc-component-test"
-      APP_IMAGE: ${{ env.APP_IMAGE }}
-      VENDOR: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-      USERNAME: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
+      APP_IMAGE: ${{ vars.APP_IMAGE }}
+      VENDOR: ${{ vars.KBC_DEVELOPERPORTAL_VENDOR }}
+      USERNAME: ${{ vars.KBC_DEVELOPERPORTAL_USERNAME }}
     secrets: inherit
 
   tests:
