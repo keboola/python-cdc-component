@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run KBC test jobs
-        if: ${{ secrets.KBC_STORAGE_TOKEN }} && ${{ inputs.KBC_TEST_PROJECT_CONFIGS }}
         uses: keboola/action-run-configs-parallel@master
         with:
           token: ${{ secrets.KBC_STORAGE_TOKEN }}
