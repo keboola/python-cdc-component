@@ -21,6 +21,7 @@ jobs:
   deploy:
     env:
         KBC_DEVELOPERPORTAL_USERNAME: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
+        KBC_DEVELOPERPORTAL_PASSWORD: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         KBC_DEVELOPERPORTAL_VENDOR: ${{ inputs.VENDOR }}
         APP_NAME: ${{ inputs.APP_NAME }}
 
