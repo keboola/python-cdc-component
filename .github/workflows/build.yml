@@ -43,8 +43,11 @@ jobs:
     - name: Docker login
       run: docker login --username "${{ inputs.DOCKERHUB_USER }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
 
+    - name: Set APP_PATH variable
+      run: echo "APP_PATH=$(echo ${{ inputs.APP_NAME }} | tr '-' '_')" >> $GITHUB_ENV
+
     - name: Build image
-      run: docker build -t ${{ inputs.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
+      run: docker build -t ${{ env.APP_PATH }} -f db_components/${{ env.APP_PATH }}/Dockerfile .
 
     - name: Set image tag
       id: tag
