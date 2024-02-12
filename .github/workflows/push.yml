@@ -20,16 +20,17 @@ env:
 
 jobs:
   build-java:
-    name: build-java
     uses: keboola/python-cdc-component/.github/workflows/java.yml@pipeline-polish
 
   build-python:
+    name: app-python-cdc-component-test
     needs: build-java
     uses: keboola/python-cdc-component/.github/workflows/build.yml@pipeline-polish
     with:
       APP_NAME: "app-python-cdc-component-test"
 
   tests:
+    "name": app-python-cdc-component-test
     needs: build-python
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@pipeline-polish
     with:
@@ -37,6 +38,7 @@ jobs:
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
 
   tests-kbc:
+    name: app-python-cdc-component-test
     needs: build-python
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@pipeline-polish
     with:
