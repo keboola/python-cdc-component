@@ -63,7 +63,7 @@ jobs:
       with:
         vendor: ${{ inputs.VENDOR }}
         app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
-        username: ${{ inputs.USERNAME }}
+        username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
