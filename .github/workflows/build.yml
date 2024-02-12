@@ -13,12 +13,6 @@ on:
       USERNAME:
         required: true
         type: string
-      DOCKERHUB_USER:
-        required: true
-        type: string
-      DOCKERHUB_TOKEN:
-        required: true
-        type: string
     outputs:
       app_image_tag:
         value: ${{ jobs.build-python.outputs.app_image_tag }}
