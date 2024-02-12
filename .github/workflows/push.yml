@@ -30,6 +30,7 @@ jobs:
       APP_IMAGE: "keboola-component"
       VENDOR: "kds-team"
       USERNAME: "kds-team+github"
+      DOCKERHUB_USER: "keboolabot"
     secrets: inherit
 
   tests:
