@@ -10,14 +10,18 @@ on:
       KBC_DEVELOPERPORTAL_VENDOR:
         required: true
         type: string
+      KBC_TEST_PROJECT_CONFIGS:
+        required: true
+        type: string
 jobs:
   tests-kbc:
     runs-on: ubuntu-latest
     steps:
       - name: Run KBC test jobs
+        if: ${{ secrets.KBC_STORAGE_TOKEN }} && ${{ inputs.KBC_TEST_PROJECT_CONFIGS }}
         uses: keboola/action-run-configs-parallel@master
         with:
           token: ${{ secrets.KBC_STORAGE_TOKEN }}
           componentId: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
           tag: ${{ inputs.TAG }}
-          configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}
+          configs: ${{ inputs.KBC_TEST_PROJECT_CONFIGS }}

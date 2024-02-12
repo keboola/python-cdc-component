@@ -46,7 +46,6 @@ jobs:
 
   tests-kbc:
     needs: build-python
-    if: env.KBC_STORAGE_TOKEN && env.KBC_TEST_PROJECT_CONFIGS
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
     with:
       APP_NAME: "app-python-cdc-component-test"
