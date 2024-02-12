@@ -4,7 +4,7 @@ on:
       VENDOR:
         required: true
         type: string
-      APP_ID:
+      APP_NAME:
         required: true
         type: string
       KBC_DEVELOPERPORTAL_USERNAME:
@@ -26,10 +26,13 @@ jobs:
         uses: keboola/action-set-tag-developer-portal@master
         with:
           vendor: ${{ inputs.VENDOR }}
-          app_id: ${{ inputs.APP_ID }}
+          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_ID }}
           username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
+
+      - name: Set APP_NAME variable
+        run: echo "APP_NAME=$(echo ${{ inputs.APP_NAME }})" >> $GITHUB_ENV
 
       - name: Checkout Repository
         uses: actions/checkout@v4
