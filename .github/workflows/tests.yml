@@ -1,0 +1,41 @@
+on:
+  workflow_call:
+    inputs:
+      VENDOR:
+        required: true
+        type: string
+      APP_NAME:
+        required: true
+        type: string
+      USERNAME:
+        required: true
+        type: string
+      TAG:
+        required: false
+        type: string
+      APP_IMAGE:
+        required: true
+        type: string
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Pull image from ECR
+        uses: keboola/action-pull-from-ecr@master
+        with:
+          vendor: ${{ inputs.VENDOR }}
+          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+          username: ${{ inputs.USERNAME }}
+          password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
+          tag: ${{ inputs.TAG }}
+          target_image: ${{ inputs.APP_IMAGE}}
+          tag_as_latest: true
+
+      - name: Run tests
+        run: |
+          docker run ${{ inputs.APP_IMAGE }} flake8 . --config=/code/db_components/${{ inputs.APP_NAME }}/flake8.cfg
+          echo "Running unit-tests..."
+          docker run ${{ inputs.APP_IMAGE }} python -m unittest discover

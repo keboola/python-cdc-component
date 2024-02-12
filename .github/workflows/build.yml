@@ -1,0 +1,65 @@
+on:
+  workflow_call:
+    inputs:
+      APP_NAME:
+        required: true
+        type: string
+      APP_IMAGE:
+        required: true
+        type: string
+      VENDOR:
+        required: true
+        type: string
+      USERNAME:
+        required: true
+        type: string
+    outputs:
+      app_image_tag:
+        value: ${{ jobs.build-python.outputs.app_image_tag }}
+      is_semantic_tag:
+        value: ${{ jobs.build-python.outputs.is_semantic_tag }}
+
+jobs:
+  build-python:
+    runs-on: ubuntu-latest
+    outputs:
+      app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
+      is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Download JAR Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: java-artifact
+
+    - name: Move JAR Artifact
+      run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+
+    - name: Docker login
+      if: env.DOCKERHUB_TOKEN
+      run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
+
+    - name: Build image
+      run: docker build -t ${{ inputs.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
+
+    - name: Set image tag
+      id: tag
+      run: |
+        TAG="${GITHUB_REF##*/}"
+        IS_SEMANTIC_TAG=$(echo "$TAG" | grep -q '^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$' && echo true || echo false)
+        echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
+        echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
+        echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
+
+    - name: Push image to ECR
+      uses: keboola/action-push-to-ecr@master
+      with:
+        vendor: ${{ inputs.VENDOR }}
+        app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+        username: ${{ inputs.USERNAME }}
+        password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
+        tag: ${{ steps.tag.outputs.app_image_tag }}
+        push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
+        source_image: ${{ inputs.APP_IMAGE }}
