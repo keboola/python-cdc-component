@@ -1,0 +1,21 @@
+on:
+  workflow_call:
+    inputs:
+      APP_NAME:
+        required: true
+        type: string
+      TAG:
+        required: false
+        type: string
+jobs:
+  tests-kbc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run KBC test jobs
+        if: env.KBC_STORAGE_TOKEN && env.KBC_TEST_PROJECT_CONFIGS
+        uses: keboola/action-run-configs-parallel@master
+        with:
+          token: ${{ secrets.KBC_STORAGE_TOKEN }}
+          componentId: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
+          tag: ${{ inputs.TAG }}
+          configs: ${{ env.KBC_TEST_PROJECT_CONFIGS }}

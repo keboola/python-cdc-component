@@ -17,8 +17,8 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport -Xmx512m"
 
 RUN pip install flake8
 
-RUN pip install -r /code/db_components/postgre/requirements.txt
+RUN pip install -r /code/db_components/app-python-cdc-component-test/requirements.txt
 
-WORKDIR /code/db_components/postgre/src
+WORKDIR /code/db_components/app-python-cdc-component-test/src
 
 CMD ["python", "-u", "component.py"]
