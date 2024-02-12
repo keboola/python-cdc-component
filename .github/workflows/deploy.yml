@@ -30,8 +30,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set App ID as Environment Variable
-        run: echo "KBC_COMPONENT=${{ inputs.APP_ID }}" >> $GITHUB_ENV
+      - name: Set App Environment Variables
+        run: |
+          echo "KBC_COMPONENT=${{ inputs.APP_ID }}" >> $GITHUB_ENV
+          echo "KBC_DEVELOPERPORTAL_USERNAME=${{ inputs.USERNAME }}" >> $GITHUB_ENV
+          echo "KBC_DEVELOPERPORTAL_VENDOR=${{ inputs.VENDOR }}" >> $GITHUB_ENV
 
       - name: Set developer portal properties
         run: |
