@@ -38,7 +38,7 @@ jobs:
       run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
 
     - name: Docker login
-      run: docker login --username $DOCKERHUB_USER --password ${{ secrets.DOCKERHUB_TOKEN }}
+      run: docker login --username "$DOCKERHUB_USER" --password ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build image
       run: docker build -t ${{ inputs.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
