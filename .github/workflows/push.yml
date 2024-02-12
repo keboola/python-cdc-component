@@ -38,8 +38,11 @@ jobs:
     needs: build-python
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@pipeline-polish
     with:
+      VENDOR: "kds-team"
       APP_NAME: "app-python-cdc-component-test"
+      USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      APP_IMAGE: "app-python-cdc-component-test"
     secrets: inherit
 
   tests-kbc:

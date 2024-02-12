@@ -1,11 +1,20 @@
 on:
   workflow_call:
     inputs:
+      VENDOR:
+        required: true
+        type: string
       APP_NAME:
+        required: true
+        type: string
+      USERNAME:
         required: true
         type: string
       TAG:
         required: false
+        type: string
+      APP_IMAGE:
+        required: true
         type: string
 jobs:
   tests:
@@ -17,12 +26,12 @@ jobs:
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
         with:
-          vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-          app_id: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
-          username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
+          vendor: ${{ inputs.VENDOR }}
+          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+          username: ${{ inputs.USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
-          target_image: ${{ env.APP_IMAGE}}
+          target_image: ${{ inputs.APP_IMAGE}}
           tag_as_latest: true
 
       - name: Run tests
