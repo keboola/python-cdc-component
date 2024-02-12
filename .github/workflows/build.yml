@@ -13,6 +13,9 @@ on:
       USERNAME:
         required: true
         type: string
+      DOCKERHUB_USER:
+        required: true
+        type: string
     outputs:
       app_image_tag:
         value: ${{ jobs.build-python.outputs.app_image_tag }}
@@ -23,7 +26,7 @@ jobs:
   build-python:
     runs-on: ubuntu-latest
     env:
-      DOCKERHUB_TOKEN = ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USER = ${{ inputs.APP_IMAGE }}
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
@@ -41,7 +44,7 @@ jobs:
 
     - name: Docker login
       if: env.DOCKERHUB_TOKEN
-      run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
+      run: docker login --username "$DOCKERHUB_USER" --password ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build image
       run: docker build -t ${{ inputs.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
