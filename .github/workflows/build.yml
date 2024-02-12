@@ -4,6 +4,16 @@ on:
       APP_NAME:
         required: true
         type: string
+      APP_IMAGE:
+        required: true
+        type: string
+      VENDOR:
+        required: true
+        type: string
+      USERNAME:
+        required: true
+        type: string
+
 jobs:
   build-python:
     runs-on: ubuntu-latest
@@ -27,7 +37,7 @@ jobs:
       run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
 
     - name: Build image
-      run: docker build -t ${{ env.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
+      run: docker build -t ${{ inputs.APP_IMAGE }} -f db_components/${{ inputs.APP_NAME }}/Dockerfile .
 
     - name: Set image tag
       id: tag
@@ -41,10 +51,10 @@ jobs:
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
       with:
-        vendor: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ env.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
-        username: ${{ env.KBC_DEVELOPERPORTAL_USERNAME }}
+        vendor: ${{ inputs.VENDOR }}
+        app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+        username: ${{ inputs.USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
-        source_image: ${{ env.APP_IMAGE }}
+        source_image: ${{ inputs.APP_IMAGE }}
