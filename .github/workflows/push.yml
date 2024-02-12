@@ -60,7 +60,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       VENDOR: "kds-team"
-      APP_ID: "kds-team.app-python-cdc-component-test"
+      APP_ID: "app-python-cdc-component-test"
       USERNAME: "kds-team+github"
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
     secrets: inherit
