@@ -2,15 +2,16 @@
 
 set -e
 
-if [ -z "$KBC_COMPONENT" ]; then
-    echo "Error: KBC_COMPONENT environment variable is not set."
+if [ -z "$APP_NAME" ]; then
+    echo "Error: APP_NAME environment variable is not set."
     exit 1
 fi
 
-echo "Component names to update: KBC_COMPONENT"
+component_path=$(echo "$APP_NAME" | tr '-' '_')
 
-# Split the string into an array using comma as delimiter
-IFS=',' read -ra COMPONENTS <<< "$KBC_COMPONENT"
+echo "Component name to update: $APP_NAME"
+echo "Component path: $component_path"
+
 
 # Obtain the component repository and log in
 docker pull quay.io/keboola/developer-portal-cli-v2:latest
@@ -36,13 +37,12 @@ update_property() {
     fi
 }
 
-for component in "${COMPONENTS[@]}"; do
-    echo "Updating properties for component: $component"
-    update_property "$component" "longDescription" "db_components/$component/component_config/component_long_description.md"
-    update_property "$component" "configurationSchema" "db_components/$component/component_config/configSchema.json"
-    update_property "$component" "configurationRowSchema" "db_components/$component/component_config/configRowSchema.json"
-    update_property "$component" "configurationDescription" "db_components/$component/component_config/configuration_description.md"
-    update_property "$component" "shortDescription" "db_components/$component/component_config/component_short_description.md"
-    update_property "$component" "logger" "db_components/$component/component_config/logger"
-    update_property "$component" "loggerConfiguration" "db_components/$component/component_config/loggerConfiguration.json"
-done
+echo "Updating properties for component: $APP_NAME"
+update_property "$APP_NAME" "longDescription" "db_components/$component_path/component_config/component_long_description.md"
+update_property "$APP_NAME" "configurationSchema" "db_components/$component_path/component_config/configSchema.json"
+update_property "$APP_NAME" "configurationRowSchema" "db_components/$component_path/component_config/configRowSchema.json"
+update_property "$APP_NAME" "configurationDescription" "db_components/$component_path/component_config/configuration_description.md"
+update_property "$APP_NAME" "shortDescription" "db_components/$component_path/component_config/component_short_description.md"
+update_property "$APP_NAME" "logger" "db_components/$component_path/component_config/logger"
+update_property "$APP_NAME" "loggerConfiguration" "db_components/$component_path/component_config/loggerConfiguration.json"
+
