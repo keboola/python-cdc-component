@@ -1,7 +1,7 @@
 on:
   workflow_call:
     inputs:
-      VENDOR:
+      KBC_DEVELOPERPORTAL_VENDOR:
         required: true
         type: string
       APP_NAME:
@@ -26,8 +26,8 @@ jobs:
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
         with:
-          vendor: ${{ inputs.VENDOR }}
-          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+          vendor: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}
+          app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
           username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}

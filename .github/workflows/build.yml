@@ -7,7 +7,7 @@ on:
       APP_IMAGE:
         required: true
         type: string
-      VENDOR:
+      KBC_DEVELOPERPORTAL_VENDOR:
         required: true
         type: string
       KBC_DEVELOPERPORTAL_USERNAME:
@@ -61,8 +61,8 @@ jobs:
     - name: Push image to ECR
       uses: keboola/action-push-to-ecr@master
       with:
-        vendor: ${{ inputs.VENDOR }}
-        app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
+        vendor: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}
+        app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
         username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
