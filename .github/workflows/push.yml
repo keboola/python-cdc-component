@@ -3,13 +3,6 @@ name: Github Actions
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
-  KBC_COMPONENTS: "app-python-cdc-component-test"
-  KBC_DEVELOPERPORTAL_URL: "https://apps-api.keboola.com"
-  KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
-  KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
-
-  # DockerHub login
-  DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
