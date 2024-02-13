@@ -9,12 +9,12 @@ fi
 
 component_path=$(echo "$APP_NAME" | tr '-' '_')
 
+# Obtain the component repository and log in
+docker pull quay.io/keboola/developer-portal-cli-v2:latest
+
 echo "Component name to update: $APP_NAME"
 echo "Component path: $component_path"
 
-
-# Obtain the component repository and log in
-docker pull quay.io/keboola/developer-portal-cli-v2:latest
 
 update_property() {
     local component_name="$1"

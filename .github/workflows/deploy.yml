@@ -31,7 +31,7 @@ jobs:
         uses: keboola/action-set-tag-developer-portal@master
         with:
           vendor: ${{ inputs.VENDOR }}
-          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_ID }}
+          app_id: ${{ inputs.VENDOR }}.${{ inputs.APP_NAME }}
           username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
           password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
           tag: ${{ inputs.TAG }}
