@@ -42,7 +42,7 @@ jobs:
     secrets: inherit
 
   deploy:
-    if : startsWith(github.ref, 'refs/tags/') && needs.build.outputs.is_semantic_tag == 'true'
+    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
       - build-python
       - tests
