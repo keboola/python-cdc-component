@@ -14,6 +14,7 @@ docker pull quay.io/keboola/developer-portal-cli-v2:latest
 
 echo "Component name to update: $APP_NAME"
 echo "Component path: $component_path"
+echo "KBC_DEVELOPERPORTAL_VENDOR: $KBC_DEVELOPERPORTAL_VENDOR"
 
 
 update_property() {
@@ -21,7 +22,7 @@ update_property() {
     local prop_name="$2"
     local file_path="$3"
     local value=$(<"$file_path")
-    local app_name="${KBC_DEV_PORTAL_VENDOR}.${component_name}"
+    local app_name="${KBC_DEVELOPERPORTAL_VENDOR}.${component_name}"
     echo "Updating $prop_name for $app_name"
     echo "$value"
     if [ ! -z "$value" ]; then
@@ -29,13 +30,14 @@ update_property() {
             -e KBC_DEVELOPERPORTAL_USERNAME \
             -e KBC_DEVELOPERPORTAL_PASSWORD \
             quay.io/keboola/developer-portal-cli-v2:latest \
-            update-app-property "$KBC_DEV_PORTAL_VENDOR" "$app_name" "$prop_name" --value="$value"
+            update-app-property "$KBC_DEVELOPERPORTAL_VENDOR" "$app_name" "$prop_name" --value="$value"
         echo "Property $prop_name updated successfully for $app_name"
     else
         echo "$prop_name is empty for $app_name!"
         exit 1
     fi
 }
+
 
 echo "Updating properties for component: $APP_NAME"
 update_property "$APP_NAME" "longDescription" "db_components/$component_path/component_config/component_long_description.md"
