@@ -13,9 +13,6 @@ on:
       TAG:
         required: false
         type: string
-      APP_IMAGE:
-        required: true
-        type: string
 jobs:
   tests:
     runs-on: ubuntu-latest
