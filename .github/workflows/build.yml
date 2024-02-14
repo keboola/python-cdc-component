@@ -4,9 +4,6 @@ on:
       APP_NAME:
         required: true
         type: string
-      APP_IMAGE:
-        required: true
-        type: string
       KBC_DEVELOPERPORTAL_VENDOR:
         required: true
         type: string
