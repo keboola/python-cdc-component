@@ -20,7 +20,7 @@ jobs:
       KBC_DEVELOPERPORTAL_VENDOR: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
-      DOCKERHUB_USER: ${{ env.DOCKERHUB_USER }}
+      DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
     steps:
       - name: Print inputs passed to the reusable workflow
         id: step1
