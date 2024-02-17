@@ -1,0 +1,2 @@
+The connector is based on Debezium Connector, for the Postgres permissions setup follow the
+official [instructions](https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions)
