@@ -98,7 +98,7 @@ public class AbstractDebeziumTask {
 			props.setProperty("transforms.unwrap.type", "keboola.cdc.debezium.transforms.ExtractNewRecordStateSchemaChanges");
 			props.setProperty("transforms.unwrap.drop.tombstones", "true");
 			props.setProperty("transforms.unwrap.delete.handling.mode", "rewrite");
-			props.setProperty("transforms.unwrap.add.fields", "__deleted:DELETED,source.ts_ms:event_timestamp");
+			props.setProperty("transforms.unwrap.add.fields", "op:OPERATION,source.ts_ms:EVENT_TIMESTAMP");
 			props.setProperty("transforms.unwrap.add.fields.prefix", "kbc__");
 
 			props.setProperty("schema.history.internal",
