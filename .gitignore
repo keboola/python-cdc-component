@@ -17,6 +17,7 @@ pom.xml.releaseBackup
 pom.xml.versionsBackup
 pom.xml.next
 .project
+.settings
 .classpath
 release.properties
 dependency-reduced-pom.xml
