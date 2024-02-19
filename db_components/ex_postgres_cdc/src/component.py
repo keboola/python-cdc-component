@@ -27,12 +27,13 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from workspace_client import SnowflakeClient
 
+DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+
 KEY_LAST_SCHEMA = "last_schema"
 
 KEY_LAST_OFFSET = 'last_offset'
 
 REQUIRED_IMAGE_PARS = []
-
 
 
 class Component(ComponentBase):
@@ -85,7 +86,10 @@ class Component(ComponentBase):
 
             self._collect_source_metadata()
 
-            debezium_executor = DebeziumExecutor('./debezium/keboola_cdc.jar')
+            if not os.path.exists(DEBEZIUM_CORE_PATH):
+                raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
+
+            debezium_executor = DebeziumExecutor(DEBEZIUM_CORE_PATH)
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
 
