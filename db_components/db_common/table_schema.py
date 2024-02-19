@@ -71,6 +71,15 @@ class TableSchema:
         """
         self.fields.append(column)
 
+    def remove_column(self, column_name: str) -> None:
+        """
+        Removes a field from the tableschema.
+        Args:
+            column_name:  Column name to remove from the list of fields
+
+        """
+        self.fields = [column for column in self.fields if column.name != column_name]
+
     def as_dict(self) -> dict:
         dict_schema = asdict(self)
         dict_schema['fields'] = list()
