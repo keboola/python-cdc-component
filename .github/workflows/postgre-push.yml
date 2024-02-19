@@ -49,6 +49,7 @@ jobs:
   tests:
     needs:
       - build-python
+      - variables
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
@@ -60,6 +61,7 @@ jobs:
   tests-kbc:
     needs:
       - build-python
+      - variables
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
@@ -71,8 +73,10 @@ jobs:
   deploy:
     if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
+      - build-python
       - tests
       - tests-kbc
+      - variables
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
