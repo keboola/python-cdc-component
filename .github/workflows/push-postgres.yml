@@ -8,7 +8,7 @@ env:
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
 
   # Test KBC project: https://connection.keboola.com/admin/projects/9382
-  KBC_TEST_PROJECT_CONFIGS: "1083217486" # space separated list of config ids
+  KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
 
   DOCKERHUB_USER: "keboolabot"
 
