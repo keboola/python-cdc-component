@@ -1,9 +1,12 @@
 import logging
 import subprocess
+from typing import Tuple
 
 
 class DebeziumException(Exception):
-    pass
+    def __init__(self, message, extra=None):
+        super().__init__(message)
+        self.extra = extra
 
 
 class DebeziumExecutor:
@@ -30,10 +33,21 @@ class DebeziumExecutor:
         process.poll()
         err_string = stderr.decode('utf-8')
         if process.poll() != 0:
-
+            message, stack_trace = self.process_java_log_message(err_string)
             raise DebeziumException(
-                f'Failed to execute the the Debezium CDC Jar script. Log in event detail. {err_string}')
+                f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
+                extra={'additional_detail': stdout})
         elif stderr:
             logging.warning(err_string)
 
         logging.info('Debezium CDC run finished', extra={'additional_detail': stdout})
+
+    def process_java_log_message(self, log_message: str) -> Tuple[str, str]:
+        stack_trace = ''
+        if 'at keboola.cdc.' in log_message:
+            split = log_message.split('at keboola.cdc.')
+            stack_trace = split[1]
+            message = split[0]
+        else:
+            message = log_message
+        return message, stack_trace
