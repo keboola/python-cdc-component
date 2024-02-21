@@ -97,6 +97,8 @@ class SyncOptions(ConfigurationBase):
 class LoadType(str, Enum):
     full_load = "full_load"
     incremental_load = "incremental_load"
+    append_incremental = "append_incremental"
+    append_full = "append_full"
 
 
 @dataclass
@@ -105,7 +107,7 @@ class DestinationSettings(ConfigurationBase):
 
     @property
     def is_incremental_load(self) -> bool:
-        return self.load_type == LoadType.incremental_load
+        return self.load_type in (LoadType.incremental_load, LoadType.append_incremental)
 
 
 @dataclass

@@ -1,14 +1,14 @@
-name: Github Actions
+name: ex-postgres-cdc Build & Deploy
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  APP_NAME: "app-python-cdc-component-test"
+  APP_NAME: "ex-postgres-cdc"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
 
   # Test KBC project: https://connection.keboola.com/admin/projects/9382
-  KBC_TEST_PROJECT_CONFIGS: "1083217486" # space separated list of config ids
+  KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
 
   DOCKERHUB_USER: "keboolabot"
 

@@ -27,6 +27,8 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from workspace_client import SnowflakeClient
 
+DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+
 KEY_LAST_SCHEMA = "last_schema"
 
 KEY_LAST_OFFSET = 'last_offset'
@@ -35,12 +37,15 @@ REQUIRED_IMAGE_PARS = []
 
 
 class Component(ComponentBase):
-    SYSTEM_COLUMNS = [ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
-                      ColumnSchema(name="KBC__SCHEMA_CHANGED", source_type="BOOLEAN"),
-                      ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
-                      ColumnSchema(name="KBC__EVENT_ORDER", source_type="INTEGER")]
+    SYSTEM_COLUMNS = [
+        ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
+        ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
+        ColumnSchema(name="KBC__SCHEMA_CHANGED", source_type="BOOLEAN"),
+        ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
+        ColumnSchema(name="KBC__EVENT_ORDER", source_type="INTEGER")]
 
-    SYSTEM_COLUMN_NAME_MAPPING = {"kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
+    SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
+                                  "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
                                   "kbc__schema_changed": "KBC__SCHEMA_CHANGED",
                                   "__deleted": "KBC__DELETED",
                                   "kbc__event_order": "KBC__EVENT_ORDER"}
@@ -68,24 +73,23 @@ class Component(ComponentBase):
             self._reconstruct_offsset_from_state()
             sync_options = self._configuration.sync_options
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
+
             debezium_properties = build_postgres_property_file(db_config.user, db_config.pswd_password,
                                                                db_config.host,
                                                                str(db_config.port), db_config.database,
                                                                self._temp_offset_file.name,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
-                                                               snapshot_mode=sync_options.snapshot_mode.name,
+                                                               snapshot_mode=self.get_snapshot_mode(),
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads)
 
             self._collect_source_metadata()
 
-            debezium_path = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+            if not os.path.exists(DEBEZIUM_CORE_PATH):
+                raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
-            if not os.path.exists(debezium_path):
-                raise Exception(f"Debezium jar not found at {debezium_path}")
-
-            debezium_executor = DebeziumExecutor(debezium_path)
+            debezium_executor = DebeziumExecutor(DEBEZIUM_CORE_PATH)
             logging.info("Running Debezium Engine")
             debezium_executor.execute(debezium_properties, self.tables_out_path)
 
@@ -229,15 +233,19 @@ class Component(ComponentBase):
             csv_columns = self._normalize_columns(csv_columns)
             self._snowflake_client.copy_csv_into_table_from_file(result_table_name, csv_columns, table)
 
-        # dedupe only if running sync from binlog
-        if not self.is_full_sync:
+        # dedupe only if running sync from binlog and not in append_incremental mode
+        if self.dedupe_required():
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
-        # drop helper column kbc__event_order -> it is always in last position:
-        self._drop_helper_column(result_table_name)
-        schema.fields.pop()
+        # drop helper columns kbc__event_order
+        if self._configuration.destination.load_type not in ('append_incremental', 'append_full'):
+            self._drop_helper_columns(result_table_name, schema)
 
         incremental_load = self._configuration.destination.is_incremental_load
+        # remove primary key when using append mode
+        if self._configuration.destination.load_type in ('append_incremental', 'append_full'):
+            schema.primary_keys = []
+
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
     def _get_csv_header(self, file_path: str) -> list[str]:
@@ -290,12 +298,20 @@ class Component(ComponentBase):
         schema.fields.extend(self.SYSTEM_COLUMNS)
         return schema
 
-    def _drop_helper_column(self, table_name: str):
+    def _drop_helper_columns(self, table_name: str, schema: TableSchema):
         # drop helper column
         logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]} '
                       f'from table {table_name}')
         query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]}"'
         self._snowflake_client.execute_query(query)
+
+        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
+                      f'from table {table_name}')
+        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
+        self._snowflake_client.execute_query(query)
+
+        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__event_order'])
+        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
 
     def _dedupe_stage_table(self, table_name: str, id_columns: list[str]):
         """
@@ -334,9 +350,32 @@ class Component(ComponentBase):
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
         self.write_state_file(state)
 
+    def dedupe_required(self) -> bool:
+        """
+        dedupe only if running sync from binlog and not in append_incremental mode.
+        Initial run will always skip syncing from binlog.
+        Returns:
+
+        """
+        return not self.is_initial_run and self._configuration.destination.load_type not in (
+            'append_incremental', 'append_full')
+
     @property
-    def is_full_sync(self):
+    def is_initial_run(self):
         return self.get_state_file().get(KEY_LAST_OFFSET) is None
+
+    def get_snapshot_mode(self) -> str:
+        """
+        Returns snapshot mode based on configuration and initial run.
+        Note that initial run is always in initial_only mode to avoid the necessity for deduping.
+        Returns:
+
+        """
+        if self.is_initial_run and self._configuration.sync_options.snapshot_mode != SnapshotMode.never:
+            snapshot_mode = 'initial_only'
+        else:
+            snapshot_mode = self._configuration.sync_options.snapshot_mode.name
+        return snapshot_mode
 
     # SYNC ACTIONS
     @sync_action('testConnection')
