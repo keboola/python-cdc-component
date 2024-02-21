@@ -1,4 +1,4 @@
-name: Github Actions
+name: ex-postgres-cdc Build & Deploy
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
