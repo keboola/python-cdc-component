@@ -12,13 +12,11 @@ RUN apt update && \
 
 
 # needs to be built from root folder
+COPY /debezium_core /code/debezium_core/
 COPY /db_components/db_common /code/db_components/db_common/
 COPY /db_components/debezium /code/db_components/debezium/
 
-COPY /debezium_core /code/debezium_core/
-COPY /db_components/ex_postgres_cdc/tests /code/db_components/ex_postgres_cdc/tests/
-COPY /db_components/ex_postgres_cdc/requirements.txt /code/db_components/ex_postgres_cdc/requirements.txt
-COPY /db_components/ex_postgres_cdc/flake8.cfg /code/db_components/ex_postgres_cdc/flake8.cfg
+COPY /db_components/ex_postgres_cdc /code/db_components/ex_postgres_cdc/
 
 
 # set switch that enables correct JVM memory allocation in containers
