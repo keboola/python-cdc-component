@@ -268,8 +268,8 @@ Clone this repository, init the workspace and run the component with following
 command:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-git clone git@bitbucket.org:kds_consulting_team/kds-team.ex-postgres-cdc.git kds-team.ex-postgres-cdc
-cd kds-team.ex-postgres-cdc
+git clone https://github.com/keboola/python-cdc-component.git
+cd python-cdc-component/db_components/ex-postgresql-cdc
 docker-compose build
 docker-compose run --rm dev
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
