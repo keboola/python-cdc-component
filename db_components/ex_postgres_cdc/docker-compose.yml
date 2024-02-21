@@ -22,4 +22,9 @@ services:
       - KBC_DATADIR=/data
     command:
       - /bin/sh
-      - /code/scripts/build_n_test.sh
+      - -c
+      - |
+        set -e
+        cd /code/db_components/ex_postgres_cdc
+        flake8 --config=flake8.cfg
+        python -m unittest discover
