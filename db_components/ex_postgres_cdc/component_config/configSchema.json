@@ -90,7 +90,12 @@
           "options": {
             "async": {
               "label": "Re-load schemas",
-              "action": "get_schemas"
+              "action": "get_schemas",
+              "autoload": [
+                "parameters.db_settings.user",
+                "parameters.db_settings.#password",
+                "parameters.db_settings.database"
+              ]
             }
           },
           "propertyOrder": 100
@@ -108,7 +113,10 @@
           "options": {
             "async": {
               "label": "Re-load tables",
-              "action": "get_tables"
+              "action": "get_tables",
+              "autoload": [
+                "parameters.source_settings.schemas"
+              ]
             }
           },
           "propertyOrder": 102
@@ -163,18 +171,23 @@
         "load_type": {
           "enum": [
             "incremental_load",
-            "full_load"
+            "full_load",
+            "append_incremental",
+            "append_full"
           ],
           "type": "string",
           "title": "Load Type",
           "default": "incremental_load",
           "options": {
+            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
             "enum_titles": [
-              "Incremental Load",
-              "Full Load"
+              "Incremental Load - Deduplicated",
+              "Full Load - Deduplicated",
+              "Incremental Load - Append",
+              "Full Load - Append"
             ]
           },
-          "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table.",
+          "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table based on the primary key. Append modes do not contain any primary keys and are not deduplicated.",
           "propertyOrder": 30
         }
       }
