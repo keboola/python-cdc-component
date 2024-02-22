@@ -82,7 +82,8 @@ class Component(ComponentBase):
                                                                self._configuration.source_settings.tables,
                                                                snapshot_mode=self.get_snapshot_mode(),
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
-                                                               snapshot_max_threads=sync_options.snapshot_threads)
+                                                               snapshot_max_threads=sync_options.snapshot_threads,
+                                                               publication_name=self._build_publication_name())
 
             self._collect_source_metadata()
 
@@ -428,6 +429,21 @@ class Component(ComponentBase):
 
         # TODO: Add upper/lower case conversions
         return new_columns
+
+    def _build_publication_name(self):
+        """
+        Returns unique publication name based on configuration and branch id
+        Returns:
+
+        """
+        config_id = self.environment_variables.config_id
+        branch_id = self.environment_variables.branch_id
+        if branch_id:
+            suffix = f"dev_{branch_id}"
+        else:
+            suffix = "prod"
+
+        return f"kbc_publication_{config_id}_{suffix}"
 
 
 """
