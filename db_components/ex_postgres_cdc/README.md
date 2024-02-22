@@ -27,6 +27,23 @@ you must grant the account the rds_replication role. For example, `grant rds_rep
   tables that match the current configuration. For
   example: `ALTER PUBLICATION <publication_name> SET TABLE <tbl1, tbl2, tbl3>.`
 
+### Publication Names
+
+Note that each configuration of the connector creates a new publication with a unique name. The publication name contains 
+configuration_id and alternatively branch id if it's a branch configuration. The publication name is generated as follows:
+- "kbc_publication_{config_id}_prod" for production configuration
+- "kbc_publication_{config_id}_dev_{branch_id}" for branch configuration.
+
+**NOTE** be careful when running configurations in a Development branch. Once the branch is deleted, the assigned publication still exists 
+and it's not deleted automatically. It is recommended to clean up any unused dev publications manually or using a script.
+
+### Performance considerations
+
+Having multiple publications (connector configurations) can have performance implications. Each publication will have its own set of triggers and
+other replication mechanisms, which can increase the load on the database server. However, this can also be beneficial
+if different publications have different performance requirements or if they need to be replicated to different types of
+subscribers with different capabilities.
+
 # Prerequisites
 
 This connector uses [Debezium connector](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
