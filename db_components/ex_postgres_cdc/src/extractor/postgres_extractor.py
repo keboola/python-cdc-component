@@ -132,7 +132,7 @@ class PostgresDebeziumExtractor:
         logging.debug(f'Driver {jdbc_path}')
         self._connection = JDBCConnection('org.postgresql.Driver',
                                           url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
-                                              f'/{db_credentials.database}',
+                                              f'/{db_credentials.database}?prepareThreshold=0',
                                           driver_args={'user': db_credentials.user,
                                                        'password': db_credentials.pswd_password,
                                                        'database': db_credentials.database},
