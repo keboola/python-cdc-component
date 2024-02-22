@@ -4,10 +4,10 @@ import tempfile
 
 from jaydebeapi import DatabaseError
 
-from db_components.ex_postgres_cdc.src.configuration import DbOptions
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
+from db_components.ex_postgres_cdc.src.configuration import DbOptions
 
 JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
 
@@ -64,7 +64,8 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
                                  snapshot_mode: str = 'initial',
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
-                                 additional_properties: dict = None) -> str:
+                                 additional_properties: dict = None,
+                                 publication_name: str = 'dbz_publication') -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -76,13 +77,15 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         hostname:
         port:
         database:
-        offset_file_path:
-        schema_whitelist:
-        table_whitelist:
+        offset_file_path: Path to the file where the connector will store the offset.
+        schema_whitelist: List of schemas to sync.
+        table_whitelist: List of tables to sync.
         additional_properties:
         snapshot_max_threads:
-        snapshot_fetch_size:
-        snapshot_mode:
+        snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
+                             snapshot.
+        snapshot_mode: 'initial' or 'never'
+        publication_name: Name of the publication to be created in the database.
 
     Returns:
 
@@ -113,6 +116,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "schema.include.list": schema_include,
         "table.include.list": table_include,
         "publication.autocreate.mode": "filtered",
+        "publication.name": publication_name,
         "plugin.name": "pgoutput"}
 
     properties |= additional_properties
