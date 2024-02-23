@@ -7,32 +7,44 @@ import java.util.concurrent.ExecutorService;
 
 
 public class CompletionCallback implements DebeziumEngine.CompletionCallback {
-    private final Logger logger;
+	private final Logger logger;
 
-    private final ExecutorService executorService;
-
-
-    private Throwable error;
-
-    public CompletionCallback(Logger logger, ExecutorService executorService) {
-        this.executorService = executorService;
-        this.logger = logger;
-    }
-
-    public Throwable getError() {
-        return error;
-    }
+	private final ExecutorService executorService;
 
 
-    @Override
-    public void handle(boolean success, String message, Throwable error) {
-        if (success) {
-            this.logger.info("Debezium ended successfully with '{}'", message);
-        } else {
-            this.logger.warn("Debezium failed with '{}'", message);
-        }
+	private Throwable error;
+	private String errorMessage;
+	private boolean success;
 
-        this.error = error;
-        this.executorService.shutdown();
-    }
+	public CompletionCallback(Logger logger, ExecutorService executorService) {
+		this.executorService = executorService;
+		this.logger = logger;
+	}
+
+	public Throwable getError() {
+		return error;
+	}
+
+
+	@Override
+	public void handle(boolean success, String message, Throwable error) {
+		this.success = success;
+		if (success) {
+			this.logger.info("Debezium ended successfully with '{}'", message);
+		} else {
+			this.logger.error("Debezium failed with '{}'", message);
+			this.errorMessage = message;
+		}
+
+		this.error = error;
+		this.executorService.shutdown();
+	}
+
+	public String getErrorMessage() {
+		return errorMessage;
+	}
+
+	public boolean isSuccess() {
+		return success;
+	}
 }

@@ -72,8 +72,8 @@ public class AbstractDebeziumTask {
 
 		this.shutdown(this.logger, executorService);
 
-		if (completionCallback.getError() != null) {
-			throw new Exception(completionCallback.getError());
+		if (completionCallback.getError() != null || !completionCallback.isSuccess()) {
+			throw new Exception(completionCallback.getErrorMessage());
 		}
 
 

@@ -10,7 +10,14 @@ RUN apt update && \
     openjdk-11-jre-headless && \
     apt clean
 
-COPY . /code
+
+# needs to be built from root folder
+COPY /debezium_core /code/debezium_core/
+COPY /db_components/db_common /code/db_components/db_common/
+COPY /db_components/debezium /code/db_components/debezium/
+
+COPY /db_components/ex_postgres_cdc /code/db_components/ex_postgres_cdc/
+
 
 # set switch that enables correct JVM memory allocation in containers
 ENV JAVA_OPTS="-XX:+UseContainerSupport -Xmx512m"

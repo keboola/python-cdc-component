@@ -20,7 +20,7 @@ from keboola.component.sync_actions import SelectElement, ValidationResult
 
 from configuration import Configuration, DbOptions, SnapshotMode
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException
 from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
 from extractor.postgres_extractor import build_postgres_property_file
@@ -456,6 +456,9 @@ if __name__ == "__main__":
         comp.execute_action()
     except UserException as exc:
         logging.exception(exc)
+        exit(1)
+    except DebeziumException as exc:
+        logging.exception(exc, extra=exc.extra)
         exit(1)
     except Exception as exc:
         logging.exception(exc)
