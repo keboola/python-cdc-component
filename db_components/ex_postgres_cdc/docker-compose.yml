@@ -2,18 +2,29 @@ version: "3.2"
 services:
   # for development purposes
   dev:
-    build: .
+    build:
+      context: ../../
+      dockerfile: db_components/ex_postgres_cdc/Dockerfile
     volumes:
-        - ./:/code
-        - ./data:/data
-  test:
-    # Use to run flake8 and unittests checks
-    build: .
-    volumes:
-      - ./:/code
+      - ./:/code/db_components/ex_postgres_cdc/
       - ./data:/data
     environment:
-      - KBC_DATADIR=./data
+      - KBC_DATADIR=/data
+  test:
+    # Use to run flake8 and unittests checks
+    build:
+      context: ../../
+      dockerfile: db_components/ex_postgres_cdc/Dockerfile
+    volumes:
+      - ./:/code/db_components/ex_postgres_cdc/
+      - ./data:/data
+    environment:
+      - KBC_DATADIR=/data
     command:
       - /bin/sh
-      - /code/scripts/build_n_test.sh
+      - -c
+      - |
+        set -e
+        cd /code/db_components/ex_postgres_cdc
+        flake8 --config=flake8.cfg
+        python -m unittest discover
