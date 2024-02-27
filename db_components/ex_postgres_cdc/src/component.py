@@ -222,7 +222,7 @@ class Component(ComponentBase):
         result_table_name = table_key.replace('.', '_')
 
         schema = self._get_table_schema(table_key)
-        column_types = self._convert_to_snowflake_column_definitions(schema.fields)
+        column_types = self._convert_to_snowflake_column_definitions(schema.columns)
 
         logging.info(f"Creating table {result_table_name} in stage")
         self._snowflake_client.create_table(result_table_name, column_types)
@@ -290,14 +290,14 @@ class Component(ComponentBase):
         last_schema = self._last_schema.get(table_key)
 
         if last_schema:
-            current_columns = [c.name for c in schema.fields]
+            current_columns = [c.name for c in schema.columns]
             # Expand current schema with columns existing in storage
-            for c in last_schema.fields:
+            for c in last_schema.columns:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
-                    schema.fields.append(c)
+                    schema.columns.append(c)
 
-        # add system fields
-        schema.fields.extend(self.SYSTEM_COLUMNS)
+        # add system columns
+        schema.columns.extend(self.SYSTEM_COLUMNS)
         return schema
 
     def _drop_helper_columns(self, table_name: str, schema: TableSchema):
@@ -415,8 +415,8 @@ class Component(ComponentBase):
 
     def _normalize_columns(self, csv_columns: list[str]) -> list[str]:
         """
-        Normalizes result fields based on configuration.
-        Modifies cases of the system fields
+        Normalizes result columns based on configuration.
+        Modifies cases of the system columns
         Args:
             csv_columns:
 
