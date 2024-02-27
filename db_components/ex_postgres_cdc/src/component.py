@@ -117,7 +117,7 @@ class Component(ComponentBase):
 
         config: DbOptions = DbOptions.load_from_dict(params['db_settings'])
         tunnel = None
-        self._client = None
+        self._client: PostgresDebeziumExtractor = None
         try:
             if config.ssh_options.enabled:
                 tunnel = create_ssh_tunnel(config.ssh_options, config.host, config.port)
@@ -127,6 +127,7 @@ class Component(ComponentBase):
             self._client = PostgresDebeziumExtractor(config, jdbc_path='../jdbc/postgresql-42.6.0.jar')
             try:
                 self._client.connect()
+                self._client.test_has_replication_privilege()
             except Exception as e:
                 raise UserException(f"Failed to connect to database. {e}") from e
 
@@ -382,7 +383,7 @@ class Component(ComponentBase):
     @sync_action('testConnection')
     def test_connection(self):
         with self._init_client():
-            pass
+            self._client.test_connection()
 
     @sync_action('get_schemas')
     def get_schemas(self):
