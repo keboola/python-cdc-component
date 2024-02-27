@@ -41,7 +41,11 @@ public class CompletionCallback implements DebeziumEngine.CompletionCallback {
 	}
 
 	public String getErrorMessage() {
-		return errorMessage;
+		if (this.error != null) {
+			return this.error.getMessage() + ": " + this.error.getCause().getMessage();
+		} else {
+			return errorMessage;
+		}
 	}
 
 	public boolean isSuccess() {
