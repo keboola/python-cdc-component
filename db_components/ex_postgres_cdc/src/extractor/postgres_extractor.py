@@ -115,6 +115,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "snapshot.mode": snapshot_mode,
         "schema.include.list": schema_include,
         "table.include.list": table_include,
+        "errors.max.retries": 5,
         "publication.autocreate.mode": "filtered",
         "publication.name": publication_name,
         "plugin.name": "pgoutput"}
@@ -141,6 +142,7 @@ class PostgresDebeziumExtractor:
                                                        'password': db_credentials.pswd_password,
                                                        'database': db_credentials.database},
                                           jars=jdbc_path)
+        self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self._connection, PostgresBaseTypeConverter())
 
     def connect(self):
@@ -152,7 +154,20 @@ class PostgresDebeziumExtractor:
 
     def test_connection(self):
         self.connect()
+        # test if user has appropriate privileges
+        self.test_has_replication_privilege()
         self.close_connection()
+
+    def test_has_replication_privilege(self):
+        query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"
+        results = list(self._connection.perform_query(query))
+        errors = []
+        if not results[0][0]:
+            errors.append(f"User '{self.user}' must have REPLICATION privileges.")
+        if not results[0][1]:
+            errors.append(f"User '{self.user}' must have LOGIN privileges.")
+        if errors:
+            raise ExtractorUserException('\n'.join(errors))
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")
