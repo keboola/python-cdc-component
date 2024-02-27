@@ -115,6 +115,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "snapshot.mode": snapshot_mode,
         "schema.include.list": schema_include,
         "table.include.list": table_include,
+        "errors.max.retries": 5,
         "publication.autocreate.mode": "filtered",
         "publication.name": publication_name,
         "plugin.name": "pgoutput"}
