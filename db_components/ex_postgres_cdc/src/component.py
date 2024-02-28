@@ -6,6 +6,7 @@ import base64
 import glob
 import logging
 import os
+import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -222,7 +223,7 @@ class Component(ComponentBase):
         result_table_name = table_key.replace('.', '_')
 
         schema = self._get_table_schema(table_key)
-        column_types = self._convert_to_snowflake_column_definitions(schema.columns)
+        column_types = self._convert_to_snowflake_column_definitions(schema.fields)
 
         logging.info(f"Creating table {result_table_name} in stage")
         self._snowflake_client.create_table(result_table_name, column_types)
@@ -239,7 +240,7 @@ class Component(ComponentBase):
         if self.dedupe_required():
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
-        # drop helper columns kbc__event_order
+        # drop helper fields kbc__event_order
         if self._configuration.destination.load_type not in ('append_incremental', 'append_full'):
             self._drop_helper_columns(result_table_name, schema)
 
@@ -279,7 +280,7 @@ class Component(ComponentBase):
 
     def _get_table_schema(self, table_key: str) -> TableSchema:
         """
-        Returns complete table schema including metadata columns and columns already existing in Storage
+        Returns complete table schema including metadata fields and fields already existing in Storage
         Args:
             table_key:
 
@@ -290,14 +291,14 @@ class Component(ComponentBase):
         last_schema = self._last_schema.get(table_key)
 
         if last_schema:
-            current_columns = [c.name for c in schema.columns]
-            # Expand current schema with columns existing in storage
-            for c in last_schema.columns:
+            current_columns = [c.name for c in schema.fields]
+            # Expand current schema with fields existing in storage
+            for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
-                    schema.columns.append(c)
+                    schema.fields.append(c)
 
-        # add system columns
-        schema.columns.extend(self.SYSTEM_COLUMNS)
+        # add system fields
+        schema.fields.extend(self.SYSTEM_COLUMNS)
         return schema
 
     def _drop_helper_columns(self, table_name: str, schema: TableSchema):
@@ -415,8 +416,8 @@ class Component(ComponentBase):
 
     def _normalize_columns(self, csv_columns: list[str]) -> list[str]:
         """
-        Normalizes result columns based on configuration.
-        Modifies cases of the system columns
+        Normalizes result fields based on configuration.
+        Modifies cases of the system fields
         Args:
             csv_columns:
 
@@ -451,6 +452,8 @@ class Component(ComponentBase):
         Main entrypoint
 """
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        os.chdir(sys.argv[1])
     try:
         comp = Component()
         # this triggers the run method by default and is controlled by the configuration.action parameter
