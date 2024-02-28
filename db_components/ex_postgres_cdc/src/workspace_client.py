@@ -64,7 +64,7 @@ class SnowflakeClient:
 
     def extend_table_columns(self, table_name, columns: [dict[str, str]]):
         """
-        Expand add non-existent columns to the table.
+        Expand add non-existent fields to the table.
         :param table_name:
         :param columns: dictionary {'name': ,'type'}
         :return:

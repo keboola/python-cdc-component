@@ -44,7 +44,7 @@ class SnowflakeStaging(Staging):
 
     def process_table(self, table_path, result_table_name, schema: TableSchema, dedupe_required: bool):
         logging.info(f"Creating table {result_table_name} in stage")
-        column_types = self._convert_to_snowflake_column_definitions(schema.columns)
+        column_types = self._convert_to_snowflake_column_definitions(schema.fields)
         self._snowflake_client.create_table(result_table_name, column_types)
 
         logging.info(f"Uploading data into table {result_table_name} in stage")
