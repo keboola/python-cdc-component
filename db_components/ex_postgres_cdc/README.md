@@ -37,6 +37,13 @@ configuration_id and alternatively branch id if it's a branch configuration. The
 **NOTE** be careful when running configurations in a Development branch. Once the branch is deleted, the assigned publication still exists 
 and it's not deleted automatically. It is recommended to clean up any unused dev publications manually or using a script.
 
+### Slot Names
+
+Note that each configuration of the connector creates a new slot with a unique name. The slot name contains 
+configuration_id and alternatively branch id if it's a branch configuration. The slot name is generated as follows:
+- "slot_kbc_publication_{config_id}_prod" for production configuration
+- "kbc_publication_{config_id}_dev_{branch_id}" for branch configuration.
+
 ### Performance considerations
 
 Having multiple publications (connector configurations) can have performance implications. Each publication will have its own set of triggers and
