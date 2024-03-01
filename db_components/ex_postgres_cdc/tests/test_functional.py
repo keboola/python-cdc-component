@@ -55,7 +55,7 @@ class CustomDatadirTest(TestDataDir):
                 os.chdir('./src')
             comp = Component(data_path_override=self.source_data_dir)
             with comp._init_client() as config:
-                connection = comp._client.connection
+                connection = comp._client._connection
                 db_client = TestDatabaseEnvironment(connection)
 
         except Exception as e:
