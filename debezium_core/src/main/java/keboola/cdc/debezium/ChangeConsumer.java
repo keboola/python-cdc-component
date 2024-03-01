@@ -31,14 +31,14 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 	private final String resultFolder;
 
 	@SuppressWarnings("unused")
-	private ZonedDateTime lastRecord;
+	final SyncStats syncStats;
 
 
-	public ChangeConsumer(AbstractDebeziumTask abstractDebeziumTask, Logger logger, AtomicInteger count, ZonedDateTime lastRecord, String resultFolder) {
+	public ChangeConsumer(AbstractDebeziumTask abstractDebeziumTask, Logger logger, AtomicInteger count, SyncStats syncStats, String resultFolder) {
 		this.abstractDebeziumTask = abstractDebeziumTask;
 		this.logger = logger;
 		this.count = count;
-		this.lastRecord = lastRecord;
+		this.syncStats = syncStats;
 		this.csvWriterMap = new HashMap<>();
 		this.lastSchema = new HashMap<>();
 		this.resultFolder = resultFolder;
@@ -46,7 +46,7 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 
 	@Override
 	public void handleBatch(List<ChangeEvent<String, String>> records, DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer) throws InterruptedException {
-		lastRecord = ZonedDateTime.now();
+		syncStats.setLastRecord(ZonedDateTime.now());
 
 		for (ChangeEvent<String, String> r : records) {
 
@@ -63,6 +63,8 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 		}
 
 		committer.markBatchFinished();
+		this.logger.info("Processed {} records", this.count);
+		syncStats.setRecordCount(this.count.intValue());
 	}
 
 	/**
