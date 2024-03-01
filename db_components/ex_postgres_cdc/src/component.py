@@ -363,7 +363,9 @@ class Component(ComponentBase):
         Returns:
 
         """
-        return not self.is_initial_run and self._configuration.destination.load_type not in (
+        # TODO: Dedupe only when not init sync with no additional events.
+
+        return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
     @property
