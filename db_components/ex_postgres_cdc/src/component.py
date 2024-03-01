@@ -6,7 +6,6 @@ import base64
 import glob
 import logging
 import os
-import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -28,7 +27,8 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from workspace_client import SnowflakeClient
 
-DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+DEBEZIUM_CORE_PATH = os.environ.get(
+    'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
 KEY_LAST_SCHEMA = "last_schema"
 
@@ -51,8 +51,8 @@ class Component(ComponentBase):
                                   "__deleted": "KBC__DELETED",
                                   "kbc__event_order": "KBC__EVENT_ORDER"}
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, data_path_override=None):
+        super().__init__(data_path_override=data_path_override)
         self._client: PostgresDebeziumExtractor
         self._configuration: Configuration
 
@@ -73,6 +73,7 @@ class Component(ComponentBase):
 
             self._reconstruct_offsset_from_state()
             sync_options = self._configuration.sync_options
+            snapshot_mode = self._configuration.sync_options.snapshot_mode.name
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_postgres_property_file(db_config.user, db_config.pswd_password,
@@ -81,7 +82,7 @@ class Component(ComponentBase):
                                                                self._temp_offset_file.name,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
-                                                               snapshot_mode=self.get_snapshot_mode(),
+                                                               snapshot_mode=snapshot_mode,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
                                                                publication_name=self._build_publication_name())
@@ -93,7 +94,9 @@ class Component(ComponentBase):
 
             debezium_executor = DebeziumExecutor(DEBEZIUM_CORE_PATH)
             logging.info("Running Debezium Engine")
-            debezium_executor.execute(debezium_properties, self.tables_out_path)
+
+            debezium_executor.execute(debezium_properties, self.tables_out_path,
+                                      max_wait_s=self._configuration.sync_options.max_wait_s)
 
             start = time.time()
             result_tables = self._load_tables_to_stage()
@@ -452,8 +455,8 @@ class Component(ComponentBase):
         Main entrypoint
 """
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        os.chdir(sys.argv[1])
+    if work_dir := os.environ.get('WORKING_DIR'):
+        os.chdir(work_dir)
     try:
         comp = Component()
         # this triggers the run method by default and is controlled by the configuration.action parameter
