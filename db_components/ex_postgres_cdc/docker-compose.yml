@@ -1,7 +1,9 @@
 version: "3.2"
 services:
   # for development purposes
-  dev:
+  dev: &app
+    links:
+      - postgres
     build:
       context: ../../
       dockerfile: db_components/ex_postgres_cdc/Dockerfile
@@ -10,21 +12,41 @@ services:
       - ./data:/data
     environment:
       - KBC_DATADIR=/data
-  test:
+  postgres:
+    image: debezium/example-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+  wait:
+    image: waisbrot/wait
+    depends_on:
+      - postgres
+    environment:
+      - TARGETS=postgres:5432
+      - TIMEOUT=200
+  tests:
     # Use to run flake8 and unittests checks
-    build:
-      context: ../../
-      dockerfile: db_components/ex_postgres_cdc/Dockerfile
+    <<: *app
+    links:
+      - postgres
     volumes:
       - ./:/code/db_components/ex_postgres_cdc/
-      - ./data:/data
     environment:
-      - KBC_DATADIR=/data
+      PGSQL_HOST: postgres
+      PGSQL_USER: postgres
+      PGSQL_PASSWORD: postgres
+      PGSQL_DATABASE: postgres
+      PGSQL_PORT: 5432
+      SNFL_WORKSPACE_HOST: ${SNFL_WORKSPACE_HOST}
+      SNFL_WORKSPACE_USER: ${SNFL_WORKSPACE_USER}
+      SNFL_WORKSPACE_PASSWORD: ${SNFL_WORKSPACE_PASSWORD}
+      SNFL_WORKSPACE_DATABASE: ${SNFL_WORKSPACE_DATABASE}
+      SNFL_WORKSPACE_SCHEMA: ${SNFL_WORKSPACE_SCHEMA}
+      SNFL_WORKSPACE_WAREHOUSE: ${SNFL_WORKSPACE_WAREHOUSE}
     command:
       - /bin/sh
       - -c
       - |
         set -e
         cd /code/db_components/ex_postgres_cdc
-        flake8 --config=flake8.cfg
         python -m unittest discover

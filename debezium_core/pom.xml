@@ -61,6 +61,11 @@
             <version>${version.debezium}</version>
         </dependency>
         <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-connector-mysql</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${version.jackson}</version>

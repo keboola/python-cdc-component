@@ -48,7 +48,7 @@ class TableSchema:
     """
     name: str
     schema_name: str
-    columns: List[ColumnSchema] = field(default_factory=list)
+    fields: List[ColumnSchema] = field(default_factory=list)
     primary_keys: Optional[List[str]] = None
     parent_tables: Optional[List[str]] = None
     description: Optional[str] = None
@@ -56,7 +56,7 @@ class TableSchema:
 
     @property
     def field_names(self) -> List[str]:
-        return [column.name for column in self.columns]
+        return [column.name for column in self.fields]
 
     @property
     def csv_name(self) -> str:
@@ -66,26 +66,26 @@ class TableSchema:
         """
         Adds extra field to the tableschema.
         Args:
-            column:  ColumnSchema to add to the list of columns
+            column:  ColumnSchema to add to the list of fields
 
         """
-        self.columns.append(column)
+        self.fields.append(column)
 
     def remove_column(self, column_name: str) -> None:
         """
         Removes a field from the tableschema.
         Args:
-            column_name:  Column name to remove from the list of columns
+            column_name:  Column name to remove from the list of fields
 
         """
-        self.columns = [column for column in self.columns if column.name != column_name]
+        self.fields = [column for column in self.fields if column.name != column_name]
 
     def as_dict(self) -> dict:
         dict_schema = asdict(self)
-        dict_schema['columns'] = list()
+        dict_schema['fields'] = list()
 
-        for c in self.columns:
-            dict_schema['columns'].append(c.as_dict())
+        for c in self.fields:
+            dict_schema['fields'].append(c.as_dict())
         return dict_schema
 
 
@@ -102,7 +102,7 @@ def init_table_schema_from_dict(json_table_schema: Dict,
       "primary_keys": [
         "id"
       ],
-      "columns": [
+      "fields": [
         {
           "name": "id",
           "base_type": "string",
@@ -121,11 +121,11 @@ def init_table_schema_from_dict(json_table_schema: Dict,
     }
     """
     try:
-        json_table_schema["columns"] = [ColumnSchema(**{**_field, **{"base_type_converter": base_type_converter}}) for
-                                       _field in json_table_schema["columns"]]
+        json_table_schema["fields"] = [ColumnSchema(**{**_field, **{"base_type_converter": base_type_converter}}) for
+                                       _field in json_table_schema["fields"]]
     except TypeError as type_error:
         raise KeyError(
-            f"When creating the table schema the definition of columns failed : {type_error}") from type_error
+            f"When creating the table schema the definition of fields failed : {type_error}") from type_error
     try:
         ts = TableSchema(**json_table_schema)
     except TypeError as type_error:

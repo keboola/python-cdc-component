@@ -101,10 +101,6 @@ public class AbstractDebeziumTask {
 			props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:event_timestamp");
 			props.setProperty("transforms.unwrap.add.fields.prefix", "kbc__");
 
-			props.setProperty("schema.history.internal",
-					"io.debezium.storage.file.history.FileSchemaHistory");
-			props.setProperty("schema.history.internal.file.filename",
-					"/path/to/storage/schemahistory.dat");
 			return props;
 
 		} catch (Exception e) {
