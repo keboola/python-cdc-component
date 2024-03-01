@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 
 import snowflake
+from keboola.component import UserException
 from snowflake.connector import SnowflakeConnection
 
 
@@ -47,11 +48,14 @@ class SnowflakeClient:
             cfg['session_parameters'] = session_parameters
             self._connection = snowflake.connector.connect(**cfg)
             yield self
+        except Exception as e:
+            raise UserException(f'Failed to connect to Snowflake - {e}') from e
         finally:
             self.close_connection()
 
     def close_connection(self):
-        self._connection.close()
+        if self._connection:
+            self._connection.close()
 
     def create_table(self, name, columns: [dict]):
         query = f"""

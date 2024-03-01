@@ -21,7 +21,7 @@ class DebeziumExecutor:
 
     def execute(self, debezium_properties_path: str, result_folder_path: str,
                 max_duration_s: int = 3600,
-                max_wait_s: int = 10):
+                max_wait_s: int = 40):
         additional_args = DebeziumExecutor._build_args_from_dict({"md": max_duration_s, "mw": max_wait_s})
         args = ['java', '-jar', self._jar_path] + [debezium_properties_path, result_folder_path] + additional_args
         process = subprocess.Popen(args,
