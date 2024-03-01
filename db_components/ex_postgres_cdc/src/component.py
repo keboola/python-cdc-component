@@ -85,7 +85,7 @@ class Component(ComponentBase):
                                                                snapshot_mode=snapshot_mode,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
-                                                               publication_name=self._build_publication_name())
+                                                               repl_suffix=self._build_unique_replication_suffix())
 
             self._collect_source_metadata()
 
@@ -241,6 +241,7 @@ class Component(ComponentBase):
 
         # dedupe only if running sync from binlog and not in append_incremental mode
         if self.dedupe_required():
+            logging.info(f"Deduping stage table {result_table_name}")
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
         # drop helper fields kbc__event_order
@@ -364,7 +365,6 @@ class Component(ComponentBase):
 
         """
         # TODO: Dedupe only when not init sync with no additional events.
-
         return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
@@ -437,7 +437,7 @@ class Component(ComponentBase):
         # TODO: Add upper/lower case conversions
         return new_columns
 
-    def _build_publication_name(self):
+    def _build_unique_replication_suffix(self):
         """
         Returns unique publication name based on configuration and branch id
         Returns:
@@ -450,7 +450,7 @@ class Component(ComponentBase):
         else:
             suffix = "prod"
 
-        return f"kbc_publication_{config_id}_{suffix}"
+        return f"kbc_{config_id}_{suffix}"
 
 
 """

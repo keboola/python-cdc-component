@@ -65,7 +65,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
-                                 publication_name: str = 'dbz_publication') -> str:
+                                 repl_suffix: str = 'dbz') -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -85,7 +85,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
-        publication_name: Name of the publication to be created in the database.
+        repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
     Returns:
 
@@ -116,9 +116,10 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "decimal.handling.mode": "string",
         "schema.include.list": schema_include,
         "table.include.list": table_include,
-        "errors.max.retries": 5,
+        "errors.max.retries": 3,
         "publication.autocreate.mode": "filtered",
-        "publication.name": publication_name,
+        "publication.name": f'publication_{repl_suffix.lower()}',
+        "slot.name": f'slot_{repl_suffix.lower()}',
         "plugin.name": "pgoutput"}
 
     properties |= additional_properties
