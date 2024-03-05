@@ -59,7 +59,9 @@ SUPPORTED_TYPES = ["smallint",
 
 
 def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,
-                                 offset_file_path: str, schema_whitelist: list[str],
+                                 offset_file_path: str,
+                                 signal_file_path: str,
+                                 schema_whitelist: list[str],
                                  table_whitelist: list[str],
                                  snapshot_mode: str = 'initial',
                                  snapshot_fetch_size: int = 10240,
@@ -78,6 +80,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         port:
         database:
         offset_file_path: Path to the file where the connector will store the offset.
+        signal_file_path: Path to the file where the connector will receive the signals.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
         additional_properties:
@@ -118,7 +121,9 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "errors.max.retries": 5,
         "publication.autocreate.mode": "filtered",
         "publication.name": publication_name,
-        "plugin.name": "pgoutput"}
+        "plugin.name": "pgoutput",
+        "signal.enabled.channels": "file",
+        "signal.file": signal_file_path}
 
     properties |= additional_properties
 

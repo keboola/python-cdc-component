@@ -27,6 +27,8 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from workspace_client import SnowflakeClient
 
+KEY_LAST_SYNCED_TABLED = 'last_synced_tables'
+
 DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
 KEY_LAST_SCHEMA = "last_schema"
@@ -56,6 +58,7 @@ class Component(ComponentBase):
         self._configuration: Configuration
 
         self._temp_offset_file = tempfile.NamedTemporaryFile(suffix='.dat', delete=False)
+        self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
         self._snowflake_client: SnowflakeClient
@@ -71,6 +74,7 @@ class Component(ComponentBase):
             self._init_workspace_client()
 
             self._reconstruct_offsset_from_state()
+
             sync_options = self._configuration.sync_options
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
@@ -78,6 +82,7 @@ class Component(ComponentBase):
                                                                db_config.host,
                                                                str(db_config.port), db_config.database,
                                                                self._temp_offset_file.name,
+                                                               self._signal_file,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
                                                                snapshot_mode=self.get_snapshot_mode(),
@@ -90,9 +95,13 @@ class Component(ComponentBase):
             if not os.path.exists(DEBEZIUM_CORE_PATH):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
-            debezium_executor = DebeziumExecutor(DEBEZIUM_CORE_PATH)
+            debezium_executor = DebeziumExecutor(debezium_properties, DEBEZIUM_CORE_PATH)
+            newly_added_tables = self.get_newly_added_tables()
+            if newly_added_tables:
+                logging.warning(f"New tables detected: {newly_added_tables}. Running blocking initial snapshot.")
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking')
             logging.info("Running Debezium Engine")
-            debezium_executor.execute(debezium_properties, self.tables_out_path)
+            debezium_executor.execute(self.tables_out_path)
 
             start = time.time()
             result_tables = self._load_tables_to_stage()
@@ -101,6 +110,20 @@ class Component(ComponentBase):
             self.write_manifests([res[0] for res in result_tables])
 
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables])
+
+    def get_newly_added_tables(self) -> list[str]:
+        """
+        Returns new added tables in the last run
+        Returns: List of tables that were added since the last run
+
+        """
+        last_synced_tabled = self.get_state_file().get(KEY_LAST_SYNCED_TABLED, [])
+        new_tables = []
+        # check only if it's not initial run.
+        if not self.is_initial_run:
+            new_tables = set(self._configuration.source_settings.tables).difference(last_synced_tabled)
+
+        return list(new_tables)
 
     @contextmanager
     def _init_client(self) -> DbOptions:
@@ -346,7 +369,19 @@ class Component(ComponentBase):
         self._snowflake_client.execute_query(query)
 
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema]):
-        state = {KEY_LAST_OFFSET: offset, KEY_LAST_SCHEMA: {}}
+        """
+        Writes state file with last offset and last schema and last synced tables
+        Args:
+            offset:
+            table_schemas:
+
+        Returns:
+
+        """
+        state = {KEY_LAST_OFFSET: offset,
+                 KEY_LAST_SCHEMA: {},
+                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
+
         for schema in table_schemas:
             schema_key = f"{schema.schema_name}.{schema.name}"
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
