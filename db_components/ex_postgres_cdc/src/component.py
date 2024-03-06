@@ -27,9 +27,9 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from workspace_client import SnowflakeClient
 
+DEBEZIUM_CORE_PATH = os.environ.get(
+    'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 KEY_LAST_SYNCED_TABLED = 'last_synced_tables'
-
-DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
 KEY_LAST_SCHEMA = "last_schema"
 
@@ -52,8 +52,8 @@ class Component(ComponentBase):
                                   "__deleted": "KBC__DELETED",
                                   "kbc__event_order": "KBC__EVENT_ORDER"}
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, data_path_override=None):
+        super().__init__(data_path_override=data_path_override)
         self._client: PostgresDebeziumExtractor
         self._configuration: Configuration
 
@@ -74,8 +74,8 @@ class Component(ComponentBase):
             self._init_workspace_client()
 
             self._reconstruct_offsset_from_state()
-
             sync_options = self._configuration.sync_options
+            snapshot_mode = self._configuration.sync_options.snapshot_mode.name
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_postgres_property_file(db_config.user, db_config.pswd_password,
@@ -85,10 +85,10 @@ class Component(ComponentBase):
                                                                self._signal_file,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
-                                                               snapshot_mode=self.get_snapshot_mode(),
+                                                               snapshot_mode=snapshot_mode,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
-                                                               publication_name=self._build_publication_name())
+                                                               repl_suffix=self._build_unique_replication_suffix())
 
             self._collect_source_metadata()
 
@@ -102,7 +102,8 @@ class Component(ComponentBase):
                 logging.warning(f"New tables detected: {newly_added_tables}. Running blocking initial snapshot.")
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking')
             logging.info("Running Debezium Engine")
-            debezium_executor.execute(self.tables_out_path)
+            debezium_executor.execute(self.tables_out_path,
+                                      max_wait_s=self._configuration.sync_options.max_wait_s)
 
             start = time.time()
             result_tables = self._load_tables_to_stage()
@@ -261,6 +262,7 @@ class Component(ComponentBase):
 
         # dedupe only if running sync from binlog and not in append_incremental mode
         if self.dedupe_required():
+            logging.info(f"Deduping stage table {result_table_name}")
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
         # drop helper columns kbc__event_order
@@ -303,7 +305,7 @@ class Component(ComponentBase):
 
     def _get_table_schema(self, table_key: str) -> TableSchema:
         """
-        Returns complete table schema including metadata columns and columns already existing in Storage
+        Returns complete table schema including metadata fields and fields already existing in Storage
         Args:
             table_key:
 
@@ -395,7 +397,8 @@ class Component(ComponentBase):
         Returns:
 
         """
-        return not self.is_initial_run and self._configuration.destination.load_type not in (
+        # TODO: Dedupe only when not init sync with no additional events.
+        return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
     @property
@@ -467,7 +470,7 @@ class Component(ComponentBase):
         # TODO: Add upper/lower case conversions
         return new_columns
 
-    def _build_publication_name(self):
+    def _build_unique_replication_suffix(self):
         """
         Returns unique publication name based on configuration and branch id
         Returns:
@@ -480,13 +483,15 @@ class Component(ComponentBase):
         else:
             suffix = "prod"
 
-        return f"kbc_publication_{config_id}_{suffix}"
+        return f"kbc_{config_id}_{suffix}"
 
 
 """
         Main entrypoint
 """
 if __name__ == "__main__":
+    if work_dir := os.environ.get('WORKING_DIR'):
+        os.chdir(work_dir)
     try:
         comp = Component()
         # this triggers the run method by default and is controlled by the configuration.action parameter

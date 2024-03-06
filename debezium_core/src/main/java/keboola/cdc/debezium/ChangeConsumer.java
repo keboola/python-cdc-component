@@ -31,14 +31,14 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 	private final String resultFolder;
 
 	@SuppressWarnings("unused")
-	private ZonedDateTime lastRecord;
+	final SyncStats syncStats;
 
 
-	public ChangeConsumer(AbstractDebeziumTask abstractDebeziumTask, Logger logger, AtomicInteger count, ZonedDateTime lastRecord, String resultFolder) {
+	public ChangeConsumer(AbstractDebeziumTask abstractDebeziumTask, Logger logger, AtomicInteger count, SyncStats syncStats, String resultFolder) {
 		this.abstractDebeziumTask = abstractDebeziumTask;
 		this.logger = logger;
 		this.count = count;
-		this.lastRecord = lastRecord;
+		this.syncStats = syncStats;
 		this.csvWriterMap = new HashMap<>();
 		this.lastSchema = new HashMap<>();
 		this.resultFolder = resultFolder;
@@ -46,7 +46,7 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 
 	@Override
 	public void handleBatch(List<ChangeEvent<String, String>> records, DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer) throws InterruptedException {
-		lastRecord = ZonedDateTime.now();
+		syncStats.setLastRecord(ZonedDateTime.now());
 
 		for (ChangeEvent<String, String> r : records) {
 
@@ -63,6 +63,8 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 		}
 
 		committer.markBatchFinished();
+		this.logger.info("Processed {} records", this.count);
+		syncStats.setRecordCount(this.count.intValue());
 	}
 
 	/**
@@ -143,40 +145,8 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 	 */
 	private int updateLastSchema(String tableKey, JsonArray columns) {
 
-		JsonArray existingSchema = this.lastSchema.get(tableKey);
+		this.lastSchema.put(tableKey, columns);
 
-
-		final List<String> newFieldNames = new ArrayList<>();
-
-
-		if (existingSchema != null) {
-			Iterable<JsonElement> existIter = columns::iterator;
-			List<JsonElement> newSchemaList = StreamSupport
-					.stream(existIter.spliterator(), false)
-					.collect(Collectors.toList());
-
-			List<String> newColumns = this.getSchemaColumnList(columns);
-			newFieldNames.addAll(newColumns);
-			List<String> existingFieldNames = this.getSchemaColumnList(existingSchema);
-			newFieldNames.removeAll(existingFieldNames);
-
-			List<JsonElement> newFields = newSchemaList.stream().filter(e -> newFieldNames.contains(e.getAsJsonObject()
-					.get("field").getAsString())).collect(Collectors.toList());
-			// update if changed
-			// place at the end before system
-			int insertAfter = existingFieldNames.indexOf("kbc__event_timestamp");
-			List<JsonElement> schemaList = this.convertJsonArrayToList(existingSchema);
-			JsonArray newArray = new JsonArray();
-			for (JsonElement field : newFields) {
-				schemaList.add(insertAfter, field);
-			}
-
-			schemaList.forEach(newArray::add);
-			this.lastSchema.put(tableKey, newArray);
-
-		} else {
-			this.lastSchema.put(tableKey, columns);
-		}
 		return buildSchemaHashKey(tableKey);
 
 	}
