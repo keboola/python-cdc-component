@@ -201,7 +201,7 @@
           "title": "Load Type",
           "default": "incremental_load",
           "options": {
-            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
+            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__BATCH_EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
             "enum_titles": [
               "Incremental Load - Deduplicated",
               "Full Load - Deduplicated",
