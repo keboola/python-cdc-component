@@ -272,13 +272,13 @@ The following options are available:
 - `Incremental Load - Deduplicated`: The connector upserts records into the destination table. The connector uses the
   primary key to perform upsert. The connector does not delete records from the destination table.
 - `Incremental Load - Append`: The connector produces no primary key. The order of the events will be given by
-  the `KBC__EVENT_TIMESTAMP_MS` column + helper `KBC__EVENT_ORDER` column which contains the order in one batch.
+  the `KBC__EVENT_TIMESTAMP_MS` column + helper `KBC__BATCH_EVENT_ORDER` column which contains the order in one batch.
 - `Full Load - Deduplicated`: The destination table data will be replaced with the current batch and deduplicated by the
   primary key.
 - `Full Load - Append`: The destination table data will be replaced with the current batch and the batch won't be
   deduplicated.
 
-**NOTE:** In case of `Append` modes additional columns `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER` are added to the destination table.
+**NOTE:** In case of `Append` modes additional columns `KBC__EVENT_TIMESTAMP_MS` and `KBC__BATCH_EVENT_ORDER` are added to the destination table.
 
 # Development
 

@@ -44,13 +44,13 @@ class Component(ComponentBase):
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
         ColumnSchema(name="KBC__SCHEMA_CHANGED", source_type="BOOLEAN"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
-        ColumnSchema(name="KBC__EVENT_ORDER", source_type="INTEGER")]
+        ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
                                   "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
                                   "kbc__schema_changed": "KBC__SCHEMA_CHANGED",
                                   "__deleted": "KBC__DELETED",
-                                  "kbc__event_order": "KBC__EVENT_ORDER"}
+                                  "kbc__batch_event_order": "KBC__BATCH_EVENT_ORDER"}
 
     def __init__(self, data_path_override=None):
         super().__init__(data_path_override=data_path_override)
@@ -99,7 +99,7 @@ class Component(ComponentBase):
                                                  source_connection=self._client.connection)
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
-                logging.warning(f"New tables detected: {newly_added_tables}. Running initial incremental snapshot.")
+                logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
             logging.info("Running Debezium Engine")
@@ -266,7 +266,7 @@ class Component(ComponentBase):
             logging.info(f"Deduping stage table {result_table_name}")
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
-        # drop helper columns kbc__event_order
+        # drop helper columns kbc__batch_event_order
         if self._configuration.destination.load_type not in ('append_incremental', 'append_full'):
             self._drop_helper_columns(result_table_name, schema)
 
@@ -329,9 +329,9 @@ class Component(ComponentBase):
 
     def _drop_helper_columns(self, table_name: str, schema: TableSchema):
         # drop helper column
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]} '
+        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]} '
                       f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]}"'
+        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"'
         self._snowflake_client.execute_query(query)
 
         logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
@@ -339,13 +339,13 @@ class Component(ComponentBase):
         query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
         self._snowflake_client.execute_query(query)
 
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__event_order'])
+        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order'])
         schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
 
     def _dedupe_stage_table(self, table_name: str, id_columns: list[str]):
         """
         Dedupe staging table and keep only latest records.
-        Based on the internal column kbc__event_order produced by CDC engine
+        Based on the internal column kbc__batch_event_order produced by CDC engine
         Args:
             table_name:
             id_columns:
@@ -355,7 +355,8 @@ class Component(ComponentBase):
         """
         id_cols = self._snowflake_client.wrap_columns_in_quotes(id_columns)
         id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
-        unique_id_concat = f"CONCAT_WS('|',{id_cols_str},\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__event_order']}\")"
+        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
+                            f"\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order']}\")")
 
         query = f"""DELETE FROM
                                     "{table_name}" USING (
@@ -364,7 +365,7 @@ class Component(ComponentBase):
                                     FROM
                                         "{table_name}"
                                         QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str} ORDER BY
-                                    "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]}"::INT DESC) != 1) TO_DELETE
+                          "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"::INT DESC) != 1) TO_DELETE
                                 WHERE
                                     TO_DELETE.__CONCAT_ID = {unique_id_concat}
                     """

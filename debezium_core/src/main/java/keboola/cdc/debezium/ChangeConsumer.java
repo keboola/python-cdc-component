@@ -19,7 +19,7 @@ import java.util.stream.StreamSupport;
 
 public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
 	public static final String TABLE_NAME_COL = "kbc__table";
-	public static final String KEY_EVENT_ORDER_COL = "kbc__event_order";
+	public static final String KEY_EVENT_ORDER_COL = "kbc__batch_event_order";
 	public static final String KEY_NULL_VALUE_PLACEHOLDER = "KBC__NULL";
 	private final AbstractDebeziumTask abstractDebeziumTask;
 	private final Logger logger;
