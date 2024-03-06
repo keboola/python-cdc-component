@@ -140,20 +140,20 @@ class PostgresDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
         self.__credentials = db_credentials
         logging.debug(f'Driver {jdbc_path}')
-        self._connection = JDBCConnection('org.postgresql.Driver',
-                                          url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
+        self.connection = JDBCConnection('org.postgresql.Driver',
+                                         url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
                                               f'/{db_credentials.database}',
-                                          driver_args={'user': db_credentials.user,
+                                         driver_args={'user': db_credentials.user,
                                                        'password': db_credentials.pswd_password,
                                                        'database': db_credentials.database},
-                                          jars=jdbc_path)
+                                         jars=jdbc_path)
         self.user = db_credentials.user
-        self.metadata_provider = JDBCMetadataProvider(self._connection, PostgresBaseTypeConverter())
+        self.metadata_provider = JDBCMetadataProvider(self.connection, PostgresBaseTypeConverter())
 
     def connect(self):
         logging.info("Connecting to database.")
         try:
-            self._connection.connect()
+            self.connection.connect()
         except DatabaseError as e:
             raise ExtractorUserException(f"Login to database failed, please check your credentials. Detail: {e}") from e
 
@@ -165,7 +165,7 @@ class PostgresDebeziumExtractor:
 
     def test_has_replication_privilege(self):
         query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"
-        results = list(self._connection.perform_query(query))
+        results = list(self.connection.perform_query(query))
         errors = []
         if not results[0][0]:
             errors.append(f"User '{self.user}' must have REPLICATION privileges.")
@@ -176,4 +176,4 @@ class PostgresDebeziumExtractor:
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")
-        self._connection.connection.close()
+        self.connection.connection.close()
