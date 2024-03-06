@@ -82,10 +82,10 @@ class Component(ComponentBase):
                                                                db_config.host,
                                                                str(db_config.port), db_config.database,
                                                                self._temp_offset_file.name,
-                                                               self._signal_file,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
                                                                snapshot_mode=snapshot_mode,
+                                                               signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
                                                                repl_suffix=self._build_unique_replication_suffix())
@@ -100,7 +100,8 @@ class Component(ComponentBase):
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running blocking initial snapshot.")
-                debezium_executor.signal_snapshot(newly_added_tables, 'blocking')
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
+
             logging.info("Running Debezium Engine")
             debezium_executor.execute(self.tables_out_path,
                                       max_wait_s=self._configuration.sync_options.max_wait_s)

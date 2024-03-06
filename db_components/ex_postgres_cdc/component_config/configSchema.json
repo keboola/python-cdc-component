@@ -126,13 +126,35 @@
     "sync_options": {
       "title": "Sync Options",
       "type": "object",
+      "required": [
+        "source_signal_table",
+        "snapshot_mode"
+      ],
       "propertyOrder": 10,
       "properties": {
+        "source_signal_table": {
+          "title": "Signalling Table",
+          "propertyOrder": 1,
+          "type": "string",
+          "description": "A system signal table that will be used by to connector to store various signal events and incremental snapshot watermarks.",
+          "enum": [],
+          "format": "select",
+          "options": {
+            "tooltip": "You need to create a signaling table by submitting a standard SQL DDL query to the source database. \n\nThe following example shows a `CREATE TABLE` command that creates a three-column `debezium_signal` table: \n\n```sql\nCREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data VARCHAR(2048) NULL);\n``` \n\n **Note** that the connector must have write access to the signaling table.",
+            "async": {
+              "label": "Re-load tables",
+              "action": "get_tables",
+              "autoload": [
+                "parameters.source_settings.schemas"
+              ]
+            }
+          }
+        },
         "snapshot_mode": {
           "type": "string",
           "title": "Replication Mode",
           "description": "The mode 'Changes Only' will skip the initial full sync. Standard mode performs full sync of the tables on the first run.",
-          "propertyOrder": 1,
+          "propertyOrder": 5,
           "enum": [
             "initial",
             "never"
@@ -149,14 +171,14 @@
           "title": "Snapshot Fetch Size",
           "description": "During a snapshot, the connector reads table content in batches of rows. This property specifies the maximum number of rows in a batch.",
           "default": 10240,
-          "propertyOrder": 2
+          "propertyOrder": 20
         },
         "snapshot_threads": {
           "type": "integer",
           "title": "Snapshot parallelism",
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
           "default": 1,
-          "propertyOrder": 10
+          "propertyOrder": 30
         }
       }
     },
