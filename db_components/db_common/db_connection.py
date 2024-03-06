@@ -75,6 +75,9 @@ class JDBCConnection(DbConnection):
                                               self._jars)
         self.connected = True
 
+    def close(self):
+        self._connection.close()
+
     @property
     def connection(self) -> jaydebeapi.Connection:
         if not self.connected:
@@ -222,5 +225,11 @@ class JDBCConnection(DbConnection):
                 yield res
         except jaydebeapi.InterfaceError as e:
             raise e
+        except jaydebeapi.Error as e:
+            if str(e) == '':
+                logging.warning("No results returned")
+                yield []
+            else:
+                raise e
 
         cursor.close()

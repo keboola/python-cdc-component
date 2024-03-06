@@ -3,9 +3,10 @@ keboola.utils
 jaydebeapi==1.2.3
 dataconf
 jproperties==2.1.1
-snowflake-connector-python==3.7.0
+snowflake-connector-python==3.7.1
 sshtunnel
 paramiko
 # tests
 mock
 freezegun
+https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest

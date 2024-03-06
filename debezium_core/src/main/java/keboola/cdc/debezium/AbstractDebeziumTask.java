@@ -46,12 +46,12 @@ public class AbstractDebeziumTask {
 
 		AtomicInteger count = new AtomicInteger();
 		ZonedDateTime started = ZonedDateTime.now();
-		ZonedDateTime lastRecord = ZonedDateTime.now();
+		SyncStats syncStats = new SyncStats();
 
 
 		// callback
 		CompletionCallback completionCallback = new CompletionCallback(this.logger, executorService);
-		ChangeConsumer changeConsumer = new ChangeConsumer(this, this.logger, count, lastRecord,
+		ChangeConsumer changeConsumer = new ChangeConsumer(this, this.logger, count, syncStats,
 				this.resultFolder.toString());
 
 		// start
@@ -63,7 +63,7 @@ public class AbstractDebeziumTask {
 				.build()) {
 			executorService.execute(engine);
 
-			Await.until(() -> this.ended(executorService, started, lastRecord), Duration.ofSeconds(1));
+			Await.until(() -> this.ended(executorService, started, syncStats), Duration.ofSeconds(10));
 
 		} finally {
 			changeConsumer.closeWriterStreams();
@@ -101,10 +101,6 @@ public class AbstractDebeziumTask {
 			props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:event_timestamp");
 			props.setProperty("transforms.unwrap.add.fields.prefix", "kbc__");
 
-			props.setProperty("schema.history.internal",
-					"io.debezium.storage.file.history.FileSchemaHistory");
-			props.setProperty("schema.history.internal.file.filename",
-					"/path/to/storage/schemahistory.dat");
 			return props;
 
 		} catch (Exception e) {
@@ -125,17 +121,21 @@ public class AbstractDebeziumTask {
 	}
 
 	@SuppressWarnings("RedundantIfStatement")
-	private boolean ended(ExecutorService executorService, ZonedDateTime start, ZonedDateTime lastRecord) {
+	private boolean ended(ExecutorService executorService, ZonedDateTime start, SyncStats syncStats) {
 		if (executorService.isShutdown()) {
 			return true;
 		}
 		if (this.maxDuration != null && ZonedDateTime.now().toEpochSecond() > start.plus(this.maxDuration).toEpochSecond()) {
+			this.logger.info("Ended after max duration: {}", this.maxDuration);
 			return true;
 		}
 
 //		this.logger.info("Time elapsed: {}, Last record before: {}", lastRecord.plus(this.maxWait).toEpochSecond(),
 //				ZonedDateTime.now().toEpochSecond());
-		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > lastRecord.plus(this.maxWait).toEpochSecond()) {
+
+		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
+			this.logger.info("Ended after max wait: {}. Last record before: {}", this.maxWait,
+					syncStats.getLastRecord().plus(this.maxWait).toEpochSecond());
 			return true;
 		}
 

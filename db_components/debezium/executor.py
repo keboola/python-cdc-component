@@ -42,8 +42,6 @@ class DebeziumExecutor:
         """
         self._jar_path = jar_path
         self._properties_path = properties_path
-        self.parsed_properties = self._parse_properties()
-        self._source_connection = source_connection
 
     def _parse_properties(self) -> dict:
         with open(self._properties_path, 'rb') as config_file:
