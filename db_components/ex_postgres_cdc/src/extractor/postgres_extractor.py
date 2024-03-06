@@ -60,10 +60,10 @@ SUPPORTED_TYPES = ["smallint",
 
 def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,
                                  offset_file_path: str,
-                                 signal_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
                                  snapshot_mode: str = 'initial',
+                                 signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
@@ -80,7 +80,6 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         port:
         database:
         offset_file_path: Path to the file where the connector will store the offset.
-        signal_file_path: Path to the file where the connector will receive the signals.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
         additional_properties:
@@ -88,6 +87,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
+        signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
     Returns:
@@ -124,8 +124,8 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "publication.name": f'publication_{repl_suffix.lower()}',
         "slot.name": f'slot_{repl_suffix.lower()}',
         "plugin.name": "pgoutput",
-        "signal.enabled.channels": "file",
-        "signal.file": signal_file_path}
+        "signal.enabled.channels": "source",
+        "signal.data.collection": signal_table}
 
     properties |= additional_properties
 
@@ -144,10 +144,10 @@ class PostgresDebeziumExtractor:
         logging.debug(f'Driver {jdbc_path}')
         self.connection = JDBCConnection('org.postgresql.Driver',
                                          url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
-                                              f'/{db_credentials.database}',
+                                             f'/{db_credentials.database}',
                                          driver_args={'user': db_credentials.user,
-                                                       'password': db_credentials.pswd_password,
-                                                       'database': db_credentials.database},
+                                                      'password': db_credentials.pswd_password,
+                                                      'database': db_credentials.database},
                                          jars=jdbc_path)
         self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self.connection, PostgresBaseTypeConverter())

@@ -60,6 +60,26 @@ This connector currently uses the native `pgoutput` logical replication stream s
 in `PostgreSQL 10+`.
 Currently, lower versions are not supported, but it is theoretically possible (please submit a feature request)
 
+## Signalling table
+
+The connector needs access to a signalling table in the source database. The signalling table is used by to connector to store various signal events and incremental snapshot watermarks.
+
+### Creating a signaling data collection
+
+You create a signaling table by submitting a standard SQL DDL query to the source database.
+
+**Prerequisites**
+
+You have sufficient access privileges to create a table on the source database.
+
+**Procedure**
+
+Submit a SQL query to the source database to create a table that is consistent with the required structure, as shown in the following example:
+
+The following example shows a CREATE TABLE command that creates a three-column debezium_signal table:
+
+`CREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data TEXT NULL);`
+
 ### PostgreSQL Setup
 
 For this connector to work it is necessary to enable a replication slot, and configure a user with sufficient privileges
