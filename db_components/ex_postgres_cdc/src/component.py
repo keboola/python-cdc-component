@@ -99,7 +99,7 @@ class Component(ComponentBase):
                                                  source_connection=self._client.connection)
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
-                logging.warning(f"New tables detected: {newly_added_tables}. Running blocking initial snapshot.")
+                logging.warning(f"New tables detected: {newly_added_tables}. Running initial incremental snapshot.")
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
             logging.info("Running Debezium Engine")
