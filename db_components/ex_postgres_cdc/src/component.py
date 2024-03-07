@@ -216,12 +216,16 @@ class Component(ComponentBase):
 
     def _collect_source_metadata(self):
         table_schemas = dict()
-        for s in self._configuration.source_settings.schemas:
-            tables = self._client.metadata_provider.get_tables(schema_pattern=s)
-            for schema, table in tables:
-                ts = self._client.metadata_provider.get_table_metadata(schema=schema,
-                                                                       table_name=table)
-                table_schemas[f"{schema}.{table}"] = ts
+        tables_to_collect = self._configuration.source_settings.tables
+        # in cae the signalling table is not in the synced tables list
+        if self._configuration.sync_options.source_signal_table not in tables_to_collect:
+            tables_to_collect.append(self._configuration.sync_options.source_signal_table)
+
+        for table in tables_to_collect:
+            schema, table = table.split('.')
+            ts = self._client.metadata_provider.get_table_metadata(schema=schema,
+                                                                   table_name=table)
+            table_schemas[f"{schema}.{table}"] = ts
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
