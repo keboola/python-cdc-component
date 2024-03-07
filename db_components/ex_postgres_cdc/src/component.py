@@ -10,7 +10,6 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from csv import DictReader
 
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
@@ -19,13 +18,14 @@ from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
 from configuration import Configuration, DbOptions, SnapshotMode
+from db_components.db_common.staging import Staging, SnowflakeStaging, DuckDBStaging
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException
 from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
 from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
-from workspace_client import SnowflakeClient
+KEY_STAGING_TYPE = 'staging_type'
 
 DEBEZIUM_CORE_PATH = os.environ.get(
     'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
@@ -61,7 +61,7 @@ class Component(ComponentBase):
         self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
-        self._snowflake_client: SnowflakeClient
+        self._staging: Staging
 
         self._last_schema: dict[str, TableSchema] = self._get_schemas_from_state()
 
@@ -173,15 +173,20 @@ class Component(ComponentBase):
                 pass
 
     def _init_workspace_client(self):
-        snfwlk_credentials = {
-            "account": self.configuration.workspace_credentials['host'].replace('.snowflakecomputing.com', ''),
-            "user": self.configuration.workspace_credentials['user'],
-            "password": self.configuration.workspace_credentials['password'],
-            "database": self.configuration.workspace_credentials['database'],
-            "schema": self.configuration.workspace_credentials['schema'],
-            "warehouse": self.configuration.workspace_credentials['warehouse']
-        }
-        self._snowflake_client = SnowflakeClient(**snfwlk_credentials)
+        if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'snowflake':
+
+            logging.info("Using Snowflake staging")
+            self._staging = SnowflakeStaging(self.configuration.workspace_credentials,
+                                             self._convert_to_snowflake_column_definitions,
+                                             self._normalize_columns)
+
+        elif self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
+            logging.info("Using DuckDB staging")
+            self._staging = DuckDBStaging()
+
+        else:
+            raise UserException(
+                f"Staging type not supported: {self.configuration.image_parameters.get(KEY_STAGING_TYPE)}")
 
     def _init_configuration(self):
         self.validate_configuration_parameters(Configuration.get_dataclass_required_parameters())
@@ -215,6 +220,11 @@ class Component(ComponentBase):
         return schema_map
 
     def _collect_source_metadata(self):
+        """
+        Collects metadata such as table and columns schema for the monitored tables from the source database.
+        Returns:
+
+        """
         table_schemas = dict()
         tables_to_collect = self._configuration.source_settings.tables
         # in cae the signalling table is not in the synced tables list
@@ -232,17 +242,22 @@ class Component(ComponentBase):
         result_tables = glob.glob(os.path.join(self.tables_out_path, '*.csv'))
         result_table_defs = []
 
-        with self._snowflake_client.connect():
-            with ThreadPoolExecutor(max_workers=self._configuration.max_workers) as executor:
-                futures = {
-                    executor.submit(self._create_table_in_stage, table): table for
-                    table in result_tables
-                }
-                for future in as_completed(futures):
-                    if future.exception():
-                        raise UserException(f"Could not create table: {futures[future]}, reason: {future.exception()}")
+        if self._staging.multi_threading_support:
+            with self._staging.connect():
+                with ThreadPoolExecutor(max_workers=self._configuration.max_workers) as executor:
+                    futures = {
+                        executor.submit(self._create_table_in_stage, table): table for
+                        table in result_tables
+                    }
+                    for future in as_completed(futures):
+                        if future.exception():
+                            raise UserException(
+                                f"Could not create table: {futures[future]}, reason: {future.exception()}")
 
-                    result_table_defs.append(future.result())
+                        result_table_defs.append(future.result())
+        else:
+            for table in result_tables:
+                result_table_defs.append(self._create_table_in_stage(table))
 
         return result_table_defs
 
@@ -252,27 +267,10 @@ class Component(ComponentBase):
         result_table_name = table_key.replace('.', '_')
 
         schema = self._get_table_schema(table_key)
-        column_types = self._convert_to_snowflake_column_definitions(schema.fields)
 
         logging.info(f"Creating table {result_table_name} in stage")
-        self._snowflake_client.create_table(result_table_name, column_types)
 
-        logging.info(f"Uploading data into table {result_table_name} in stage")
-        # chunks if multiple schema changes during execution
-        tables = glob.glob(os.path.join(table_path, '*.csv'))
-        for table in tables:
-            csv_columns = self._get_csv_header(table)
-            csv_columns = self._normalize_columns(csv_columns)
-            self._snowflake_client.copy_csv_into_table_from_file(result_table_name, csv_columns, table)
-
-        # dedupe only if running sync from binlog and not in append_incremental mode
-        if self.dedupe_required():
-            logging.info(f"Deduping stage table {result_table_name}")
-            self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
-
-        # drop helper columns kbc__batch_event_order
-        if self._configuration.destination.load_type not in ('append_incremental', 'append_full'):
-            self._drop_helper_columns(result_table_name, schema)
+        self._staging.process_table(table_path, result_table_name, schema, self.dedupe_required())
 
         incremental_load = self._configuration.destination.is_incremental_load
         # remove primary key when using append mode
@@ -280,11 +278,6 @@ class Component(ComponentBase):
             schema.primary_keys = []
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
-
-    def _get_csv_header(self, file_path: str) -> list[str]:
-        with open(file_path) as inp:
-            reader = DictReader(inp, lineterminator='\n', delimiter=',', quotechar='"')
-            return list(reader.fieldnames)
 
     def _convert_to_snowflake_column_definitions(self, columns: list[ColumnSchema]) -> list[dict[str, str]]:
         column_types = []
@@ -336,12 +329,12 @@ class Component(ComponentBase):
         logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]} '
                       f'from table {table_name}')
         query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"'
-        self._snowflake_client.execute_query(query)
+        self._staging.execute_query(query)
 
         logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
                       f'from table {table_name}')
         query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
-        self._snowflake_client.execute_query(query)
+        self._staging.execute_query(query)
 
         schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order'])
         schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
@@ -357,7 +350,7 @@ class Component(ComponentBase):
         Returns:
 
         """
-        id_cols = self._snowflake_client.wrap_columns_in_quotes(id_columns)
+        id_cols = self._staging.wrap_columns_in_quotes(id_columns)
         id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
         unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
                             f"\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order']}\")")
@@ -375,7 +368,7 @@ class Component(ComponentBase):
                     """
 
         logging.debug(f'Dedupping table {table_name}: {query}')
-        self._snowflake_client.execute_query(query)
+        self._staging.execute_query(query)
 
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema]):
         """
