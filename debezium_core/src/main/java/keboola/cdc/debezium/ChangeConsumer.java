@@ -125,17 +125,37 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 
 		Path resultPath = Path.of(this.resultFolder, tableIdentifier + ".csv");
 
-
-		int schemaHash = this.updateLastSchema(tableIdentifier, schema.getAsJsonArray("fields"));
+		JsonArray schemaFields = schema.getAsJsonArray("fields");
+		int schemaHash = this.updateLastSchema(tableIdentifier, schemaFields);
 
 		CSVWriter writer = this.getWriter(resultPath, tableIdentifier, schemaHash);
 
 		List<String> valuesList = payload.entrySet().stream()
 				.map(e -> this.convertEntryValueToString(e.getValue())).collect(Collectors.toList());
+
+		convertDateValues(valuesList, schemaFields);
 		// add helper order index for later dedupe
 		valuesList.add(String.valueOf(this.count));
 
 		writer.writeNext(valuesList.toArray(String[]::new));
+	}
+
+	/**
+	 * Converts values in Debezium.Date format from epoch days into epoch microseconds
+	 *
+	 * @param valuesList
+	 * @param schemaFields
+	 */
+	private void convertDateValues(List<String> valuesList, JsonArray schemaFields) {
+		// TODO: make this configurable
+		for (int i = 0; i < valuesList.size(); i++) {
+			JsonElement field = schemaFields.get(i);
+			if (field.getAsJsonObject().get("name") != null && (field.getAsJsonObject().get("name").getAsString().equals("io.debezium.time.Date")
+					|| field.getAsJsonObject().get("name").getAsString().equals("org.apache.kafka.connect.data.Date"))) {
+				valuesList.set(i, String.valueOf(Long.parseLong(valuesList.get(i)) * 86400000000L));
+			}
+		}
+
 	}
 
 	/**
