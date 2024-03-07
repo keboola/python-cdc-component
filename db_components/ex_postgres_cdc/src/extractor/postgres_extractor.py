@@ -117,6 +117,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "snapshot.fetch.size": snapshot_fetch_size,
         "snapshot.mode": snapshot_mode,
         "decimal.handling.mode": "string",
+        "time.precision.mode": "connect",
         "schema.include.list": schema_include,
         "table.include.list": table_include,
         "errors.max.retries": 3,
