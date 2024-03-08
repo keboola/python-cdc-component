@@ -4,6 +4,8 @@ import os
 from csv import DictReader
 from typing import Protocol, Callable
 
+import duckdb
+
 from db_components.db_common.table_schema import TableSchema
 from db_components.db_common.workspace_client import SnowflakeClient
 
@@ -110,18 +112,31 @@ class SnowflakeStaging(Staging):
 
 
 class DuckDBStaging(Protocol):
-    def __init__(self):
+    TMP_DB_PATH = "/tmp/my-db.duckdb"
+
+    def __init__(self, max_threads:int = 1, memory_limit: str = '2GB', max_memory: str = '2GB'):
         self.multi_threading_support = False
 
-    def process_table(self, table_path, result_table_name, schema, dedupe_required):
+        duckdb.connect(database=self.TMP_DB_PATH, read_only=False)
+        duckdb.execute("SET temp_directory	='/tmp/dbtmp'")
+        duckdb.execute("SET threads TO 1")
+        duckdb.execute(f"SET memory_limit='{memory_limit}'")
+        duckdb.execute(f"SET max_memory='{max_memory}'")
+
+    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool):
         """
-        Processes the table and uploads it to the staging area
+        Processes the table and uploads it to the staging area.
+
+        This method is responsible for creating a table in the staging area with the provided schema,
+        uploading data from the CSV files located at the provided table path into the created table,
+        and performing deduplication if required.
 
         Args:
-            table_path: path to the table (folder) with csv files
-            result_table_name: name of the table in the staging area
-            schema: schema of the table
-            dedupe_required: if dedupe is required
+            table_path (str): Path to the directory containing the CSV files to be uploaded.
+            result_table_name (str): Name of the table to be created in the staging area.
+            schema (TableSchema): Schema of the table to be created.
+            dedupe_required (bool): Flag indicating whether deduplication is required.
 
         """
-        pass
+
+
