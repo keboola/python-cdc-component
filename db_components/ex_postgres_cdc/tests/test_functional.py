@@ -19,6 +19,12 @@ class TestDatabaseEnvironment:
     def __init__(self, connection: JDBCConnection):
         self.connection = connection
 
+    def create_signal_table(self):
+        self.perform_query('DROP TABLE IF EXISTS inventory.debezium_signals;')
+        self.perform_query(
+            'CREATE TABLE IF NOT EXISTS inventory.debezium_signals '
+            '("id" varchar(42) NOT NULL PRIMARY KEY, "type" varchar(32) NOT NULL,"data" varchar(2048) NULL)')
+
     def perform_query(self, query: str):
         return list(self.connection.perform_query(query))
 
@@ -55,8 +61,9 @@ class CustomDatadirTest(TestDataDir):
                 os.chdir('./src')
             comp = Component(data_path_override=self.source_data_dir)
             with comp._init_client() as config:
-                connection = comp._client._connection
+                connection = comp._client.connection
                 db_client = TestDatabaseEnvironment(connection)
+
 
         except Exception as e:
             raise e
@@ -109,6 +116,11 @@ class CustomDatadirTest(TestDataDir):
         columns_to_remove = ['kbc__event_timestamp']
 
         for in_table in in_tables:
+            # we now we need to remove last 2columns
+            columns_to_remove = ['kbc__event_timestamp']
+            if 'debezium_signals' in in_table:
+                # in case of debezium signal we need to remove id column
+                columns_to_remove.append('id')
             if not os.path.isdir(in_table):
                 self._remove_column_slice(in_table, columns_to_remove)
             else:

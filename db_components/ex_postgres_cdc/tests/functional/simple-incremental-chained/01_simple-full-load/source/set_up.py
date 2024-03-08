@@ -10,4 +10,5 @@ def run(context: TestDataDir):
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
     schema = 'inventory'
     sql_client.prepare_initial_table('SalesTable', schema)
+    sql_client.create_signal_table()
     print("Running before script")

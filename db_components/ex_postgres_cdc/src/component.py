@@ -29,6 +29,7 @@ from workspace_client import SnowflakeClient
 
 DEBEZIUM_CORE_PATH = os.environ.get(
     'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+KEY_LAST_SYNCED_TABLED = 'last_synced_tables'
 
 KEY_LAST_SCHEMA = "last_schema"
 
@@ -43,13 +44,13 @@ class Component(ComponentBase):
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
         ColumnSchema(name="KBC__SCHEMA_CHANGED", source_type="BOOLEAN"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
-        ColumnSchema(name="KBC__EVENT_ORDER", source_type="INTEGER")]
+        ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
                                   "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
                                   "kbc__schema_changed": "KBC__SCHEMA_CHANGED",
                                   "__deleted": "KBC__DELETED",
-                                  "kbc__event_order": "KBC__EVENT_ORDER"}
+                                  "kbc__batch_event_order": "KBC__BATCH_EVENT_ORDER"}
 
     def __init__(self, data_path_override=None):
         super().__init__(data_path_override=data_path_override)
@@ -57,6 +58,7 @@ class Component(ComponentBase):
         self._configuration: Configuration
 
         self._temp_offset_file = tempfile.NamedTemporaryFile(suffix='.dat', delete=False)
+        self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
         self._snowflake_client: SnowflakeClient
@@ -83,6 +85,7 @@ class Component(ComponentBase):
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
                                                                snapshot_mode=snapshot_mode,
+                                                               signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
                                                                repl_suffix=self._build_unique_replication_suffix())
@@ -92,10 +95,15 @@ class Component(ComponentBase):
             if not os.path.exists(DEBEZIUM_CORE_PATH):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
-            debezium_executor = DebeziumExecutor(DEBEZIUM_CORE_PATH)
-            logging.info("Running Debezium Engine")
+            debezium_executor = DebeziumExecutor(debezium_properties, DEBEZIUM_CORE_PATH,
+                                                 source_connection=self._client.connection)
+            newly_added_tables = self.get_newly_added_tables()
+            if newly_added_tables:
+                logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
-            debezium_executor.execute(debezium_properties, self.tables_out_path,
+            logging.info("Running Debezium Engine")
+            debezium_executor.execute(self.tables_out_path,
                                       max_wait_s=self._configuration.sync_options.max_wait_s)
 
             start = time.time()
@@ -105,6 +113,20 @@ class Component(ComponentBase):
             self.write_manifests([res[0] for res in result_tables])
 
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables])
+
+    def get_newly_added_tables(self) -> list[str]:
+        """
+        Returns new added tables in the last run
+        Returns: List of tables that were added since the last run
+
+        """
+        last_synced_tabled = self.get_state_file().get(KEY_LAST_SYNCED_TABLED, [])
+        new_tables = []
+        # check only if it's not initial run.
+        if not self.is_initial_run:
+            new_tables = set(self._configuration.source_settings.tables).difference(last_synced_tabled)
+
+        return list(new_tables)
 
     @contextmanager
     def _init_client(self) -> DbOptions:
@@ -194,12 +216,16 @@ class Component(ComponentBase):
 
     def _collect_source_metadata(self):
         table_schemas = dict()
-        for s in self._configuration.source_settings.schemas:
-            tables = self._client.metadata_provider.get_tables(schema_pattern=s)
-            for schema, table in tables:
-                ts = self._client.metadata_provider.get_table_metadata(schema=schema,
-                                                                       table_name=table)
-                table_schemas[f"{schema}.{table}"] = ts
+        tables_to_collect = self._configuration.source_settings.tables
+        # in cae the signalling table is not in the synced tables list
+        if self._configuration.sync_options.source_signal_table not in tables_to_collect:
+            tables_to_collect.append(self._configuration.sync_options.source_signal_table)
+
+        for table in tables_to_collect:
+            schema, table = table.split('.')
+            ts = self._client.metadata_provider.get_table_metadata(schema=schema,
+                                                                   table_name=table)
+            table_schemas[f"{schema}.{table}"] = ts
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
@@ -244,7 +270,7 @@ class Component(ComponentBase):
             logging.info(f"Deduping stage table {result_table_name}")
             self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
 
-        # drop helper fields kbc__event_order
+        # drop helper columns kbc__batch_event_order
         if self._configuration.destination.load_type not in ('append_incremental', 'append_full'):
             self._drop_helper_columns(result_table_name, schema)
 
@@ -296,7 +322,7 @@ class Component(ComponentBase):
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
-            # Expand current schema with fields existing in storage
+            # Expand current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
                     schema.fields.append(c)
@@ -307,9 +333,9 @@ class Component(ComponentBase):
 
     def _drop_helper_columns(self, table_name: str, schema: TableSchema):
         # drop helper column
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]} '
+        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]} '
                       f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]}"'
+        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"'
         self._snowflake_client.execute_query(query)
 
         logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
@@ -317,13 +343,13 @@ class Component(ComponentBase):
         query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
         self._snowflake_client.execute_query(query)
 
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__event_order'])
+        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order'])
         schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
 
     def _dedupe_stage_table(self, table_name: str, id_columns: list[str]):
         """
         Dedupe staging table and keep only latest records.
-        Based on the internal column kbc__event_order produced by CDC engine
+        Based on the internal column kbc__batch_event_order produced by CDC engine
         Args:
             table_name:
             id_columns:
@@ -333,7 +359,8 @@ class Component(ComponentBase):
         """
         id_cols = self._snowflake_client.wrap_columns_in_quotes(id_columns)
         id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
-        unique_id_concat = f"CONCAT_WS('|',{id_cols_str},\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__event_order']}\")"
+        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
+                            f"\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order']}\")")
 
         query = f"""DELETE FROM
                                     "{table_name}" USING (
@@ -342,7 +369,7 @@ class Component(ComponentBase):
                                     FROM
                                         "{table_name}"
                                         QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str} ORDER BY
-                                    "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__event_order"]}"::INT DESC) != 1) TO_DELETE
+                          "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"::INT DESC) != 1) TO_DELETE
                                 WHERE
                                     TO_DELETE.__CONCAT_ID = {unique_id_concat}
                     """
@@ -351,7 +378,19 @@ class Component(ComponentBase):
         self._snowflake_client.execute_query(query)
 
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema]):
-        state = {KEY_LAST_OFFSET: offset, KEY_LAST_SCHEMA: {}}
+        """
+        Writes state file with last offset and last schema and last synced tables
+        Args:
+            offset:
+            table_schemas:
+
+        Returns:
+
+        """
+        state = {KEY_LAST_OFFSET: offset,
+                 KEY_LAST_SCHEMA: {},
+                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
+
         for schema in table_schemas:
             schema_key = f"{schema.schema_name}.{schema.name}"
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()

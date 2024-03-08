@@ -227,7 +227,7 @@ class JDBCConnection(DbConnection):
             raise e
         except jaydebeapi.Error as e:
             if str(e) == '':
-                logging.warning("No results returned")
+                logging.debug(f"No results returned by query {query}")
                 yield []
             else:
                 raise e

@@ -60,6 +60,26 @@ This connector currently uses the native `pgoutput` logical replication stream s
 in `PostgreSQL 10+`.
 Currently, lower versions are not supported, but it is theoretically possible (please submit a feature request)
 
+## Signalling table
+
+The connector needs access to a signalling table in the source database. The signalling table is used by to connector to store various signal events and incremental snapshot watermarks.
+
+### Creating a signaling data collection
+
+You create a signaling table by submitting a standard SQL DDL query to the source database.
+
+**Prerequisites**
+
+You have sufficient access privileges to create a table on the source database.
+
+**Procedure**
+
+Submit a SQL query to the source database to create a table that is consistent with the required structure, as shown in the following example:
+
+The following example shows a CREATE TABLE command that creates a three-column debezium_signal table:
+
+`CREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data TEXT NULL);`
+
 ### PostgreSQL Setup
 
 For this connector to work it is necessary to enable a replication slot, and configure a user with sufficient privileges
@@ -252,13 +272,13 @@ The following options are available:
 - `Incremental Load - Deduplicated`: The connector upserts records into the destination table. The connector uses the
   primary key to perform upsert. The connector does not delete records from the destination table.
 - `Incremental Load - Append`: The connector produces no primary key. The order of the events will be given by
-  the `KBC__EVENT_TIMESTAMP_MS` column + helper `KBC__EVENT_ORDER` column which contains the order in one batch.
+  the `KBC__EVENT_TIMESTAMP_MS` column + helper `KBC__BATCH_EVENT_ORDER` column which contains the order in one batch.
 - `Full Load - Deduplicated`: The destination table data will be replaced with the current batch and deduplicated by the
   primary key.
 - `Full Load - Append`: The destination table data will be replaced with the current batch and the batch won't be
   deduplicated.
 
-**NOTE:** In case of `Append` modes additional columns `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER` are added to the destination table.
+**NOTE:** In case of `Append` modes additional columns `KBC__EVENT_TIMESTAMP_MS` and `KBC__BATCH_EVENT_ORDER` are added to the destination table.
 
 # Development
 
