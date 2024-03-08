@@ -32,13 +32,13 @@ jobs:
           echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
 
   build-java:
-    uses: keboola/python-cdc-component/.github/workflows/java.yml
+    uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   build-python:
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
@@ -50,7 +50,7 @@ jobs:
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml
+    uses: keboola/python-cdc-component/.github/workflows/tests.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
@@ -62,7 +62,7 @@ jobs:
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml
+    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
@@ -91,7 +91,7 @@ jobs:
       - tests
       - tests-kbc
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}

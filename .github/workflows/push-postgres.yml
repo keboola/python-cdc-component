@@ -63,7 +63,7 @@ jobs:
         echo "SNFL_WORKSPACE_WAREHOUSE=$SNFL_WORKSPACE_WAREHOUSE" >> $GITHUB_OUTPUT
 
   build-java:
-    uses: keboola/python-cdc-component/.github/workflows/java.yml
+    uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   build-python:
     name: Build and Push Postgres CDC image
