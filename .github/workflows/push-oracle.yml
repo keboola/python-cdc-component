@@ -1,4 +1,4 @@
-name: ex-oracle-cdc Build & Deploy
+name: Oracle CDC Build & Deploy
 on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
