@@ -1,0 +1,196 @@
+{
+  "type": "object",
+  "title": "Authorization",
+  "required": [
+    "db_settings"
+  ],
+  "properties": {
+    "db_settings": {
+      "type": "object",
+      "format": "grid-strict",
+      "title": "Authorization",
+      "description": "The connector is based on Debezium Connector, for the Postgres setup follow the official <a href=\"https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions\">instructions</a>",
+      "required": [
+        "#password",
+        "host",
+        "port",
+        "user",
+        "database"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Hostname",
+          "propertyOrder": 1,
+          "options": {
+            "grid_columns": 8
+          }
+        },
+        "port": {
+          "type": "integer",
+          "title": "Port",
+          "default": 5432,
+          "propertyOrder": 10,
+          "options": {
+            "grid_columns": 4
+          }
+        },
+        "user": {
+          "type": "string",
+          "title": "User",
+          "propertyOrder": 20,
+          "options": {
+            "grid_columns": 12
+          }
+        },
+        "#password": {
+          "type": "string",
+          "title": "Password",
+          "format": "password",
+          "propertyOrder": 40,
+          "options": {
+            "grid_columns": 12
+          }
+        },
+        "database": {
+          "type": "string",
+          "title": "Database",
+          "propertyOrder": 50,
+          "options": {
+            "grid_columns": 12
+          }
+        },
+        "ssh_options": {
+          "type": "object",
+          "format": "ssh-editor",
+          "propertyOrder": 60
+        },
+        "test_connection": {
+          "type": "button",
+          "format": "test-connection",
+          "propertyOrder": 500
+        }
+      },
+      "propertyOrder": 1
+    },
+    "source_settings": {
+      "title": "Data Source",
+      "type": "object",
+      "propertyOrder": 10,
+      "properties": {
+        "schemas": {
+          "type": "array",
+          "title": "Schemas",
+          "items": {
+            "enum": [],
+            "type": "string"
+          },
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "async": {
+              "label": "Re-load schemas",
+              "action": "get_schemas",
+              "autoload": [
+                "parameters.db_settings.user",
+                "parameters.db_settings.#password",
+                "parameters.db_settings.database"
+              ]
+            }
+          },
+          "propertyOrder": 100
+        },
+        "tables": {
+          "type": "array",
+          "title": "Tables to sync",
+          "description": "If left empty all tables are synced.",
+          "items": {
+            "enum": [],
+            "type": "string"
+          },
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "async": {
+              "label": "Re-load tables",
+              "action": "get_tables",
+              "autoload": [
+                "parameters.source_settings.schemas"
+              ]
+            }
+          },
+          "propertyOrder": 102
+        }
+      }
+    },
+    "sync_options": {
+      "title": "Sync Options",
+      "type": "object",
+      "propertyOrder": 10,
+      "properties": {
+        "snapshot_mode": {
+          "type": "string",
+          "title": "Replication Mode",
+          "description": "The mode 'Changes Only' will skip the initial full sync. Standard mode performs full sync of the tables on the first run.",
+          "propertyOrder": 1,
+          "enum": [
+            "initial",
+            "never"
+          ],
+          "options": {
+            "enum_titles": [
+              "Standard",
+              "Changes only"
+            ]
+          }
+        },
+        "snapshot_fetch_size": {
+          "type": "integer",
+          "title": "Snapshot Fetch Size",
+          "description": "During a snapshot, the connector reads table content in batches of rows. This property specifies the maximum number of rows in a batch.",
+          "default": 10240,
+          "propertyOrder": 2
+        },
+        "snapshot_threads": {
+          "type": "integer",
+          "title": "Snapshot parallelism",
+          "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
+          "default": 1,
+          "propertyOrder": 10
+        }
+      }
+    },
+    "destination": {
+      "title": "Destination",
+      "type": "object",
+      "propertyOrder": 600,
+      "required": [
+        "load_type"
+      ],
+      "properties": {
+        "load_type": {
+          "enum": [
+            "incremental_load",
+            "full_load",
+            "append_incremental",
+            "append_full"
+          ],
+          "type": "string",
+          "title": "Load Type",
+          "default": "incremental_load",
+          "options": {
+            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
+            "enum_titles": [
+              "Incremental Load - Deduplicated",
+              "Full Load - Deduplicated",
+              "Incremental Load - Append",
+              "Full Load - Append"
+            ]
+          },
+          "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table based on the primary key. Append modes do not contain any primary keys and are not deduplicated.",
+          "propertyOrder": 30
+        }
+      }
+    }
+  }
+}

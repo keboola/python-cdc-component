@@ -70,7 +70,7 @@ jobs:
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@add-oracle-cdc
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
@@ -84,7 +84,7 @@ jobs:
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@add-oracle-cdc
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
@@ -97,7 +97,7 @@ jobs:
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml@update-postgre-pipeline # change to main before deploy!
+    uses: keboola/python-cdc-component/.github/workflows/tests.yml@add-oracle-cdc # change to main before deploy!
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
@@ -120,7 +120,7 @@ jobs:
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
+    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@add-oracle-cdc
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
@@ -128,15 +128,28 @@ jobs:
       KBC_TEST_PROJECT_CONFIGS: ${{ needs.variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
     secrets: inherit
 
-  deploy-ex-postgres-cdc:
-    name: Deploy ex-postgres-cdc
-    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
+  deploy:
+    if: |
+      (
+        startsWith(github.ref, 'refs/tags/') &&
+        (
+          (needs.build-python.outputs.is_semantic_tag == 'true') &&
+          (
+            startsWith(needs.build-python.outputs.app_image_tag, 'Postgres') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'postgres') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'General') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'general') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'GENERAL')
+          )
+        )
+      )
     needs:
       - build-python
       - tests
       - tests-kbc
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@update-postgre-pipeline # change to main before deploy!
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@add-oracle-cdc # change to main before deploy!
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
@@ -154,7 +167,7 @@ jobs:
       - tests
       - tests-kbc
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@update-postgre-pipeline # change to main before deploy!
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@add-oracle-cdc # change to main before deploy!
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}

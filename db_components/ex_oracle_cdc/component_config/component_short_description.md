@@ -1,0 +1,1 @@
+Oracle SQL CDC Extractor short description
