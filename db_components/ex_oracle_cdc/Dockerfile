@@ -16,7 +16,7 @@ COPY /debezium_core /code/debezium_core/
 COPY /db_components/db_common /code/db_components/db_common/
 COPY /db_components/debezium /code/db_components/debezium/
 
-COPY /db_components/ex_postgres_cdc /code/db_components/ex_postgres_cdc/
+COPY /db_components/ex_oracle_cdc /code/db_components/ex_oracle_cdc/
 
 
 # set switch that enables correct JVM memory allocation in containers
@@ -24,8 +24,8 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport -Xmx512m"
 
 RUN pip install flake8
 
-RUN pip install -r /code/db_components/ex_postgres_cdc/requirements.txt
+RUN pip install -r /code/db_components/ex_oracle_cdc/requirements.txt
 
-WORKDIR /code/db_components/ex_postgres_cdc/src
+WORKDIR /code/db_components/ex_oracle_cdc/src
 
 CMD ["python", "-u", "component.py"]
