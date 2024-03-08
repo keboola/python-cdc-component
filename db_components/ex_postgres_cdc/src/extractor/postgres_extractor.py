@@ -59,9 +59,11 @@ SUPPORTED_TYPES = ["smallint",
 
 
 def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,
-                                 offset_file_path: str, schema_whitelist: list[str],
+                                 offset_file_path: str,
+                                 schema_whitelist: list[str],
                                  table_whitelist: list[str],
                                  snapshot_mode: str = 'initial',
+                                 signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
@@ -85,6 +87,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
+        signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
     Returns:
@@ -114,13 +117,16 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "snapshot.fetch.size": snapshot_fetch_size,
         "snapshot.mode": snapshot_mode,
         "decimal.handling.mode": "string",
+        "time.precision.mode": "connect",
         "schema.include.list": schema_include,
         "table.include.list": table_include,
         "errors.max.retries": 3,
         "publication.autocreate.mode": "filtered",
         "publication.name": f'publication_{repl_suffix.lower()}',
         "slot.name": f'slot_{repl_suffix.lower()}',
-        "plugin.name": "pgoutput"}
+        "plugin.name": "pgoutput",
+        "signal.enabled.channels": "source",
+        "signal.data.collection": signal_table}
 
     properties |= additional_properties
 
@@ -137,20 +143,20 @@ class PostgresDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
         self.__credentials = db_credentials
         logging.debug(f'Driver {jdbc_path}')
-        self._connection = JDBCConnection('org.postgresql.Driver',
-                                          url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
-                                              f'/{db_credentials.database}',
-                                          driver_args={'user': db_credentials.user,
-                                                       'password': db_credentials.pswd_password,
-                                                       'database': db_credentials.database},
-                                          jars=jdbc_path)
+        self.connection = JDBCConnection('org.postgresql.Driver',
+                                         url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
+                                             f'/{db_credentials.database}',
+                                         driver_args={'user': db_credentials.user,
+                                                      'password': db_credentials.pswd_password,
+                                                      'database': db_credentials.database},
+                                         jars=jdbc_path)
         self.user = db_credentials.user
-        self.metadata_provider = JDBCMetadataProvider(self._connection, PostgresBaseTypeConverter())
+        self.metadata_provider = JDBCMetadataProvider(self.connection, PostgresBaseTypeConverter())
 
     def connect(self):
         logging.info("Connecting to database.")
         try:
-            self._connection.connect()
+            self.connection.connect()
         except DatabaseError as e:
             raise ExtractorUserException(f"Login to database failed, please check your credentials. Detail: {e}") from e
 
@@ -162,7 +168,7 @@ class PostgresDebeziumExtractor:
 
     def test_has_replication_privilege(self):
         query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"
-        results = list(self._connection.perform_query(query))
+        results = list(self.connection.perform_query(query))
         errors = []
         if not results[0][0]:
             errors.append(f"User '{self.user}' must have REPLICATION privileges.")
@@ -173,4 +179,4 @@ class PostgresDebeziumExtractor:
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")
-        self._connection.connection.close()
+        self.connection.connection.close()
