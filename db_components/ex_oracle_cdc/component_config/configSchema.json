@@ -9,7 +9,7 @@
       "type": "object",
       "format": "grid-strict",
       "title": "Authorization",
-      "description": "The connector is based on Debezium Connector, for the Postgres setup follow the official <a href=\"https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions\">instructions</a>",
+      "description": "The connector is based on Debezium Connector, for the Oracle setup follow the official <a href=\"https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions\">instructions</a>",
       "required": [
         "#password",
         "host",
