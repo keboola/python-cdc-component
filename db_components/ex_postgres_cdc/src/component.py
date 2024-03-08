@@ -25,6 +25,7 @@ from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
 from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+
 KEY_STAGING_TYPE = 'staging_type'
 
 DEBEZIUM_CORE_PATH = os.environ.get(
@@ -42,13 +43,11 @@ class Component(ComponentBase):
     SYSTEM_COLUMNS = [
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
-        ColumnSchema(name="KBC__SCHEMA_CHANGED", source_type="BOOLEAN"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
         ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
                                   "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
-                                  "kbc__schema_changed": "KBC__SCHEMA_CHANGED",
                                   "__deleted": "KBC__DELETED",
                                   "kbc__batch_event_order": "KBC__BATCH_EVENT_ORDER"}
 
@@ -182,7 +181,8 @@ class Component(ComponentBase):
 
         elif self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
             logging.info("Using DuckDB staging")
-            self._staging = DuckDBStaging()
+            self._staging = DuckDBStaging(self._convert_to_snowflake_column_definitions,
+                                          self._normalize_columns)
 
         else:
             raise UserException(
