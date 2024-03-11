@@ -62,7 +62,7 @@ jobs:
       uses: keboola/action-push-to-ecr@master
       with:
         vendor: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ inputs.APP_ID }}
+        app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_ID }}
         username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
