@@ -93,7 +93,7 @@ jobs:
 
   tests:
     needs:
-      - build-python-postgres-cdc
+      - build-python
       - variables
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@update-postgre-pipeline # change to main before deploy!
     with:
