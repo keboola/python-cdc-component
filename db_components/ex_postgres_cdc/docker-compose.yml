@@ -15,8 +15,8 @@ services:
   postgres:
     image: debezium/example-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
   wait:
     image: waisbrot/wait
     depends_on:
@@ -32,11 +32,11 @@ services:
     volumes:
       - ./:/code/db_components/ex_postgres_cdc/
     environment:
-      PGSQL_HOST: postgres
-      PGSQL_USER: postgres
-      PGSQL_PASSWORD: postgres
-      PGSQL_DATABASE: postgres
-      PGSQL_PORT: 5432
+      PGSQL_HOST: ${PGSQL_HOST}
+      PGSQL_USER: ${PGSQL_USER}
+      PGSQL_PASSWORD: ${PGSQL_PASSWORD}
+      PGSQL_DATABASE: ${PGSQL_DATABASE}
+      PGSQL_PORT: ${PGSQL_PORT}
       SNFL_WORKSPACE_HOST: ${SNFL_WORKSPACE_HOST}
       SNFL_WORKSPACE_USER: ${SNFL_WORKSPACE_USER}
       SNFL_WORKSPACE_PASSWORD: ${SNFL_WORKSPACE_PASSWORD}

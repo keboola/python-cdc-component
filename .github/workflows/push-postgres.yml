@@ -3,7 +3,8 @@ on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  APP_NAME: "ex-postgres-cdc"
+  APP_NAME1: "ex-postgres-cdc"
+  APP_NAME2: "ex-postgres-cdc-duck"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
   KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
@@ -24,16 +25,29 @@ jobs:
   variables:
     runs-on: ubuntu-latest
     outputs:
-      APP_NAME: ${{ steps.step1.outputs.APP_NAME }}
+      APP_NAME1: ${{ steps.step1.outputs.APP_NAME1 }}
+      APP_NAME2: ${{ steps.step1.outputs.APP_NAME2 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
+      PGSQL_HOST: ${{ steps.step1.outputs.PGSQL_HOST }}
+      PGSQL_USER: ${{ steps.step1.outputs.PGSQL_USER }}
+      PGSQL_PASSWORD: ${{ steps.step1.outputs.PGSQL_PASSWORD }}
+      PGSQL_DATABASE: ${{ steps.step1.outputs.PGSQL_DATABASE }}
+      PGSQL_PORT: ${{ steps.step1.outputs.PGSQL_PORT }}
+      SNFL_WORKSPACE_HOST: ${{ steps.step1.outputs.SNFL_WORKSPACE_HOST }}
+      SNFL_WORKSPACE_USER: ${{ steps.step1.outputs.SNFL_WORKSPACE_USER }}
+      SNFL_WORKSPACE_PASSWORD: ${{ steps.step1.outputs.SNFL_WORKSPACE_PASSWORD }}
+      SNFL_WORKSPACE_DATABASE: ${{ steps.step1.outputs.SNFL_WORKSPACE_DATABASE }}
+      SNFL_WORKSPACE_SCHEMA: ${{ steps.step1.outputs.SNFL_WORKSPACE_SCHEMA }}
+      SNFL_WORKSPACE_WAREHOUSE: ${{ steps.step1.outputs.SNFL_WORKSPACE_WAREHOUSE }}
     steps:
       - name: Print inputs passed to the reusable workflow
         id: step1
         run: |
-          echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "APP_NAME1=$APP_NAME1" >> $GITHUB_OUTPUT
+          echo "APP_NAME2=$APP_NAME2" >> $GITHUB_OUTPUT
           echo "KBC_DEVELOPERPORTAL_VENDOR=$KBC_DEVELOPERPORTAL_VENDOR" >> $GITHUB_OUTPUT
           echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
           echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
@@ -53,13 +67,25 @@ jobs:
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
-  build-python:
+  build-python-postgres-cdc:
     needs:
       - build-java
       - variables
     uses: keboola/python-cdc-component/.github/workflows/build.yml@main
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
+    secrets: inherit
+
+  build-python-postgres-cdc-duck:
+    needs:
+      - build-java
+      - variables
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
+    with:
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
@@ -67,7 +93,7 @@ jobs:
 
   tests:
     needs:
-      - build-python
+      - build-python-postgres-cdc
       - variables
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@update-postgre-pipeline # change to main before deploy!
     with:
@@ -86,22 +112,21 @@ jobs:
       SNFL_WORKSPACE_DATABASE: ${{ needs.variables.outputs.SNFL_WORKSPACE_DATABASE }}
       SNFL_WORKSPACE_SCHEMA: ${{ needs.variables.outputs.SNFL_WORKSPACE_SCHEMA }}
       SNFL_WORKSPACE_WAREHOUSE: ${{ needs.variables.outputs.SNFL_WORKSPACE_WAREHOUSE }}
-
     secrets: inherit
 
   tests-kbc:
     needs:
-      - build-python
+      - build-python-postgres-cdc
       - variables
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_TEST_PROJECT_CONFIGS: ${{ needs.variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
     secrets: inherit
 
-  deploy:
+  deploy-ex-postgres-cdc:
     if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
       - build-python
@@ -110,9 +135,38 @@ jobs:
       - variables
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+      APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
+    secrets: inherit
+
+  deploy-ex-postgres-cdc-duck:
+    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
+    needs:
+      - build-python
+      - tests
+      - tests-kbc
+      - variables
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main
+    with:
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
+      PSQL_HOST: ${{ needs.variables.outputs.PGSQL_HOST }}
+      PSQL_USER: ${{ needs.variables.outputs.PGSQL_USER }}
+      PSQL_PASSWORD: ${{ needs.variables.outputs.PGSQL_PASSWORD }}
+      PSQL_DATABASE: ${{ needs.variables.outputs.PGSQL_DATABASE }}
+      PSQL_PORT: ${{ needs.variables.outputs.PGSQL_PORT }}
+      SNFL_WORKSPACE_HOST: ${{ needs.variables.outputs.SNFL_WORKSPACE_HOST }}
+      SNFL_WORKSPACE_USER: ${{ needs.variables.outputs.SNFL_WORKSPACE_USER }}
+      SNFL_WORKSPACE_PASSWORD: ${{ needs.variables.outputs.SNFL_WORKSPACE_PASSWORD }}
+      SNFL_WORKSPACE_DATABASE: ${{ needs.variables.outputs.SNFL_WORKSPACE_DATABASE }}
+      SNFL_WORKSPACE_SCHEMA: ${{ needs.variables.outputs.SNFL_WORKSPACE_SCHEMA }}
+      SNFL_WORKSPACE_WAREHOUSE: ${{ needs.variables.outputs.SNFL_WORKSPACE_WAREHOUSE }}
     secrets: inherit

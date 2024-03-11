@@ -14,37 +14,37 @@ on:
         required: false
         type: string
       PSQL_HOST:
-        required: true
+        required: false
         type: string
       PSQL_USER:
-        required: true
+        required: false
         type: string
       PSQL_PASSWORD:
-        required: true
+        required: false
         type: string
       PSQL_DATABASE:
-        required: true
+        required: false
         type: string
       PSQL_PORT:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_HOST:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_USER:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_PASSWORD:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_DATABASE:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_SCHEMA:
-        required: true
+        required: false
         type: string
       SNFL_WORKSPACE_WAREHOUSE:
-        required: true
+        required: false
         type: string
 
 jobs:
