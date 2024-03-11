@@ -160,15 +160,4 @@ jobs:
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
-      PSQL_HOST: ${{ needs.variables.outputs.PGSQL_HOST }}
-      PSQL_USER: ${{ needs.variables.outputs.PGSQL_USER }}
-      PSQL_PASSWORD: ${{ needs.variables.outputs.PGSQL_PASSWORD }}
-      PSQL_DATABASE: ${{ needs.variables.outputs.PGSQL_DATABASE }}
-      PSQL_PORT: ${{ needs.variables.outputs.PGSQL_PORT }}
-      SNFL_WORKSPACE_HOST: ${{ needs.variables.outputs.SNFL_WORKSPACE_HOST }}
-      SNFL_WORKSPACE_USER: ${{ needs.variables.outputs.SNFL_WORKSPACE_USER }}
-      SNFL_WORKSPACE_PASSWORD: ${{ needs.variables.outputs.SNFL_WORKSPACE_PASSWORD }}
-      SNFL_WORKSPACE_DATABASE: ${{ needs.variables.outputs.SNFL_WORKSPACE_DATABASE }}
-      SNFL_WORKSPACE_SCHEMA: ${{ needs.variables.outputs.SNFL_WORKSPACE_SCHEMA }}
-      SNFL_WORKSPACE_WAREHOUSE: ${{ needs.variables.outputs.SNFL_WORKSPACE_WAREHOUSE }}
     secrets: inherit

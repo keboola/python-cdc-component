@@ -13,19 +13,19 @@ on:
       TAG:
         required: false
         type: string
-      PSQL_HOST:
+      PGSQL_HOST:
         required: false
         type: string
-      PSQL_USER:
+      PGSQL_USER:
         required: false
         type: string
-      PSQL_PASSWORD:
+      PGSQL_PASSWORD:
         required: false
         type: string
-      PSQL_DATABASE:
+      PGSQL_DATABASE:
         required: false
         type: string
-      PSQL_PORT:
+      PGSQL_PORT:
         required: false
         type: string
       SNFL_WORKSPACE_HOST:
