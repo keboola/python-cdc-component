@@ -127,6 +127,7 @@ jobs:
     secrets: inherit
 
   deploy-ex-postgres-cdc:
+    name: Deploy ex-postgres-cdc
     if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
       - build-python
@@ -144,6 +145,7 @@ jobs:
     secrets: inherit
 
   deploy-ex-postgres-cdc-duck:
+    name: Deploy ex-postgres-cdc-duck
     if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
       - build-python
