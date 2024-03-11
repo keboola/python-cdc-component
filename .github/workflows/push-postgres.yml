@@ -6,11 +6,19 @@ env:
   APP_NAME: "ex-postgres-cdc"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
-
-  # Test KBC project: https://connection.keboola.com/admin/projects/9382
   KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
-
   DOCKERHUB_USER: "keboolabot"
+  PGSQL_HOST: postgres
+  PGSQL_USER: postgres
+  PGSQL_PASSWORD: postgres
+  PGSQL_DATABASE: postgres
+  PGSQL_PORT: 5432
+  SNFL_WORKSPACE_HOST: ${{ secrets.SNFL_WORKSPACE_HOST }}
+  SNFL_WORKSPACE_USER: ${{ secrets.SNFL_WORKSPACE_USER }}
+  SNFL_WORKSPACE_PASSWORD: ${{ secrets.SNFL_WORKSPACE_PASSWORD }}
+  SNFL_WORKSPACE_DATABASE: ${{ secrets.SNFL_WORKSPACE_DATABASE }}
+  SNFL_WORKSPACE_SCHEMA: ${{ secrets.SNFL_WORKSPACE_SCHEMA }}
+  SNFL_WORKSPACE_WAREHOUSE: ${{ secrets.SNFL_WORKSPACE_WAREHOUSE }}
 
 jobs:
   variables:
@@ -30,6 +38,17 @@ jobs:
           echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
           echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
           echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
+          echo "PGSQL_HOST=$PGSQL_HOST" >> $GITHUB_OUTPUT
+          echo "PGSQL_USER=$PGSQL_USER" >> $GITHUB_OUTPUT
+          echo "PGSQL_PASSWORD=$PGSQL_PASSWORD" >> $GITHUB_OUTPUT
+          echo "PGSQL_DATABASE=$PGSQL_DATABASE" >> $GITHUB_OUTPUT
+          echo "PGSQL_PORT=$PGSQL_PORT" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_HOST=$SNFL_WORKSPACE_HOST" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_USER=$SNFL_WORKSPACE_USER" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_PASSWORD=$SNFL_WORKSPACE_PASSWORD" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_DATABASE=$SNFL_WORKSPACE_DATABASE" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_SCHEMA=$SNFL_WORKSPACE_SCHEMA" >> $GITHUB_OUTPUT
+          echo "SNFL_WORKSPACE_WAREHOUSE=$SNFL_WORKSPACE_WAREHOUSE" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
@@ -50,12 +69,24 @@ jobs:
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml@main
+    uses: keboola/python-cdc-component/.github/workflows/tests.yml@update-postgre-pipeline # change to main before deploy!
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      PGSQL_HOST: ${{ needs.variables.outputs.PGSQL_HOST }}
+      PGSQL_USER: ${{ needs.variables.outputs.PGSQL_USER }}
+      PGSQL_PASSWORD: ${{ needs.variables.outputs.PGSQL_PASSWORD }}
+      PGSQL_DATABASE: ${{ needs.variables.outputs.PGSQL_DATABASE }}
+      PGSQL_PORT: ${{ needs.variables.outputs.PGSQL_PORT }}
+      SNFL_WORKSPACE_HOST: ${{ needs.variables.outputs.SNFL_WORKSPACE_HOST }}
+      SNFL_WORKSPACE_USER: ${{ needs.variables.outputs.SNFL_WORKSPACE_USER }}
+      SNFL_WORKSPACE_PASSWORD: ${{ needs.variables.outputs.SNFL_WORKSPACE_PASSWORD }}
+      SNFL_WORKSPACE_DATABASE: ${{ needs.variables.outputs.SNFL_WORKSPACE_DATABASE }}
+      SNFL_WORKSPACE_SCHEMA: ${{ needs.variables.outputs.SNFL_WORKSPACE_SCHEMA }}
+      SNFL_WORKSPACE_WAREHOUSE: ${{ needs.variables.outputs.SNFL_WORKSPACE_WAREHOUSE }}
+
     secrets: inherit
 
   tests-kbc:

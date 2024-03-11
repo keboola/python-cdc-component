@@ -13,12 +13,60 @@ on:
       TAG:
         required: false
         type: string
+      PSQL_HOST:
+        required: true
+        type: string
+      PSQL_USER:
+        required: true
+        type: string
+      PSQL_PASSWORD:
+        required: true
+        type: string
+      PSQL_DATABASE:
+        required: true
+        type: string
+      PSQL_PORT:
+        required: true
+        type: string
+      SNFL_WORKSPACE_HOST:
+        required: true
+        type: string
+      SNFL_WORKSPACE_USER:
+        required: true
+        type: string
+      SNFL_WORKSPACE_PASSWORD:
+        required: true
+        type: string
+      SNFL_WORKSPACE_DATABASE:
+        required: true
+        type: string
+      SNFL_WORKSPACE_SCHEMA:
+        required: true
+        type: string
+      SNFL_WORKSPACE_WAREHOUSE:
+        required: true
+        type: string
+
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+
+      - name: Set up environment variables
+        run: |
+          echo "PSQL_HOST=${{ inputs.PSQL_HOST }}" >> $GITHUB_ENV
+          echo "PSQL_USER=${{ inputs.PSQL_USER }}" >> $GITHUB_ENV
+          echo "PSQL_PASSWORD=${{ inputs.PSQL_PASSWORD }}" >> $GITHUB_ENV
+          echo "PSQL_DATABASE=${{ inputs.PSQL_DATABASE }}" >> $GITHUB_ENV
+          echo "PSQL_PORT=${{ inputs.PSQL_PORT }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_HOST=${{ inputs.SNFL_WORKSPACE_HOST }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_USER=${{ inputs.SNFL_WORKSPACE_USER }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_PASSWORD=${{ inputs.SNFL_WORKSPACE_PASSWORD }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_DATABASE=${{ inputs.SNFL_WORKSPACE_DATABASE }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_SCHEMA=${{ inputs.SNFL_WORKSPACE_SCHEMA }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_WAREHOUSE=${{ inputs.SNFL_WORKSPACE_WAREHOUSE }}" >> $GITHUB_ENV
 
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
