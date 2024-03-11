@@ -68,11 +68,13 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   build-python:
+    name: Build and Push Postgres CDC image
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
     with:
+      APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
@@ -80,11 +82,13 @@ jobs:
     secrets: inherit
 
   build-python-postgres-cdc-duck:
+    name: Build and Push Postgres CDC duck image
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
     with:
+      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
