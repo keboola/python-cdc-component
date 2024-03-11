@@ -67,7 +67,7 @@ jobs:
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
-  build-python-postgres-cdc:
+  build-python:
     needs:
       - build-java
       - variables
