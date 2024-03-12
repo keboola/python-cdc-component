@@ -215,6 +215,9 @@ class DuckDBStaging(Protocol):
         for table in new_tables:
             os.remove(table)
 
+        # rename source folder to the result_table_name
+        os.rename(table_path, f'{Path(table_path).parent.as_posix()}/{result_table_name}')
+
     def generate_select_column_statement(self, column_types: dict) -> str:
         column_statements = []
         for name, data_type in column_types.items():
