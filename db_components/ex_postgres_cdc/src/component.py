@@ -380,9 +380,17 @@ class Component(ComponentBase):
         Returns:
 
         """
+        # load schema.json from data folder and include it's content in the state file
+        debezium_schema = {}
+        if os.path.exists(f"{self.tables_out_path}/schema.json"):
+            with open(f"{self.tables_out_path}/schema.json", 'r') as f:
+                debezium_schema = f.read()
+            os.remove(f"{self.tables_out_path}/schema.json")
+
         state = {KEY_LAST_OFFSET: offset,
                  KEY_LAST_SCHEMA: {},
-                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
+                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables,
+                 "debezium_schema": debezium_schema}
 
         for schema in table_schemas:
             schema_key = f"{schema.schema_name}.{schema.name}"

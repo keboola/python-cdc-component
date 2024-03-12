@@ -82,7 +82,10 @@ class SnowflakeStaging(Staging):
 
         # dedupe only if running sync from binlog and not in append_incremental mode
         if dedupe_required:
-            self._dedupe_stage_table(table_name=result_table_name, id_columns=schema.primary_keys)
+            id_columns = self.normalize_columns(schema.primary_keys)
+            order_by_column = self.normalize_columns([order_by_column])[0]
+            self._dedupe_stage_table(table_name=result_table_name, id_columns=id_columns,
+                                     order_by_column=order_by_column)
 
     def _dedupe_stage_table(self, table_name: str, id_columns: list[str],
                             order_by_column: str = 'kbc__batch_event_order'):
@@ -109,7 +112,7 @@ class SnowflakeStaging(Staging):
                                         FROM
                                             "{table_name}"
                                             QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str} ORDER BY
-                              "{self.SYSTEM_COLUMN_NAME_MAPPING[order_by_column]}"::INT DESC) != 1) TO_DELETE
+                              "{order_by_column}"::INT DESC) != 1) TO_DELETE
                                     WHERE
                                         TO_DELETE.__CONCAT_ID = {unique_id_concat}
                         """
@@ -143,7 +146,8 @@ class DuckDBStaging(Protocol):
         duckdb.execute(f"SET max_memory='{self.max_memory}'")
 
     def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool,
-                      order_by_column: str = 'kbc__batch_event_order'):
+                      order_by_column: str = 'kbc__batch_event_order',
+                      null_string: str = 'KBC__NULL'):
         """
         Processes the table and uploads it to the staging area.
 
@@ -157,6 +161,7 @@ class DuckDBStaging(Protocol):
             schema (TableSchema): Schema of the table to be created.
             dedupe_required (bool): Flag indicating whether deduplication is required.
             order_by_column: Column used to order and keep the latest record
+            null_string: String that represents NULL values in the CSV files.
 
         """
         tables = glob.glob(os.path.join(table_path, '*.csv'))
@@ -184,8 +189,9 @@ class DuckDBStaging(Protocol):
                            CREATE OR REPLACE TABLE SLICE_{index} AS SELECT {select_statement}, 
                                                                            {unique_id_concat} as __PK_TMP
                                                        FROM
-                                                          read_csv('{table}', delim=',', header=true, 
-                                                          columns={datatypes}, auto_detect=false)
+                                                          read_csv('{table}', delim=',', header=false, 
+                                                          columns={datatypes}, auto_detect=false,
+                                                          nullstr='{null_string}')
                                                           QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
                                                            ORDER BY "{order_by_column}"::INT DESC) = 1"""
             duckdb.execute(sql_create)
@@ -199,7 +205,7 @@ class DuckDBStaging(Protocol):
         slice_nr = len(new_tables)
 
         for index, table in enumerate(new_tables):
-            logging.info(f"Exporting slice {index}")
+            logging.debug(f"Exporting slice {index}")
             offload_query = (
                 f"COPY (SELECT {select_statement} FROM SLICE_{slice_nr - 1 - index} t "
                 f"LEFT JOIN PKEY_CACHE pc ON t.__PK_TMP=pc.pkey "
@@ -250,7 +256,7 @@ class DuckDBStaging(Protocol):
         # in case the input table is small, just copy it
         size_threshold_mb = os.environ.get('SLICER_INPUT_SIZE_THRESHOLD', 50)
         if os.path.getsize(table_path) < size_threshold_mb * 1024 * 1024:
-            logging.info(f"Table {table_name} is small enough, copying it directly")
+            logging.debug(f"Table {table_name} is small enough, copying it directly")
             self._remove_header_in_file(table_path)
 
             result_path = os.path.join(result_path, f'copied_{table_name}')
@@ -267,7 +273,7 @@ class DuckDBStaging(Protocol):
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
-        logging.info(f'Slicing table: {table_name}')
+        logging.debug(f'Slicing table: {table_name}')
         stdout, stderr = process.communicate()
         process.poll()
         err_string = stderr.decode('utf-8')
