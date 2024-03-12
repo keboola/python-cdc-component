@@ -13,12 +13,60 @@ on:
       TAG:
         required: false
         type: string
+      PGSQL_HOST:
+        required: false
+        type: string
+      PGSQL_USER:
+        required: false
+        type: string
+      PGSQL_PASSWORD:
+        required: false
+        type: string
+      PGSQL_DATABASE:
+        required: false
+        type: string
+      PGSQL_PORT:
+        required: false
+        type: string
+      SNFL_WORKSPACE_HOST:
+        required: false
+        type: string
+      SNFL_WORKSPACE_USER:
+        required: false
+        type: string
+      SNFL_WORKSPACE_PASSWORD:
+        required: false
+        type: string
+      SNFL_WORKSPACE_DATABASE:
+        required: false
+        type: string
+      SNFL_WORKSPACE_SCHEMA:
+        required: false
+        type: string
+      SNFL_WORKSPACE_WAREHOUSE:
+        required: false
+        type: string
+
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+
+      - name: Set up environment variables
+        run: |
+          echo "PSQL_HOST=${{ inputs.PSQL_HOST }}" >> $GITHUB_ENV
+          echo "PSQL_USER=${{ inputs.PSQL_USER }}" >> $GITHUB_ENV
+          echo "PSQL_PASSWORD=${{ inputs.PSQL_PASSWORD }}" >> $GITHUB_ENV
+          echo "PSQL_DATABASE=${{ inputs.PSQL_DATABASE }}" >> $GITHUB_ENV
+          echo "PSQL_PORT=${{ inputs.PSQL_PORT }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_HOST=${{ inputs.SNFL_WORKSPACE_HOST }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_USER=${{ inputs.SNFL_WORKSPACE_USER }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_PASSWORD=${{ inputs.SNFL_WORKSPACE_PASSWORD }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_DATABASE=${{ inputs.SNFL_WORKSPACE_DATABASE }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_SCHEMA=${{ inputs.SNFL_WORKSPACE_SCHEMA }}" >> $GITHUB_ENV
+          echo "SNFL_WORKSPACE_WAREHOUSE=${{ inputs.SNFL_WORKSPACE_WAREHOUSE }}" >> $GITHUB_ENV
 
       - name: Pull image from ECR
         uses: keboola/action-pull-from-ecr@master
