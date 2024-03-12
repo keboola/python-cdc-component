@@ -1,7 +1,10 @@
 on:
   workflow_call:
     inputs:
-      APP_NAME:
+      APP_NAME: # Controls the path to source code
+        required: true
+        type: string
+      APP_ID: # The app ID to deploy
         required: true
         type: string
       KBC_DEVELOPERPORTAL_VENDOR:
@@ -59,7 +62,7 @@ jobs:
       uses: keboola/action-push-to-ecr@master
       with:
         vendor: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}
-        app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_NAME }}
+        app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_ID }}
         username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
         tag: ${{ steps.tag.outputs.app_image_tag }}
