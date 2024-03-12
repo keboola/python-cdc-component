@@ -133,6 +133,7 @@ class DuckDBStaging(Protocol):
         self.max_memory = max_memory
         self.convert_column_types = column_type_convertor
         self.normalize_columns = convert_column_names
+        self.connect()
 
     def connect(self):
         duckdb.connect(database=self.TMP_DB_PATH, read_only=False)
@@ -158,7 +159,6 @@ class DuckDBStaging(Protocol):
             order_by_column: Column used to order and keep the latest record
 
         """
-        self.connect()
         tables = glob.glob(os.path.join(table_path, '*.csv'))
 
         self._slice_input(tables[0], table_path)
