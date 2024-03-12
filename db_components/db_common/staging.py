@@ -1,7 +1,12 @@
+import fileinput
+import gc
 import glob
 import logging
 import os
+import subprocess
+import sys
 from csv import DictReader
+from pathlib import Path
 from typing import Protocol, Callable
 
 import duckdb
@@ -21,7 +26,8 @@ class Staging(Protocol):
     normalize_columns: Callable
     multi_threading_support: bool
 
-    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool):
+    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool,
+                      order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area
         Args:
@@ -50,7 +56,8 @@ class SnowflakeStaging(Staging):
     def connect(self):
         return self._snowflake_client.connect()
 
-    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool):
+    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool,
+                      order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area
 
@@ -93,7 +100,7 @@ class SnowflakeStaging(Staging):
         id_cols = self._snowflake_client.wrap_columns_in_quotes(id_columns)
         id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
         unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{self.SYSTEM_COLUMN_NAME_MAPPING[order_by_column]}\")")
+                            f"\"{order_by_column}\")")
 
         query = f"""DELETE FROM
                                         "{table_name}" USING (
@@ -111,19 +118,31 @@ class SnowflakeStaging(Staging):
         self._snowflake_client.execute_query(query)
 
 
+class StagingException(Exception):
+    pass
+
+
 class DuckDBStaging(Protocol):
     TMP_DB_PATH = "/tmp/my-db.duckdb"
 
-    def __init__(self, max_threads:int = 1, memory_limit: str = '2GB', max_memory: str = '2GB'):
+    def __init__(self, column_type_convertor: Callable, convert_column_names: Callable,
+                 max_threads: int = 1, memory_limit: str = '2GB', max_memory: str = '2GB'):
         self.multi_threading_support = False
+        self.max_threads = max_threads
+        self.memory_limit = memory_limit
+        self.max_memory = max_memory
+        self.convert_column_types = column_type_convertor
+        self.normalize_columns = convert_column_names
 
+    def connect(self):
         duckdb.connect(database=self.TMP_DB_PATH, read_only=False)
         duckdb.execute("SET temp_directory	='/tmp/dbtmp'")
-        duckdb.execute("SET threads TO 1")
-        duckdb.execute(f"SET memory_limit='{memory_limit}'")
-        duckdb.execute(f"SET max_memory='{max_memory}'")
+        duckdb.execute(f"SET threads TO {self.max_threads}")
+        duckdb.execute(f"SET memory_limit='{self.memory_limit}'")
+        duckdb.execute(f"SET max_memory='{self.max_memory}'")
 
-    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool):
+    def process_table(self, table_path: str, result_table_name: str, schema: TableSchema, dedupe_required: bool,
+                      order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area.
 
@@ -136,7 +155,129 @@ class DuckDBStaging(Protocol):
             result_table_name (str): Name of the table to be created in the staging area.
             schema (TableSchema): Schema of the table to be created.
             dedupe_required (bool): Flag indicating whether deduplication is required.
+            order_by_column: Column used to order and keep the latest record
+
+        """
+        self.connect()
+        tables = glob.glob(os.path.join(table_path, '*.csv'))
+
+        self._slice_input(tables[0], table_path)
+        # delete the original file
+        os.remove(tables[0])
+
+        # create pkey table
+        duckdb.execute("CREATE OR REPLACE TABLE PKEY_CACHE (slice_id INT, pkey TEXT)")
+
+        column_types = self.convert_column_types(schema.fields)
+        datatypes = {col_type["name"]: col_type["type"] for col_type in column_types}
+        id_cols = self.wrap_columns_in_quotes(schema.primary_keys)
+        id_cols_str = ','.join([f'{col}' for col in id_cols])
+        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
+                            f"\"{order_by_column}\")")
+
+        # MAP
+        new_tables = glob.glob(os.path.join(table_path, '*'))
+        for index, table in enumerate(new_tables):
+            logging.debug(f"Loading slice {index}")
+            select_statement = self.generate_select_column_statement(datatypes)
+            sql_create = f"""
+                           CREATE OR REPLACE TABLE SLICE_{index} AS SELECT {select_statement}, 
+                                                                           {unique_id_concat} as __PK_TMP
+                                                       FROM
+                                                          read_csv('{table}', delim=',', header=true, 
+                                                          columns={datatypes}, auto_detect=false)
+                                                          QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
+                                                           ORDER BY "{order_by_column}"::INT DESC) = 1"""
+            duckdb.execute(sql_create)
+
+            # colect pkeys:
+            duckdb.execute(
+                f"INSERT INTO PKEY_CACHE SELECT {index} as slice_id, {unique_id_concat} as pkey FROM SLICE_{index}")
+
+        # REDUCE
+        tables.sort(reverse=True)
+        slice_nr = len(new_tables)
+
+        for index, table in enumerate(new_tables):
+            logging.info(f"Exporting slice {index}")
+            offload_query = (
+                f"COPY (SELECT {select_statement} FROM SLICE_{slice_nr - 1 - index} t "
+                f"LEFT JOIN PKEY_CACHE pc ON t.__PK_TMP=pc.pkey "
+                f"and pc.slice_id >= {slice_nr - index} "
+                f"WHERE pc.pkey IS NULL) TO \'{table_path}/slice_{index}\' (HEADER false, DELIMITER \',\');")
+            logging.debug(offload_query)
+            # without this the Duckdb fails on OOM
+            gc.collect()
+
+            duckdb.execute(offload_query)
+
+        # delete old tables
+        for table in new_tables:
+            os.remove(table)
+
+    def generate_select_column_statement(self, column_types: dict) -> str:
+        column_statements = []
+        for name, data_type in column_types.items():
+            if data_type in ['DATE', 'TIMESTAMP', 'TIME']:
+                column_statements.append(self.wrap_in_quote(name))
+                column_types[name] = 'BIGINT'
+            else:
+                column_statements.append(self.wrap_in_quote(name))
+        return ','.join(column_statements)
+
+    def wrap_columns_in_quotes(self, columns):
+        return [self.wrap_in_quote(col) for col in columns]
+
+    def wrap_in_quote(self, s):
+        return s if s.startswith('"') else '"' + s + '"'
+
+    def _slice_input(self, table_path: str, result_path: str, slice_size_mb: int = 500):
+        """
+        Slices the input file into smaller files to ensure memory efficiency.
+
+        Args:
+            table_path (str): Path to the directory containing the CSV files to be uploaded.
+            result_path (str): Path to the directory where the sliced files will be stored.
 
         """
 
+        # overrides from ENV for tests
+        slice_size_mb = int(os.environ.get('SLICER_SLICE_SIZE_MB', slice_size_mb))
+        table_name = Path(table_path).name
+        # in case the input table is small, just copy it
+        size_threshold_mb = os.environ.get('SLICER_INPUT_SIZE_THRESHOLD', 50)
+        if os.path.getsize(table_path) < size_threshold_mb * 1024 * 1024:
+            logging.info(f"Table {table_name} is small enough, copying it directly")
+            self._remove_header_in_file(table_path)
 
+            result_path = os.path.join(result_path, f'copied_{table_name}')
+
+        args = ['kbc_slicer', f'--table-name={table_name}',
+                f'--table-input-path={table_path}',
+                f'--table-output-path={result_path}',
+                f'--table-output-manifest-path=/tmp/{table_name}_slicer.manifest',
+                f'--bytes-per-slice={slice_size_mb}MB',
+                f'--input-size-low-exit-code=0',
+                f'--gzip=false']
+
+        process = subprocess.Popen(args,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+
+        logging.info(f'Slicing table: {table_name}')
+        stdout, stderr = process.communicate()
+        process.poll()
+        err_string = stderr.decode('utf-8')
+        if process.poll() != 0:
+            raise StagingException(
+                f'Failed to slice the table {table_name}: {stderr.decode("utf-8")}')
+        elif stderr:
+            logging.warning(err_string)
+
+        logging.debug(stdout.decode('utf-8'))
+
+    def _remove_header_in_file(self, file_path: str):
+        with fileinput.input(files=(file_path,), inplace=True) as f:
+            for i, line in enumerate(f):
+                if i > 0:  # skip the first line
+                    sys.stdout.write(line)

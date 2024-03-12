@@ -27,6 +27,7 @@ buildNumber.properties
 /testing_config
 **/data/
 **/venv
+test.py
 
 # java builds
 *kbcDebeziumEngine-jar-with-dependencies.jar
