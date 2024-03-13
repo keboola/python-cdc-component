@@ -2,6 +2,7 @@ import json
 import logging
 import subprocess
 import uuid
+from pathlib import Path
 from typing import Tuple, Literal, Optional
 
 from jproperties import Properties
@@ -32,18 +33,21 @@ class SnapshotSignal:
 
 class DebeziumExecutor:
 
-    def __init__(self, properties_path: str, jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None):
+    def __init__(self, properties_path: str, jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None,
+                 result_log_path: str = None):
         """
         Initialize the Debezium CDC engine with the given properties file and jar path.
         Args:
             properties_path:
             jar_path:
             source_connection: Optional JDBCConnection to the source database used for signaling
+            result_log_path: Optional path to the log file
         """
         self._jar_path = jar_path
         self._properties_path = properties_path
         self._source_connection = source_connection
         self.parsed_properties = self._parse_properties()
+        self.result_log_path = result_log_path
 
     def _parse_properties(self) -> dict:
         with open(self._properties_path, 'rb') as config_file:
@@ -154,6 +158,12 @@ class DebeziumExecutor:
             logging.warning(err_string)
 
         logging.info('Debezium CDC run finished', extra={'additional_detail': stdout.decode('utf-8')})
+        if self.result_log_path:
+            Path(self.result_log_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(self.result_log_path, 'w+') as f:
+                f.write(stdout.decode('utf-8'))
+                f.write(err_string)
+
         logging.debug(stdout.decode('utf-8'))
 
     def process_java_log_message(self, log_message: str) -> Tuple[str, str]:
