@@ -105,6 +105,7 @@ class Component(ComponentBase):
 
             logging.info("Running Debezium Engine")
             debezium_executor.execute(self.tables_out_path,
+                                      max_duration_s=8000,
                                       max_wait_s=self._configuration.sync_options.max_wait_s)
 
             start = time.time()
