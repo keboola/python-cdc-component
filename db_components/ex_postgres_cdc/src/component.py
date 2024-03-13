@@ -94,8 +94,10 @@ class Component(ComponentBase):
             if not os.path.exists(DEBEZIUM_CORE_PATH):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
+            log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
             debezium_executor = DebeziumExecutor(debezium_properties, DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection)
+                                                 source_connection=self._client.connection,
+                                                 result_log_path=log_artefact_path)
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")

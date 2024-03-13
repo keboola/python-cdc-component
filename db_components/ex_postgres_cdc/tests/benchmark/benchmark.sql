@@ -112,15 +112,43 @@ BEGIN
             data5 DATE,
             data6 FLOAT,
             data7 BOOLEAN,
-            data8 UUID,
-            data9 BYTEA
+            data8 UUID
         );', counter);
 
         -- Insert 10,000 records into the table
         EXECUTE format('INSERT INTO sample_table_%s (data1, data2, data3, data4, data5, data6, data7, data8, data9)
         SELECT md5(random()::text), (random()*10000)::INTEGER, round(random()::numeric, 2),
-        NOW(), NOW()::DATE, random(), random() > 0.5, uuid_generate_v4(), E\'\\\\xDEADBEEF\'
+        NOW(), NOW()::DATE, random(), random() > 0.5, uuid_generate_v4()
         FROM generate_series(1, 10000);', counter);
+
+        counter := counter + 1;
+    END LOOP;
+END $$;
+
+
+DO $$
+DECLARE
+    counter INTEGER := 0;
+BEGIN
+    WHILE counter < 150 LOOP
+        -- Create a table with 10 columns of different types
+        EXECUTE format('CREATE TABLE sample_table_%s (
+            id SERIAL PRIMARY KEY,
+            data1 TEXT,
+            data2 INTEGER,
+            data3 DECIMAL(10,2),
+            data4 TIMESTAMP,
+            data5 DATE,
+            data6 FLOAT,
+            data7 BOOLEAN,
+            data8 UUID
+        );', counter);
+
+        -- Insert 100,000 records into the table
+        EXECUTE format('INSERT INTO sample_table_%s (data1, data2, data3, data4, data5, data6, data7, data8, data9)
+        SELECT md5(random()::text), (random()*10000)::INTEGER, round(random()::numeric, 2),
+        NOW(), NOW()::DATE, random(), random() > 0.5, uuid_generate_v4()
+        FROM generate_series(1, 100000);', counter);
 
         counter := counter + 1;
     END LOOP;
