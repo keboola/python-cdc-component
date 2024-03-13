@@ -154,3 +154,15 @@ BEGIN
     END LOOP;
 END $$;
 
+
+/* Drop the tables created for benchmarking */
+DO $$
+DECLARE
+    counter INTEGER := 0;
+BEGIN
+    WHILE counter < 150 LOOP
+        -- Drop each sample_table
+        EXECUTE format('DROP TABLE IF EXISTS sample_table_%s;', counter);
+        counter := counter + 1;
+    END LOOP;
+END $$;
