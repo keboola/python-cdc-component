@@ -4,6 +4,11 @@ Template Component main class.
 """
 import logging
 
+from configuration import Configuration, DbOptions, SnapshotMode
+from extractor.oracle_extractor import OracleDebeziumExtractor
+from extractor.oracle_extractor import SUPPORTED_TYPES
+from extractor.oracle_extractor import build_postgres_property_file
+
 from keboola.component.base import ComponentBase
 from keboola.component.exceptions import UserException
 
@@ -20,6 +25,8 @@ class Component(ComponentBase):
 
     def __init__(self):
         super().__init__()
+        self._client: OracleDebeziumExtractor
+        self._configuration: Configuration
 
     def run(self):
         pass
