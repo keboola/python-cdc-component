@@ -146,25 +146,32 @@ class DebeziumExecutor:
                                    stderr=subprocess.PIPE)
 
         logging.info(f'Running CDC Debezium Engine: {args}')
-        stdout, stderr = process.communicate()
-        process.poll()
-        err_string = stderr.decode('utf-8')
-        if process.poll() != 0:
-            message, stack_trace = self.process_java_log_message(err_string)
-            raise DebeziumException(
-                f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
-                extra={'additional_detail': stdout.decode('utf-8')})
-        elif stderr:
-            logging.warning(err_string)
 
-        logging.info('Debezium CDC run finished', extra={'additional_detail': stdout.decode('utf-8')})
-        if self.result_log_path:
-            Path(self.result_log_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(self.result_log_path, 'w+') as f:
-                f.write(stdout.decode('utf-8'))
-                f.write(err_string)
+        Path(self.result_log_path).parent.mkdir(parents=True, exist_ok=True)
 
-        logging.debug(stdout.decode('utf-8'))
+        with open(self.result_log_path, 'w+') as log_out:
+            # Stream stdout
+            for line in iter(process.stdout.readline, b''):
+                line_str = line.decode('utf-8').rstrip('\n')
+                # logging.info(line.decode('utf-8').rstrip('\n'))
+                if self.result_log_path:
+                    log_out.write(line_str)
+
+            process.stdout.close()
+            process.wait()
+
+            err_string = process.stderr.read().decode('utf-8')
+            if process.returncode != 0:
+                message, stack_trace = self.process_java_log_message(err_string)
+                log_out.write(err_string)
+                log_out.close()
+                raise DebeziumException(
+                    f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
+                    extra={'additional_detail': err_string})
+
+            logging.info('Debezium CDC run finished', extra={'additional_detail': err_string})
+            log_out.close()
+            logging.debug(err_string)
 
     def process_java_log_message(self, log_message: str) -> Tuple[str, str]:
         stack_trace = ''
