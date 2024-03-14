@@ -91,7 +91,7 @@ class SnapshotMode(str, Enum):
 class SyncOptions(ConfigurationBase):
     source_signal_table: str
     snapshot_mode: SnapshotMode = SnapshotMode.initial
-    max_wait_s: int = 60
+    max_wait_s: int = 40
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
 
