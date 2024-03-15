@@ -27,7 +27,7 @@ RUN chmod +x /usr/local/bin/kbc_slicer
 
 
 # set switch that enables correct JVM memory allocation in containers
-ENV JAVA_OPTS="-XX:+UseContainerSupport -Xmx512m"
+ENV JAVA_OPTS="-XX:+UseContainerSupport -Xmx1600m"
 
 RUN pip install flake8
 

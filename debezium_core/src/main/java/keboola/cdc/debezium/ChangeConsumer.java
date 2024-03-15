@@ -63,7 +63,7 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 		}
 
 		committer.markBatchFinished();
-		this.logger.info("Processed {} records", this.count);
+		this.logger.debug("Processed {} records", this.count);
 		syncStats.setRecordCount(this.count.intValue());
 	}
 
