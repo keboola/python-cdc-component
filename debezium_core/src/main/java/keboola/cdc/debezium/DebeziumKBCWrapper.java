@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.time.Duration;
 
 import picocli.CommandLine;
@@ -30,15 +32,15 @@ public class DebeziumKBCWrapper implements Runnable {
     @Override
     public void run() {
         LOG.info("Engine started");
-        AbstractDebeziumTask debeziumtask = new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath), LOG,
+        var debeziumtask = new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath), LOG,
                 Duration.ofSeconds(this.maxDuration),
                 Duration.ofSeconds(this.maxWait),
                 Path.of(this.resultFolderPath));
         try {
             debeziumtask.run();
         } catch (Exception e) {
-            e.printStackTrace();
-            LOG.error(e.getMessage());
+//            e.printStackTrace();
+            LOG.error("{}", e.getMessage(), e);
             System.exit(1);
         }
         LOG.info("Engine terminated");

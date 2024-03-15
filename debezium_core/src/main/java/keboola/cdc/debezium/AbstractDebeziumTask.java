@@ -51,8 +51,9 @@ public class AbstractDebeziumTask {
 
 		// callback
 		CompletionCallback completionCallback = new CompletionCallback(this.logger, executorService);
-		ChangeConsumer changeConsumer = new ChangeConsumer(this, this.logger, count, syncStats,
-				this.resultFolder.toString());
+		var changeConsumer = new DbChangeConsumer( this.logger, count, this.resultFolder.toString());
+//		var changeConsumer = new ChangeConsumer(this, this.logger, count,syncStats,
+//				this.resultFolder.toString());
 
 		// start
 		try (DebeziumEngine<ChangeEvent<String, String>> engine = DebeziumEngine.create(Json.class)
@@ -64,7 +65,6 @@ public class AbstractDebeziumTask {
 			executorService.execute(engine);
 
 			Await.until(() -> this.ended(executorService, started, syncStats), Duration.ofSeconds(10));
-
 		} finally {
 			changeConsumer.closeWriterStreams();
 			changeConsumer.storeSchemaMap();
@@ -75,7 +75,6 @@ public class AbstractDebeziumTask {
 		if (completionCallback.getError() != null || !completionCallback.isSuccess()) {
 			throw new Exception(completionCallback.getErrorMessage());
 		}
-
 
 		this.logger.info(
 				"Ended after receiving records: {}",
