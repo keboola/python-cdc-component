@@ -159,7 +159,7 @@ class DebeziumExecutor:
 
             process.stdout.close()
             process.wait()
-
+            logging.info('Debezium CDC run finished, processing stderr...')
             err_string = process.stderr.read().decode('utf-8')
             if process.returncode != 0:
                 message, stack_trace = self.process_java_log_message(err_string)
