@@ -153,7 +153,7 @@ class DebeziumExecutor:
             # Stream stdout
             for line in iter(process.stdout.readline, b''):
                 line_str = line.decode('utf-8').rstrip('\n')
-                # logging.info(line.decode('utf-8').rstrip('\n'))
+                logging.info(line_str)
                 if self.result_log_path:
                     log_out.write(line_str)
 
