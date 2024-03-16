@@ -1,6 +1,7 @@
 package keboola.cdc.debezium;
 
 import lombok.Getter;
+import org.duckdb.DuckDBConnection;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -14,7 +15,8 @@ public class DuckDbWrapper {
 	private static final String MEMORY_LIMIT = "4G"; // replace with your value
 	private static final String MAX_MEMORY = "2G"; // replace with your value
 
-	private final Connection conn;
+	@Getter
+	private final DuckDBConnection conn;
 
 	public DuckDbWrapper() {
 		try {
@@ -26,7 +28,7 @@ public class DuckDbWrapper {
 
 		// Establish a connection to the DuckDB database
 		try {
-			conn = DriverManager.getConnection("jdbc:duckdb:" + TMP_DB_PATH);
+			conn = (DuckDBConnection) DriverManager.getConnection("jdbc:duckdb:" + TMP_DB_PATH);
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
@@ -57,7 +59,7 @@ public class DuckDbWrapper {
 		}
 	}
 
-	public Statement createStatement() {
+	private Statement createStatement() {
 		try {
 			return conn.createStatement();
 		} catch (SQLException e) {

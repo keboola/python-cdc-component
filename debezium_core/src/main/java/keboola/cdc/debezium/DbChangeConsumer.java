@@ -1,6 +1,7 @@
 package keboola.cdc.debezium;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.debezium.engine.ChangeEvent;
@@ -13,7 +14,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,13 +29,17 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	private final ConcurrentMap<String, JsonConverter> converters;
 	private final String jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
+	@SuppressWarnings("unused")
+	private final SyncStats syncStats;
 
-	public DbChangeConsumer(Logger logger, AtomicInteger count, String resultFolder) {
+
+	public DbChangeConsumer(AtomicInteger count, String resultFolder, SyncStats syncStats) {
 		this.count = count;
 		this.resultFolder = resultFolder;
 		this.jsonSchemaFilePath = Path.of(this.resultFolder, "schema.json").toString();
 		this.converters = new ConcurrentHashMap<>();
 		this.dbWrapper = new DuckDbWrapper();
+		this.syncStats = syncStats;
 		init();
 	}
 
@@ -56,6 +64,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 	                        DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
+		syncStats.setLastRecord(ZonedDateTime.now());
 		for (ChangeEvent<String, String> r : records) {
 			this.count.incrementAndGet();
 			try {
@@ -68,6 +77,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		}
 		committer.markBatchFinished();
 		log.info("Processed {} records", this.count.get());
+		syncStats.setRecordCount(this.count.intValue());
 	}
 
 	private void writeToDb(String key, String value) throws IOException {
@@ -96,6 +106,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void closeWriterStreams() throws IOException {
 		converters.values()
 				.forEach(JsonConverter::close);
+		dbWrapper.close();
 	}
 
 	public void storeSchemaMap() throws IOException {

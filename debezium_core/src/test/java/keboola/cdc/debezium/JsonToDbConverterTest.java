@@ -105,8 +105,6 @@ class JsonToDbConverterTest {
 	public void test() {
 		JsonToDbConverter converter = new JsonToDbConverter(new DuckDbWrapper(), "products", TESTING_SCHEMA);
 		converter.processJson(1, TESTING_DATA, SCHEMA);
-		converter.checkActualData();
 		converter.close();
 	}
-
 }

@@ -51,7 +51,7 @@ public class AbstractDebeziumTask {
 
 		// callback
 		CompletionCallback completionCallback = new CompletionCallback(this.logger, executorService);
-		var changeConsumer = new DbChangeConsumer( this.logger, count, this.resultFolder.toString());
+		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats);
 //		var changeConsumer = new ChangeConsumer(this, this.logger, count,syncStats,
 //				this.resultFolder.toString());
 
@@ -82,7 +82,6 @@ public class AbstractDebeziumTask {
 		);
 
 	}
-
 
 	private Properties loadProperties(Path propertiesFile) {
 		try {
