@@ -11,9 +11,6 @@ import java.sql.SQLException;
 
 public interface JsonConverter {
 
-	public static JsonConverter csvConverter(Path csvFolderPath, @Nullable JsonArray initialSchema) throws IOException {
-		return new JsonToCsvConverter(csvFolderPath, initialSchema);
-	}
 	public static JsonConverter dbConverter(DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) throws IOException {
 		return new JsonToDbConverter(dbWrapper, tableName, initialSchema);
 	}
