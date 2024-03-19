@@ -9,7 +9,7 @@ from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
 from db_components.ex_oracle_cdc.src.configuration import DbOptions
 
-JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
+JDBC_PATH = '../jdbc/ojdbc8-21.6.0.0.jar'
 
 
 class ExtractorUserException(Exception):
@@ -58,7 +58,7 @@ SUPPORTED_TYPES = ["smallint",
                    "text"]
 
 
-def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,
+def build_oracle_property_file(user: str, password: str, hostname: str, port: str, database: str,
                                  offset_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
@@ -107,7 +107,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "offset.storage.file.filename": offset_file_path,
         "offset.flush.interval.ms": 0,
         # connector properties
-        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "connector.class": "io.debezium.connector.oracle.OracleConnector",
         "database.hostname": hostname,
         "database.port": port,
         "database.user": user,
@@ -143,7 +143,7 @@ class OracleDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
         self.__credentials = db_credentials
         logging.debug(f'Driver {jdbc_path}')
-        self.connection = JDBCConnection('org.postgresql.Driver',
+        self.connection = JDBCConnection('oracle.jdbc.driver.OracleDriver',
                                          url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
                                              f'/{db_credentials.database}',
                                          driver_args={'user': db_credentials.user,

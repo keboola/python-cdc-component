@@ -78,7 +78,7 @@ public class ChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent
 	 * @throws IOException
 	 */
 	private CSVWriter getWriter(Path tablePath, String tableKey, int schemaHash) throws IOException {
-		// TODO: Handle chaging schema / index by columns too and write to separate files
+		// TODO: Handle changing schema / index by columns too and write to separate files
 		String hashKey = tableKey + schemaHash;
 		List<String> schemaColumnList = this.getSchemaColumnList(this.lastSchema.get(tableKey));
 		// append system column
