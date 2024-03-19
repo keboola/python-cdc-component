@@ -5,8 +5,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 class JsonToDbConverterTest {
 	private static final JsonArray TESTING_SCHEMA = new JsonParser().parse("[\n" +
 			"    {\n" +
@@ -104,7 +102,7 @@ class JsonToDbConverterTest {
 	@Test
 	public void test() {
 		JsonToDbConverter converter = new JsonToDbConverter(new DuckDbWrapper(), "products", TESTING_SCHEMA);
-		converter.processJson(1, TESTING_DATA, SCHEMA);
+		converter.processJson(1, null, TESTING_DATA, SCHEMA);
 		converter.close();
 	}
 }
