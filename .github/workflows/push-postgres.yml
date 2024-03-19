@@ -161,8 +161,21 @@ jobs:
 
   deploy-ex-postgres-cdc-duck:
     name: Deploy ex-postgres-cdc-duck
-    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
-    needs:
+    if: |
+      (
+        startsWith(github.ref, 'refs/tags/') &&
+        (
+          (needs.build-python.outputs.is_semantic_tag == 'true') &&
+          (
+            startsWith(needs.build-python.outputs.app_image_tag, 'Postgres') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'postgres') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'General') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'general') ||
+            startsWith(needs.build-python.outputs.app_image_tag, 'GENERAL')
+          )
+        )
+      )    needs:
       - build-python
       - tests
       - tests-kbc
