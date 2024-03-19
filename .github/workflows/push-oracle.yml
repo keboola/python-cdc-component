@@ -35,11 +35,13 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@add-oracle-cdc
 
   build-python:
+    name: Build and Push Oracle CDC image
     needs:
       - build-java
       - variables
     uses: keboola/python-cdc-component/.github/workflows/build.yml@add-oracle-cdc
     with:
+      APP_ID: ${{ needs.variables.outputs.APP_NAME }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
