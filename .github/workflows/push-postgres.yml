@@ -175,7 +175,8 @@ jobs:
             startsWith(needs.build-python.outputs.app_image_tag, 'GENERAL')
           )
         )
-      )    needs:
+      )
+    needs:
       - build-python
       - tests
       - tests-kbc
