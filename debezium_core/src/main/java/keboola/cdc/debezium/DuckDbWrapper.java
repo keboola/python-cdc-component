@@ -3,19 +3,18 @@ package keboola.cdc.debezium;
 import lombok.Getter;
 import org.duckdb.DuckDBConnection;
 
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+@Getter
 public class DuckDbWrapper {
 
-	private static final String TMP_DB_PATH = "./tmp/my-db.duckdb";
+	private static final String TMP_DB_PATH = "./debezium_core/tmp/my-db.duckdb";
 	private static final int MAX_THREADS = 4; // replace with your value
 	private static final String MEMORY_LIMIT = "4G"; // replace with your value
 	private static final String MAX_MEMORY = "2G"; // replace with your value
 
-	@Getter
 	private final DuckDBConnection conn;
 
 	public DuckDbWrapper() {

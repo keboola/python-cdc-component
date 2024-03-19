@@ -6,16 +6,15 @@ import com.google.gson.JsonObject;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.sql.SQLException;
+import java.util.Set;
 
 public interface JsonConverter {
 
-	public static JsonConverter dbConverter(DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) throws IOException {
+	static JsonConverter dbConverter(DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) throws IOException {
 		return new JsonToDbConverter(dbWrapper, tableName, initialSchema);
 	}
 
-	void processJson(int lineNumber, JsonObject jsonValue, JsonObject jsonSchema) throws IOException;
+	void processJson(int lineNumber, Set<String> key, JsonObject jsonValue, JsonObject jsonSchema) throws IOException;
 
 	void close() ;
 
