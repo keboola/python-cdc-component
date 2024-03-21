@@ -33,11 +33,11 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	private final SyncStats syncStats;
 
 
-	public DbChangeConsumer(AtomicInteger count, String resultFolder, SyncStats syncStats) {
+	public DbChangeConsumer(AtomicInteger count, String resultFolder, SyncStats syncStats, DuckDbWrapper dbWrapper) {
 		this.count = count;
 		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json").toString();
 		this.converters = new ConcurrentHashMap<>();
-		this.dbWrapper = new DuckDbWrapper();
+		this.dbWrapper = dbWrapper;
 		this.syncStats = syncStats;
 		init();
 	}
@@ -46,7 +46,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var schemaFile = new File(this.jsonSchemaFilePath);
 		if (schemaFile.exists()) {
 			try {
-				var schemaJson = new JsonParser().parse(new FileReader(schemaFile)).getAsJsonObject();
+				var schemaJson = JsonParser.parseReader(new FileReader(schemaFile)).getAsJsonObject();
 				for (var entry : schemaJson.entrySet()) {
 					var tableIdentifier = entry.getKey();
 					var initSchema = entry.getValue().getAsJsonArray();
@@ -80,13 +80,12 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private void writeToDb(String key, String value) throws IOException {
-		var jsonParser = new JsonParser();
 
-		var valueJson = jsonParser.parse(value).getAsJsonObject();
+		var valueJson = JsonParser.parseString(value).getAsJsonObject();
 		var payload = valueJson.getAsJsonObject("payload");
 		var schema = valueJson.getAsJsonObject("schema");
 
-		var keySet = extractPrimaryKey(jsonParser.parse(key).getAsJsonObject());
+		var keySet = extractPrimaryKey(JsonParser.parseString(key).getAsJsonObject());
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
 		this.converters.computeIfAbsent(tableIdentifier,
