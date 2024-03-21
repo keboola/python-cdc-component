@@ -64,7 +64,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	                        DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
 		this.syncStats.setLastRecord(ZonedDateTime.now());
-		for (ChangeEvent<String, String> r : records) {
+		for (final var r : records) {
 			this.count.incrementAndGet();
 			try {
 				writeToDb(r.key(), r.value());
@@ -90,7 +90,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
 		this.converters.computeIfAbsent(tableIdentifier,
-				tableName -> new JsonToDbConverter(GSON, this.dbWrapper, tableName, null))
+						tableName -> new JsonToDbConverter(GSON, this.dbWrapper, tableName, null))
 				.processJson(keySet, payload, schema);
 	}
 
@@ -126,10 +126,5 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			GSON.toJson(obj, writer);
 		}
 
-	}
-
-	@Override
-	public boolean supportsTombstoneEvents() {
-		return DebeziumEngine.ChangeConsumer.super.supportsTombstoneEvents();
 	}
 }

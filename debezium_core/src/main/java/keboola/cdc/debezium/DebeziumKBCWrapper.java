@@ -1,20 +1,15 @@
 package keboola.cdc.debezium;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.time.Duration;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
-
+@Slf4j
 public class DebeziumKBCWrapper implements Runnable {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DebeziumKBCWrapper.class);
 
     @Parameters(index = "0", description = "The debezium properties path")
     private String debeziumPropertiesPath;
@@ -31,19 +26,18 @@ public class DebeziumKBCWrapper implements Runnable {
 
     @Override
     public void run() {
-        LOG.info("Engine started");
-        var debeziumtask = new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath), LOG,
+        log.info("Engine started");
+        var debeziumTask = new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath), log,
                 Duration.ofSeconds(this.maxDuration),
                 Duration.ofSeconds(this.maxWait),
                 Path.of(this.resultFolderPath));
         try {
-            debeziumtask.run();
+            debeziumTask.run();
         } catch (Exception e) {
-//            e.printStackTrace();
-            LOG.error("{}", e.getMessage(), e);
+            log.error("{}", e.getMessage(), e);
             System.exit(1);
         }
-        LOG.info("Engine terminated");
+        log.info("Engine terminated");
     }
 
 
