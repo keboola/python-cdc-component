@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.duckdb.DuckDBColumnType;
@@ -67,7 +66,7 @@ public class JsonToDbConverter {
 		var columnDefinition = deserialized.stream()
 				.map(schemaElement -> {
 					//  initialize schema and prepare column definition
-					this.schema.put(schemaElement.getField(), schemaElement);
+					this.schema.put(schemaElement.field(), schemaElement);
 					return schemaElement.columnDefinition();
 				})
 				.collect(Collectors.joining(", "));
@@ -106,14 +105,14 @@ public class JsonToDbConverter {
 	 */
 	private void putToDb(final Set<String> key, final JsonObject jsonValue) {
 		try {
-			for (int i = 0; i < this.memoized.getColumns().size(); i++) {
+			for (int i = 0; i < this.memoized.columns().size(); i++) {
 				var column = this.memoized.getColumn(i);
 				var value = Objects.equals(column, KBC_PRIMARY_KEY)
 						? key.stream().map(k -> jsonValue.get(k).getAsString()).collect(Collectors.joining("_"))
 						: convertValue(jsonValue.get(column), this.schema.get(column));
-				this.memoized.getStatement().setObject(i + 1, value);
+				this.memoized.statement().setObject(i + 1, value);
 			}
-			this.memoized.getStatement().addBatch();
+			this.memoized.statement().addBatch();
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
 			throw new RuntimeException(e);
@@ -122,7 +121,7 @@ public class JsonToDbConverter {
 
 	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
 		jsonSchema.add(PRIMARY_KEY_JSON_ELEMENT); // schema from debezium does not have primary key
-		if (!Objects.equals(this.memoized.getLastDebeziumSchema(), jsonSchema)) {
+		if (!Objects.equals(this.memoized.lastDebeziumSchema(), jsonSchema)) {
 			memoized(jsonSchema);
 		}
 	}
@@ -133,10 +132,10 @@ public class JsonToDbConverter {
 		try {
 			var stmt = this.conn.createStatement();
 			for (var element : deserialized) {
-				columns.add(element.getField());
-				if (this.schema.putIfAbsent(element.getField(), element) == null) {
+				columns.add(element.field());
+				if (this.schema.putIfAbsent(element.field(), element) == null) {
 					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
-							this.tableName, element.getField(), element.dbType()));
+							this.tableName, element.field(), element.dbType()));
 				}
 			}
 			stmt.close();
@@ -188,16 +187,9 @@ public class JsonToDbConverter {
 		return jsonObject;
 	}
 
-	@Value
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private static class SchemaElement {
-		String field;
-		String type;
-		String name;
-		Integer version;
-		boolean optional;
-		String defaultValue;
-
+	private record SchemaElement(String field, String type, String name, Integer version, boolean optional,
+	                             String defaultValue) {
 		public String columnDefinition() {
 			if (this.field.equals(KBC_PRIMARY_KEY)) {
 				return MessageFormat.format("{0} {1} PRIMARY KEY", this.field, dbType());
@@ -209,45 +201,33 @@ public class JsonToDbConverter {
 
 
 		boolean isDebeziumDate() {
-			return this.name != null && (this.name.equals("io.debezium.time.Date") || this.name.equals("org.apache.kafka.connect.data.Date"));
+			return this.name != null
+					&& (this.name.equals("io.debezium.time.Date")
+					|| this.name.equals("org.apache.kafka.connect.data.Date"));
 		}
 
 		public DuckDBColumnType dbType() {
-			switch (this.type) {
-				case "int":
-				case "int32":
+			return switch (this.type) {
+				case "int", "int32" -> {
 					if (isDebeziumDate()) {
-						return DuckDBColumnType.VARCHAR;
+						yield DuckDBColumnType.VARCHAR;
 					}
-					return DuckDBColumnType.INTEGER;
-				case "int64":
-					return DuckDBColumnType.BIGINT;
-				case "timestamp":
-					return DuckDBColumnType.TIMESTAMP;
-				case "string":
-					return DuckDBColumnType.VARCHAR;
-				case "boolean":
-					return DuckDBColumnType.BOOLEAN;
-				case "float":
-					return DuckDBColumnType.FLOAT;
-				case "double":
-					return DuckDBColumnType.DOUBLE;
-				case "date":
-					return DuckDBColumnType.DATE;
-				case "time":
-					return DuckDBColumnType.TIME;
-				default:
-					throw new IllegalArgumentException("Unknown type: " + this.type);
-			}
+					yield DuckDBColumnType.INTEGER;
+				}
+				case "int64" -> DuckDBColumnType.BIGINT;
+				case "timestamp" -> DuckDBColumnType.TIMESTAMP;
+				case "string" -> DuckDBColumnType.VARCHAR;
+				case "boolean" -> DuckDBColumnType.BOOLEAN;
+				case "float" -> DuckDBColumnType.FLOAT;
+				case "double" -> DuckDBColumnType.DOUBLE;
+				case "date" -> DuckDBColumnType.DATE;
+				case "time" -> DuckDBColumnType.TIME;
+				default -> throw new IllegalArgumentException("Unknown type: " + this.type);
+			};
 		}
 	}
 
-	@Value
-	private static class Memoized {
-		JsonArray lastDebeziumSchema;
-		PreparedStatement statement;
-		List<String> columns;
-
+	private record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
 		private void close() {
 			try {
 				if (this.statement != null) {

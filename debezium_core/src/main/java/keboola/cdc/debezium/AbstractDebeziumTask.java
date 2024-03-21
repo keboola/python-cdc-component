@@ -50,7 +50,7 @@ public class AbstractDebeziumTask {
 
 
 		// callback
-		CompletionCallback completionCallback = new CompletionCallback(this.logger, executorService);
+		CompletionCallback completionCallback = new CompletionCallback(executorService);
 		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats);
 //		var changeConsumer = new ChangeConsumer(this, this.logger, count,syncStats,
 //				this.resultFolder.toString());
@@ -118,7 +118,6 @@ public class AbstractDebeziumTask {
 		}
 	}
 
-	@SuppressWarnings("RedundantIfStatement")
 	private boolean ended(ExecutorService executorService, ZonedDateTime start, SyncStats syncStats) {
 		if (executorService.isShutdown()) {
 			return true;
