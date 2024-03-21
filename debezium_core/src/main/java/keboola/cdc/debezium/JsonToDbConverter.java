@@ -90,11 +90,11 @@ public class JsonToDbConverter {
 	}
 
 	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
-		log.info("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
+		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
 		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
 
 		putToDb(key, jsonValue);
-		log.info("Json added to table {} processed.", this.tableName);
+		log.debug("Json added to table {} processed.", this.tableName);
 	}
 
 	/**
