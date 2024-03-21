@@ -23,8 +23,10 @@ import java.util.stream.StreamSupport;
 
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
+	private static final Gson GSON = new Gson();
+
 	private final AtomicInteger count;
-	private final ConcurrentMap<String, JsonConverter> converters;
+	private final ConcurrentMap<String, JsonToDbConverter> converters;
 	private final String jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
 	@SuppressWarnings("unused")
@@ -41,15 +43,15 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private void init() {
-		var schemaFile = new File(jsonSchemaFilePath);
+		var schemaFile = new File(this.jsonSchemaFilePath);
 		if (schemaFile.exists()) {
 			try {
 				var schemaJson = new JsonParser().parse(new FileReader(schemaFile)).getAsJsonObject();
 				for (var entry : schemaJson.entrySet()) {
 					var tableIdentifier = entry.getKey();
-					var schema = entry.getValue().getAsJsonArray();
-					var converter = JsonConverter.dbConverter(dbWrapper, tableIdentifier, schema);
-					converters.put(tableIdentifier, converter);
+					var initSchema = entry.getValue().getAsJsonArray();
+					var converter = new JsonToDbConverter(GSON, this.dbWrapper, tableIdentifier, initSchema);
+					this.converters.put(tableIdentifier, converter);
 				}
 			} catch (IOException e) {
 				log.error("{}", e.getMessage(), e);
@@ -61,11 +63,11 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 	                        DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
-		syncStats.setLastRecord(ZonedDateTime.now());
+		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (ChangeEvent<String, String> r : records) {
 			this.count.incrementAndGet();
 			try {
-				this.writeToDb(r.key(), r.value());
+				writeToDb(r.key(), r.value());
 			} catch (IOException e) {
 				log.error("{}", e.getMessage(), e);
 				throw new InterruptedException(e.toString());
@@ -74,50 +76,44 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		}
 		committer.markBatchFinished();
 		log.info("Processed {} records", this.count.get());
-		syncStats.setRecordCount(this.count.intValue());
+		this.syncStats.setRecordCount(this.count.intValue());
 	}
 
 	private void writeToDb(String key, String value) throws IOException {
-		var valueJson = new JsonParser().parse(value).getAsJsonObject();
+		var jsonParser = new JsonParser();
+
+		var valueJson = jsonParser.parse(value).getAsJsonObject();
 		var payload = valueJson.getAsJsonObject("payload");
 		var schema = valueJson.getAsJsonObject("schema");
 
+		var keySet = extractPrimaryKey(jsonParser.parse(key).getAsJsonObject());
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
-		JsonConverter converter;
-		if (converters.containsKey(tableIdentifier)) {
-			converter = converters.get(tableIdentifier);
-		} else {
-			converter = JsonConverter.dbConverter(dbWrapper, tableIdentifier, null);
-			converters.put(tableIdentifier, converter);
-		}
-		var keyJson = extractPrimaryKey(key);
-		converter.processJson(this.count.get(), keyJson, payload, schema);
+		this.converters.computeIfAbsent(tableIdentifier,
+				tableName -> new JsonToDbConverter(GSON, this.dbWrapper, tableName, null))
+				.processJson(keySet, payload, schema);
 	}
 
-	private static Set<String> extractPrimaryKey(String key) {
-		Set<String> keySet = StreamSupport.stream(
-						new JsonParser().parse(key)
-								.getAsJsonObject()
-								.getAsJsonObject("schema")
+	private static Set<String> extractPrimaryKey(JsonObject key) {
+		var keySet = StreamSupport.stream(
+						key.getAsJsonObject("schema")
 								.get("fields")
 								.getAsJsonArray()
 								.spliterator(), false)
 				.map(jsonElement -> jsonElement.getAsJsonObject().get("field").getAsString())
 				.collect(Collectors.toUnmodifiableSet());
-		log.info("Primary key: {}", keySet);
+		log.debug("Primary key columns: {}", keySet);
 		return keySet;
 	}
-
 
 	public AtomicInteger getRecordsCount() {
 		return this.count;
 	}
 
 	public void closeWriterStreams() {
-		converters.values()
-				.forEach(JsonConverter::close);
-		dbWrapper.close();
+		this.converters.values()
+				.forEach(JsonToDbConverter::close);
+		this.dbWrapper.close();
 	}
 
 	public void storeSchemaMap() throws IOException {
@@ -126,9 +122,8 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			obj.add(e.getKey(), e.getValue().getSchema());
 		}
 		// Convert the list to JSON and write it to a file
-		Gson gson = new Gson();
-		try (FileWriter writer = new FileWriter(jsonSchemaFilePath)) {
-			gson.toJson(obj, writer);
+		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath)) {
+			GSON.toJson(obj, writer);
 		}
 
 	}

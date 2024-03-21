@@ -27,16 +27,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class JsonToDbConverter implements JsonConverter {
+public class JsonToDbConverter {
 	private static final String KBC_PRIMARY_KEY = "kbc__primary_key";
 	private static final JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
-
-	private static JsonObject createPrimaryKeyJsonElement() {
-		JsonObject jsonObject = new JsonObject();
-		jsonObject.addProperty("field", KBC_PRIMARY_KEY);
-		jsonObject.addProperty("type", "string");
-		return jsonObject;
-	}
 
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
@@ -45,19 +38,19 @@ public class JsonToDbConverter implements JsonConverter {
 	private final String tableName;
 	private final Gson gson;
 	private final ConcurrentMap<String, SchemaElement> schema;
-	private Tuple tuple;
+	private Memoized memoized;
 
-	public JsonToDbConverter(DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
-		this.gson = new Gson();
+	public JsonToDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
+		this.gson = gson;
 		this.conn = dbWrapper.getConn();
 		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new ConcurrentHashMap<>(initialSchema != null ? initialSchema.size() : 16);
-		this.tuple = new Tuple(null, null, List.of());
+		this.memoized = new Memoized(null, null, List.of());
 		init(initialSchema);
 	}
 
 	private void init(@Nullable JsonArray initialSchema) {
-		log.info("Initializing schema for json to DB converter {}.", tableName);
+		log.info("Initializing schema for json to DB converter {}.", this.tableName);
 		List<SchemaElement> deserialized;
 		if (initialSchema != null) {
 			log.info("Initializing schema with {} default fields: {}", initialSchema.size(), initialSchema);
@@ -66,58 +59,61 @@ public class JsonToDbConverter implements JsonConverter {
 			}
 			deserialized = deserialize(initialSchema);
 		} else {
-			log.info("No initial schema for table {} using schema with PK only.", tableName);
-			var primaryKey = gson.fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
+			log.info("No initial schema for table {} using schema with PK only.", this.tableName);
+			var primaryKey = this.gson.fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
 			deserialized = List.of(primaryKey);
 		}
 
-		//  initialize schema and prepare column definition
-		var columnDefinition = deserialized
-				.stream()
+		var columnDefinition = deserialized.stream()
 				.map(schemaElement -> {
-					schema.put(schemaElement.field, schemaElement);
+					//  initialize schema and prepare column definition
+					this.schema.put(schemaElement.getField(), schemaElement);
 					return schemaElement.columnDefinition();
 				})
 				.collect(Collectors.joining(", "));
 		try {
-			log.info("Creating table {} if does not exits.", tableName);
-			final var stmt = conn.createStatement();
-			var createTable = "CREATE TABLE IF NOT EXISTS " + tableName + "(" + columnDefinition + ")";
+			log.info("Creating table {} if does not exits.", this.tableName);
+			final var stmt = this.conn.createStatement();
+			var createTable = "CREATE TABLE IF NOT EXISTS " + this.tableName + "(" + columnDefinition + ")";
 			log.info("Create table: {}", createTable);
 			stmt.execute(createTable);
 			stmt.close();
-			log.info("Table {} created", tableName);
+			log.info("Table {} created", this.tableName);
 		} catch (Exception e) {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
 		}
-		log.info("Json to db converter '{}' initialized", tableName);
+		log.info("Json to db converter '{}' initialized", this.tableName);
 	}
 
 	private List<SchemaElement> deserialize(JsonArray fields) {
-		return gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
+		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
 	}
 
-	@Override
-	public void processJson(final int lineNumber, final Set<String> key,
-	                        final JsonObject jsonValue, final JsonObject jsonSchema) {
-		log.info("Processing {}. json value {} for table {} with scheme {}.", lineNumber, jsonValue, tableName, jsonSchema);
-		adjustSchemaIfNecessary(jsonSchema.get("fields").getAsJsonArray());
+	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
+		log.info("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
+		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
 
 		putToDb(key, jsonValue);
-		log.info("Json added to table {} processed.", tableName);
+		log.info("Json added to table {} processed.", this.tableName);
 	}
 
+	/**
+	 * Create new entry or update current one by ID in database
+	 *
+	 * @param key       column names of primary key
+	 * @param jsonValue json value to be upserted
+	 */
 	private void putToDb(final Set<String> key, final JsonObject jsonValue) {
 		try {
-			for (int i = 0; i < tuple.columns.size(); i++) {
-				var column = tuple.columns.get(i);
-				var value = column.equals(KBC_PRIMARY_KEY)
+			for (int i = 0; i < this.memoized.getColumns().size(); i++) {
+				var column = this.memoized.getColumn(i);
+				var value = Objects.equals(column, KBC_PRIMARY_KEY)
 						? key.stream().map(k -> jsonValue.get(k).getAsString()).collect(Collectors.joining("_"))
-						: convertValue(jsonValue.get(column), schema.get(column));
-				tuple.statement.setObject(i + 1, value);
+						: convertValue(jsonValue.get(column), this.schema.get(column));
+				this.memoized.getStatement().setObject(i + 1, value);
 			}
-			tuple.statement.addBatch();
+			this.memoized.getStatement().addBatch();
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
 			throw new RuntimeException(e);
@@ -125,31 +121,31 @@ public class JsonToDbConverter implements JsonConverter {
 	}
 
 	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		jsonSchema.add(PRIMARY_KEY_JSON_ELEMENT);
-		if (!Objects.equals(tuple.schema, jsonSchema)) {
-			tuple = adjustSchema(jsonSchema);
+		jsonSchema.add(PRIMARY_KEY_JSON_ELEMENT); // schema from debezium does not have primary key
+		if (!Objects.equals(this.memoized.getLastDebeziumSchema(), jsonSchema)) {
+			memoized(jsonSchema);
 		}
 	}
 
-	private Tuple adjustSchema(JsonArray jsonSchema) {
+	private void memoized(JsonArray jsonSchema) {
 		var deserialized = deserialize(jsonSchema);
 		var columns = new ArrayList<String>(deserialized.size());
 		try {
-			var stmt = conn.createStatement();
+			var stmt = this.conn.createStatement();
 			for (var element : deserialized) {
-				columns.add(element.field);
-				if (schema.putIfAbsent(element.field, element) == null) {
+				columns.add(element.getField());
+				if (this.schema.putIfAbsent(element.getField(), element) == null) {
 					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
-							tableName, element.field, element.dbType()));
+							this.tableName, element.getField(), element.dbType()));
 				}
 			}
 			stmt.close();
 			var columnNames = String.join(", ", columns);
 			log.info("Updating insert statement with new columns: {}", columnNames);
 			final var sql = MessageFormat.format("INSERT OR REPLACE INTO {0} ({1}) VALUES (?{2});",
-					tableName, columnNames, ", ?".repeat(columns.size() - 1));
+					this.tableName, columnNames, ", ?".repeat(columns.size() - 1));
 
-			return new Tuple(jsonSchema, conn.prepareStatement(sql), columns);
+			this.memoized = new Memoized(jsonSchema, this.conn.prepareStatement(sql), columns);
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter adjustSchema!", e);
 			throw new RuntimeException(e);
@@ -176,14 +172,20 @@ public class JsonToDbConverter implements JsonConverter {
 		return value.toString();
 	}
 
-	@Override
 	public void close() {
-		tuple.close();
+		this.memoized.close();
 	}
 
-	@Override
 	public JsonElement getSchema() {
-		return gson.toJsonTree(schema.values());
+		return this.gson.toJsonTree(this.schema.values());
+	}
+
+	private static JsonObject createPrimaryKeyJsonElement() {
+		JsonObject jsonObject = new JsonObject();
+		jsonObject.addProperty("field", KBC_PRIMARY_KEY);
+		jsonObject.addProperty("type", "string");
+		jsonObject.addProperty("optional", false);
+		return jsonObject;
 	}
 
 	@Value
@@ -197,21 +199,21 @@ public class JsonToDbConverter implements JsonConverter {
 		String defaultValue;
 
 		public String columnDefinition() {
-			if (field.equals(KBC_PRIMARY_KEY)) {
-				return MessageFormat.format("{0} {1} PRIMARY KEY", field, dbType());
+			if (this.field.equals(KBC_PRIMARY_KEY)) {
+				return MessageFormat.format("{0} {1} PRIMARY KEY", this.field, dbType());
 			}
 			return MessageFormat.format("{0} {1}{2}{3}",
-					field, dbType(), optional ? "" : " NOT NULL",
-					defaultValue != null ? "DEFAULT " + defaultValue : "");
+					this.field, dbType(), this.optional ? "" : " NOT NULL",
+					this.defaultValue != null ? "DEFAULT " + this.defaultValue : "");
 		}
 
 
 		boolean isDebeziumDate() {
-			return name != null && (name.equals("io.debezium.time.Date") || name.equals("org.apache.kafka.connect.data.Date"));
+			return this.name != null && (this.name.equals("io.debezium.time.Date") || this.name.equals("org.apache.kafka.connect.data.Date"));
 		}
 
 		public DuckDBColumnType dbType() {
-			switch (type) {
+			switch (this.type) {
 				case "int":
 				case "int32":
 					if (isDebeziumDate()) {
@@ -235,27 +237,31 @@ public class JsonToDbConverter implements JsonConverter {
 				case "time":
 					return DuckDBColumnType.TIME;
 				default:
-					throw new IllegalArgumentException("Unknown type: " + type);
+					throw new IllegalArgumentException("Unknown type: " + this.type);
 			}
 		}
 	}
 
 	@Value
-	private static class Tuple {
-		JsonArray schema;
+	private static class Memoized {
+		JsonArray lastDebeziumSchema;
 		PreparedStatement statement;
 		List<String> columns;
 
 		private void close() {
 			try {
-				if (statement != null) {
-					statement.executeBatch();
-					statement.close();
+				if (this.statement != null) {
+					this.statement.executeBatch();
+					this.statement.close();
 				}
 			} catch (SQLException e) {
 				log.error("Error during JsonToDbConverter close!", e);
 				throw new RuntimeException(e);
 			}
+		}
+
+		public String getColumn(int index) {
+			return this.columns.get(index);
 		}
 	}
 }

@@ -10,7 +10,7 @@ import java.sql.Statement;
 @Getter
 public class DuckDbWrapper {
 
-	private static final String TMP_DB_PATH = "./debezium_core/tmp/my-db.duckdb";
+	private static final String TMP_DB_PATH = "./tmp/my-db.duckdb";
 	private static final int MAX_THREADS = 4; // replace with your value
 	private static final String MEMORY_LIMIT = "4G"; // replace with your value
 	private static final String MAX_MEMORY = "2G"; // replace with your value
@@ -18,6 +18,10 @@ public class DuckDbWrapper {
 	private final DuckDBConnection conn;
 
 	public DuckDbWrapper() {
+		this(TMP_DB_PATH);
+	}
+
+	public DuckDbWrapper(String tmpDbPath) {
 		try {
 			// Load the DuckDB JDBC driver
 			Class.forName("org.duckdb.DuckDBDriver");
@@ -27,7 +31,7 @@ public class DuckDbWrapper {
 
 		// Establish a connection to the DuckDB database
 		try {
-			conn = (DuckDBConnection) DriverManager.getConnection("jdbc:duckdb:" + TMP_DB_PATH);
+			this.conn = (DuckDBConnection) DriverManager.getConnection("jdbc:duckdb:" + tmpDbPath);
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
@@ -60,7 +64,7 @@ public class DuckDbWrapper {
 
 	private Statement createStatement() {
 		try {
-			return conn.createStatement();
+			return this.conn.createStatement();
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
@@ -68,7 +72,7 @@ public class DuckDbWrapper {
 
 	public void close() {
 		try {
-			conn.close();
+			this.conn.close();
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
