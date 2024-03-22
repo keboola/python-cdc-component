@@ -73,6 +73,7 @@ class DbOptions(ConfigurationBase):
     user: str
     pswd_password: str
     ssh_options: SSHConfiguration = dataclasses.field(default_factory=lambda: ConfigTree({}))
+    p_database: Optional[str] = None
 
 
 @dataclass
@@ -92,6 +93,8 @@ class SyncOptions(ConfigurationBase):
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
+    source_signal_table: Optional[str] = None
+    max_wait_s: int = 30
 
 
 class LoadType(str, Enum):

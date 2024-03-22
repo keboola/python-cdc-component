@@ -1,7 +1,7 @@
 import logging
 import logging.handlers
 import tempfile
-
+import os
 from jaydebeapi import DatabaseError
 
 from db_components.db_common.db_connection import JDBCConnection
@@ -9,7 +9,7 @@ from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
 from db_components.ex_oracle_cdc.src.configuration import DbOptions
 
-JDBC_PATH = '../jdbc/ojdbc8-21.6.0.0.jar'
+JDBC_PATH = '../jdbc/ojdbc8.jar'
 
 
 class ExtractorUserException(Exception):
@@ -112,7 +112,8 @@ def build_oracle_property_file(user: str, password: str, hostname: str, port: st
         "database.port": port,
         "database.user": user,
         "database.password": password,
-        "database.dbname": database,
+        "database.dbname": "ORCLCDB",
+        "database.pdb.name": "ORCLPDB1",
         "snapshot.max.threads": snapshot_max_threads,
         "snapshot.fetch.size": snapshot_fetch_size,
         "snapshot.mode": snapshot_mode,
@@ -121,14 +122,16 @@ def build_oracle_property_file(user: str, password: str, hostname: str, port: st
         "schema.include.list": schema_include,
         "table.include.list": table_include,
         "errors.max.retries": 3,
-        "publication.autocreate.mode": "filtered",
-        "publication.name": f'publication_{repl_suffix.lower()}',
-        "slot.name": f'slot_{repl_suffix.lower()}',
-        "plugin.name": "pgoutput",
-        "signal.enabled.channels": "source",
-        "signal.data.collection": signal_table}
+        "signal.enabled.channels": "file",
+        "signal.data.collection": signal_table,
+        "signal.file": "/Users/dominik/projects/python-cdc-component/debezium_core/testing_config/signal-file.jsonl",
+        "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
+        "schema.history.internal.file.filename": "/Users/dominik/projects/python-cdc-component/debezium_core/testing_config/dbhistory.dat",
+        "schema.history.internal.store.only.captured.tables.ddl": "true"
+    }
 
     properties |= additional_properties
+    logging.info(f"Oracle properties: {properties}")
 
     temp_file = tempfile.NamedTemporaryFile(suffix='.properties', delete=False)
     with open(temp_file.name, 'w+', newline='\n') as outp:
@@ -142,13 +145,18 @@ class OracleDebeziumExtractor:
 
     def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
         self.__credentials = db_credentials
-        logging.debug(f'Driver {jdbc_path}')
+        driver_args = {'user': db_credentials.user, 'password': db_credentials.pswd_password}
+        logging.info(f"Connecting to Oracle database {db_credentials.host}:{db_credentials.port}/{db_credentials.database}")
+
+        jdbc_path = os.path.abspath(jdbc_path)
+        logging.info(f"JDBC path: {jdbc_path}")
+        if not os.path.exists(jdbc_path):
+            raise Exception(f"Debezium jar not found at {jdbc_path}")
+
         self.connection = JDBCConnection('oracle.jdbc.driver.OracleDriver',
-                                         url=f'jdbc:postgresql://{db_credentials.host}:{db_credentials.port}'
-                                             f'/{db_credentials.database}',
-                                         driver_args={'user': db_credentials.user,
-                                                      'password': db_credentials.pswd_password,
-                                                      'database': db_credentials.database},
+                                         url=f'jdbc:oracle:thin:@{db_credentials.host}:{db_credentials.port}:'
+                                             f'{db_credentials.database}',
+                                         driver_args=driver_args,
                                          jars=jdbc_path)
         self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self.connection, OracleBaseTypeConverter())
@@ -163,19 +171,39 @@ class OracleDebeziumExtractor:
     def test_connection(self):
         self.connect()
         # test if user has appropriate privileges
-        self.test_has_replication_privilege()
+        self.test_has_privileges()
         self.close_connection()
 
-    def test_has_replication_privilege(self):
-        query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"
-        results = list(self.connection.perform_query(query))
-        errors = []
-        if not results[0][0]:
-            errors.append(f"User '{self.user}' must have REPLICATION privileges.")
-        if not results[0][1]:
-            errors.append(f"User '{self.user}' must have LOGIN privileges.")
-        if errors:
-            raise ExtractorUserException('\n'.join(errors))
+    def test_has_privileges(self):
+        expected_results = {
+            ('C##DBZUSER', 'SYS', 'V_$LOG', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$TRANSACTION', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$MYSTAT', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$STATNAME', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$LOGFILE', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$DATABASE', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$ARCHIVED_LOG', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$LOG_HISTORY', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_CONTENTS', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_PARAMETERS', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_LOGS', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'V_$ARCHIVE_DEST_STATUS', 'SELECT'),
+            ('C##DBZUSER', 'SYS', 'DBMS_LOGMNR', 'EXECUTE'),
+            ('C##DBZUSER', 'SYS', 'DBMS_LOGMNR_D', 'EXECUTE')
+        }
+
+        query = """
+            SELECT grantee, owner, table_name, privilege
+            FROM dba_tab_privs
+            WHERE grantee = ?
+        """
+        results = set(tuple(row) for row in self.connection.perform_query(query, [self.user]))
+
+        missing_privileges = expected_results - results
+
+        if missing_privileges:
+            error_messages = ["Missing privileges: " + ", ".join(str(privilege) for privilege in missing_privileges)]
+            raise ExtractorUserException("\n".join(error_messages))
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")
