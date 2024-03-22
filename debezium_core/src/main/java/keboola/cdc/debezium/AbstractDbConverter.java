@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.duckdb.DuckDBColumnType;
@@ -26,10 +27,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class JsonToDbConverter {
-	private static final String KBC_PRIMARY_KEY = "kbc__primary_key";
-	private static final JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
-
+@Getter
+public abstract class AbstractDbConverter implements JsonConverter{
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
 
@@ -39,7 +38,7 @@ public class JsonToDbConverter {
 	private final ConcurrentMap<String, SchemaElement> schema;
 	private Memoized memoized;
 
-	public JsonToDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
+	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
 		this.gson = gson;
 		this.conn = dbWrapper.getConn();
 		this.tableName = tableName.replaceAll("\\.", "_");
@@ -48,22 +47,20 @@ public class JsonToDbConverter {
 		init(initialSchema);
 	}
 
-	private void init(@Nullable JsonArray initialSchema) {
-		log.info("Initializing schema for json to DB converter {}.", this.tableName);
-		List<SchemaElement> deserialized;
-		if (initialSchema != null) {
-			log.info("Initializing schema with {} default fields: {}", initialSchema.size(), initialSchema);
-			if (!initialSchema.contains(PRIMARY_KEY_JSON_ELEMENT)) {
-				initialSchema.add(PRIMARY_KEY_JSON_ELEMENT);
-			}
-			deserialized = deserialize(initialSchema);
-		} else {
-			log.info("No initial schema for table {} using schema with PK only.", this.tableName);
-			var primaryKey = this.gson.fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
-			deserialized = List.of(primaryKey);
-		}
+	abstract void init(@Nullable JsonArray initialSchema);
 
-		var columnDefinition = deserialized.stream()
+	abstract String upsertQuery(String tableName, List<String> columns);
+
+	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
+		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
+		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
+
+		putToDb(key, jsonValue);
+		log.debug("Json added to table {} processed.", this.tableName);
+	}
+
+	protected void createTables(final List<SchemaElement> deserializedSchema) {
+		var columnDefinition = deserializedSchema.stream()
 				.map(schemaElement -> {
 					//  initialize schema and prepare column definition
 					this.schema.put(schemaElement.field(), schemaElement);
@@ -85,16 +82,8 @@ public class JsonToDbConverter {
 		log.info("Json to db converter '{}' initialized", this.tableName);
 	}
 
-	private List<SchemaElement> deserialize(JsonArray fields) {
+	protected List<SchemaElement> deserialize(JsonArray fields) {
 		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
-	}
-
-	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
-		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
-		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
-
-		putToDb(key, jsonValue);
-		log.debug("Json added to table {} processed.", this.tableName);
 	}
 
 	/**
@@ -107,7 +96,7 @@ public class JsonToDbConverter {
 		try {
 			for (int i = 0; i < this.memoized.columns().size(); i++) {
 				var column = this.memoized.getColumn(i);
-				var value = Objects.equals(column, KBC_PRIMARY_KEY)
+				var value = Objects.equals(column, JsonConverter.KBC_PRIMARY_KEY)
 						? key.stream().map(k -> jsonValue.get(k).getAsString()).collect(Collectors.joining("_"))
 						: convertValue(jsonValue.get(column), this.schema.get(column));
 				this.memoized.statement().setObject(i + 1, value);
@@ -120,7 +109,6 @@ public class JsonToDbConverter {
 	}
 
 	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		jsonSchema.add(PRIMARY_KEY_JSON_ELEMENT); // schema from debezium does not have primary key
 		if (!Objects.equals(this.memoized.lastDebeziumSchema(), jsonSchema)) {
 			memoized(jsonSchema);
 		}
@@ -141,8 +129,8 @@ public class JsonToDbConverter {
 			stmt.close();
 			var columnNames = String.join(", ", columns);
 			log.info("Updating insert statement with new columns: {}", columnNames);
-			final var sql = MessageFormat.format("INSERT OR REPLACE INTO {0} ({1}) VALUES (?{2});",
-					this.tableName, columnNames, ", ?".repeat(columns.size() - 1));
+
+			final var sql = upsertQuery(this.tableName, columns);
 
 			this.memoized = new Memoized(jsonSchema, this.conn.prepareStatement(sql), columns);
 		} catch (SQLException e) {
@@ -179,19 +167,11 @@ public class JsonToDbConverter {
 		return this.gson.toJsonTree(this.schema.values());
 	}
 
-	private static JsonObject createPrimaryKeyJsonElement() {
-		JsonObject jsonObject = new JsonObject();
-		jsonObject.addProperty("field", KBC_PRIMARY_KEY);
-		jsonObject.addProperty("type", "string");
-		jsonObject.addProperty("optional", false);
-		return jsonObject;
-	}
-
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private record SchemaElement(String field, String type, String name, Integer version, boolean optional,
-	                             String defaultValue) {
+	protected record SchemaElement(String field, String type, String name, Integer version, boolean optional,
+								   String defaultValue) {
 		public String columnDefinition() {
-			if (this.field.equals(KBC_PRIMARY_KEY)) {
+			if (this.field.equals(JsonConverter.KBC_PRIMARY_KEY)) {
 				return MessageFormat.format("{0} {1} PRIMARY KEY", this.field, dbType());
 			}
 			return MessageFormat.format("{0} {1}{2}{3}",
