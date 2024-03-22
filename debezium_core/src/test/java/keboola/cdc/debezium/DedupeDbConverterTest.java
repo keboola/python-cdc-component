@@ -1,22 +1,26 @@
 package keboola.cdc.debezium;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
-class JsonToDbConverterTest {
+import java.text.MessageFormat;
+import java.util.Set;
+
+class DedupeDbConverterTest {
 	private static final JsonArray TESTING_SCHEMA = new JsonParser().parse("[\n" +
-			"    {\n" +
-			"      \"field\": \"kbc__batch_event_order\",\n" +
-			"      \"type\": \"int\",\n" +
-			"      \"optional\": true\n" +
-			"    },\n" +
 			"    {\n" +
 			"      \"type\": \"int32\",\n" +
 			"      \"optional\": false,\n" +
 			"      \"default\": 0,\n" +
 			"      \"field\": \"id\"\n" +
+			"    },\n" +
+			"    {\n" +
+			"      \"type\": \"double\",\n" +
+			"      \"optional\": true,\n" +
+			"      \"field\": \"weight\"\n" +
 			"    },\n" +
 			"    {\n" +
 			"      \"type\": \"string\",\n" +
@@ -101,8 +105,27 @@ class JsonToDbConverterTest {
 
 	@Test
 	public void test() {
-		JsonToDbConverter converter = new JsonToDbConverter(new DuckDbWrapper(), "products", TESTING_SCHEMA);
-		converter.processJson(1, null, TESTING_DATA, SCHEMA);
-		converter.close();
+		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 1, "1GB", "1GB"));
+		var converter = new DedupeDbConverter(new Gson(), dbWrapper, "products", TESTING_SCHEMA);
+		converter.processJson(Set.of("id"), TESTING_DATA, SCHEMA);
+//		converter.close();
+		try {
+			var stmt = dbWrapper.getConn().createStatement();
+			var rs = stmt.executeQuery("SELECT * FROM products");
+			while (rs.next()) {
+				// "id","name","description","weight","kbc__operation","kbc__event_timestamp","__deleted","kbc__batch_event_order", "my_perfect_column2"
+				var msg = MessageFormat.format("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}", rs.getInt("kbc__primary_key"), rs.getInt("id"), rs.getString("name"),
+						rs.getString("description"), rs.getDouble("weight"), rs.getString("kbc__operation"),
+						rs.getString("kbc__event_timestamp"), rs.getBoolean("__deleted"));
+				System.out.println(msg);
+			}
+
+			// Close the statement and connection
+			rs.close();
+			stmt.close();
+			dbWrapper.close();
+		}catch (Exception e){
+			e.printStackTrace();
+		}
 	}
 }
