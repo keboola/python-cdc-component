@@ -5,11 +5,14 @@ import logging
 import os
 import subprocess
 import sys
+from collections import OrderedDict
+from contextlib import contextmanager
 from csv import DictReader
 from pathlib import Path
 from typing import Protocol, Callable
 
 import duckdb
+from duckdb.duckdb import DuckDBPyConnection
 
 from db_components.db_common.table_schema import TableSchema
 from db_components.db_common.workspace_client import SnowflakeClient
@@ -125,7 +128,88 @@ class StagingException(Exception):
     pass
 
 
-class DuckDBStaging(Protocol):
+class DuckDBStagingExporter:
+
+    def __init__(self, db_path: str, max_threads: int = 1, memory_limit: str = '2GB', max_memory: str = '2GB'):
+        self._connection: DuckDBPyConnection = None
+        self.multi_threading_support = False
+        self.max_threads = max_threads
+        self.memory_limit = memory_limit
+        self.max_memory = max_memory
+        self.db_path = db_path
+
+    @contextmanager
+    def connect(self):
+        connection = duckdb.connect(database=self.db_path, read_only=True)
+        self._connection = connection
+        connection.execute("SET temp_directory	='/tmp/dbtmp'")
+        connection.execute(f"SET threads TO {self.max_threads}")
+        connection.execute(f"SET memory_limit='{self.memory_limit}'")
+        connection.execute(f"SET max_memory='{self.max_memory}'")
+        yield connection
+
+    def get_extracted_tables(self) -> list[str]:
+        return [t[0] for t in self._connection.query("SHOW TABLES").fetchall()]
+
+    def get_table_schema(self, table_name: str) -> OrderedDict[str, str]:
+        """
+        Get the schema of the table. column_name -> column_type
+
+        Args:
+            table_name:
+
+        Returns:
+
+        """
+        columns = OrderedDict()
+        for c in self._connection.table(table_name).description:
+            columns[c[0]] = c[1]
+        return columns
+
+    def process_table(self, table_name: str, result_table_path: str):
+        """
+        Processes the table and uploads it to the staging area -> converts to csv.
+
+        Args:
+            table_path (str): Path to the directory containing the CSV files to be uploaded.
+            result_table_name (str): Name of the table to be created in the staging area.
+            schema (TableSchema): Schema of the table to be created.
+            dedupe_required (bool): Flag indicating whether deduplication is required.
+            order_by_column: Column used to order and keep the latest record
+            null_string: String that represents NULL values in the CSV files.
+
+        """
+
+        logging.debug(f"Exporting table {table_name}")
+        select_columns = ','.join([self.wrap_in_quote(c) for c in self.get_table_schema(table_name)
+                                   if c != 'kbc__primary_key'])
+        offload_query = (
+            f"COPY (SELECT {select_columns} FROM {table_name}) "
+            f"TO \'{result_table_path}\' (HEADER false, DELIMITER \',\');")
+        logging.debug(offload_query)
+        self._connection.execute(offload_query)
+
+    def generate_select_column_statement(self, column_types: dict) -> str:
+        column_statements = []
+        for name, data_type in column_types.items():
+            if data_type in ['DATE', 'TIMESTAMP', 'TIME']:
+                column_statements.append(self.wrap_in_quote(name))
+                column_types[name] = 'BIGINT'
+            else:
+                column_statements.append(self.wrap_in_quote(name))
+        return ','.join(column_statements)
+
+    def wrap_columns_in_quotes(self, columns):
+        return [self.wrap_in_quote(col) for col in columns]
+
+    def wrap_in_quote(self, s):
+        return s if s.startswith('"') else '"' + s + '"'
+
+    def close(self):
+        self._connection.close()
+
+
+class DuckDBCSVStaging(Protocol):
     TMP_DB_PATH = "/tmp/my-db.duckdb"
 
     def __init__(self, column_type_convertor: Callable, convert_column_names: Callable,
