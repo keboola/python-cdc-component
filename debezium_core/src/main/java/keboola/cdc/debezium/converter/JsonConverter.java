@@ -1,22 +1,16 @@
-package keboola.cdc.debezium;
+package keboola.cdc.debezium.converter;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.duckdb.DuckDBColumnType;
+import keboola.cdc.debezium.DuckDbWrapper;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.text.MessageFormat;
-import java.util.List;
 import java.util.Set;
 
 public interface JsonConverter {
-	public static final String KBC_PRIMARY_KEY = "kbc__primary_key";
-	public static final JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
+	String KBC_PRIMARY_KEY = "kbc__primary_key";
+	JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
 
 	void processJson(Set<String> key, JsonObject jsonValue, JsonObject debeziumSchema);
 
@@ -26,7 +20,7 @@ public interface JsonConverter {
 
 	interface ConverterProvider {
 		JsonConverter getConverter(Gson gson, DuckDbWrapper dbWrapper,
-								   String tableName, @Nullable JsonArray initialSchema);
+								   String tableName, JsonArray initialSchema);
 	}
 
 	private static JsonObject createPrimaryKeyJsonElement() {

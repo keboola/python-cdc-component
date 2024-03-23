@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
+import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -65,7 +66,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 
 	@Override
 	public void handleBatch(List<ChangeEvent<String, String>> records,
-	                        DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
+							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
 		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (final var r : records) {
@@ -93,7 +94,11 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
 		this.converters.computeIfAbsent(tableIdentifier,
-						tableName -> this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, null))
+						tableName -> {
+							log.info("Creating new converter for table {}", tableName);
+							var fields = schema.get("fields").getAsJsonArray();
+							return this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, fields);
+						})
 				.processJson(keySet, payload, schema);
 	}
 

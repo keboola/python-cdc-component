@@ -1,4 +1,4 @@
-package keboola.cdc.debezium;
+package keboola.cdc.debezium.converter;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.gson.Gson;
@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -24,19 +25,22 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Getter
-public abstract class AbstractDbConverter implements JsonConverter{
+abstract class AbstractDbConverter implements JsonConverter {
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
+	private static final int MAX_BATCH_SIZE = 100;
 
 	private final DuckDBConnection conn;
 	private final String tableName;
 	private final Gson gson;
 	private final ConcurrentMap<String, SchemaElement> schema;
 	private Memoized memoized;
+	private final AtomicInteger batchSize;
 
 	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
 		this.gson = gson;
@@ -44,6 +48,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new ConcurrentHashMap<>(initialSchema != null ? initialSchema.size() : 16);
 		this.memoized = new Memoized(null, null, List.of());
+		this.batchSize = new AtomicInteger(0);
 		init(initialSchema);
 	}
 
@@ -59,7 +64,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		log.debug("Json added to table {} processed.", this.tableName);
 	}
 
-	protected void createTables(final List<SchemaElement> deserializedSchema) {
+	protected void createTable(final List<SchemaElement> deserializedSchema) {
 		var columnDefinition = deserializedSchema.stream()
 				.map(schemaElement -> {
 					//  initialize schema and prepare column definition
@@ -102,19 +107,20 @@ public abstract class AbstractDbConverter implements JsonConverter{
 				this.memoized.statement().setObject(i + 1, value);
 			}
 			this.memoized.statement().addBatch();
+
+			if (this.batchSize.incrementAndGet() > MAX_BATCH_SIZE) {
+				this.memoized.statement().executeBatch();
+				this.batchSize.set(0);
+			}
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
 			throw new RuntimeException(e);
 		}
 	}
 
-	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		if (!Objects.equals(this.memoized.lastDebeziumSchema(), jsonSchema)) {
-			memoized(jsonSchema);
-		}
-	}
+	protected abstract void adjustSchemaIfNecessary(final JsonArray jsonSchema);
 
-	private void memoized(JsonArray jsonSchema) {
+	protected void memoized(JsonArray jsonSchema) {
 		var deserialized = deserialize(jsonSchema);
 		var columns = new ArrayList<String>(deserialized.size());
 		try {
@@ -207,7 +213,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		}
 	}
 
-	private record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
+	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
 		private void close() {
 			try {
 				if (this.statement != null) {
