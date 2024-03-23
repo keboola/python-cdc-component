@@ -1,29 +1,14 @@
-package keboola.cdc.debezium;
+package keboola.cdc.debezium.converter;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
+import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.duckdb.DuckDBColumnType;
-import org.duckdb.DuckDBConnection;
 
-import java.lang.reflect.Type;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.text.MessageFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class DedupeDbConverter extends AbstractDbConverter implements JsonConverter {
@@ -47,7 +32,15 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 			var primaryKey = getGson().fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
 			deserialized = List.of(primaryKey);
 		}
-		createTables(deserialized);
+		createTable(deserialized);
+	}
+
+	@Override
+	protected void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
+		jsonSchema.add(PRIMARY_KEY_JSON_ELEMENT); // schema from debezium does not have primary key
+		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
+			memoized(jsonSchema);
+		}
 	}
 
 	@Override

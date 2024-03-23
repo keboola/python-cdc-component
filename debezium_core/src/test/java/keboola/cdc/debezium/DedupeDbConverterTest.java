@@ -4,13 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import keboola.cdc.debezium.converter.DedupeDbConverter;
 import org.junit.jupiter.api.Test;
 
 import java.text.MessageFormat;
 import java.util.Set;
 
 class DedupeDbConverterTest {
-	private static final JsonArray TESTING_SCHEMA = new JsonParser().parse("[\n" +
+	private static final JsonArray TESTING_SCHEMA = JsonParser.parseString("[\n" +
 			"    {\n" +
 			"      \"type\": \"int32\",\n" +
 			"      \"optional\": false,\n" +
@@ -48,7 +49,7 @@ class DedupeDbConverterTest {
 			"      \"field\": \"__deleted\"\n" +
 			"    }" +
 			"  ]").getAsJsonArray();
-	private static final JsonObject SCHEMA = new JsonParser().parse("{\n" +
+	private static final JsonObject SCHEMA = JsonParser.parseString("{\n" +
 			"    \"type\": \"struct\",\n" +
 			"    \"fields\": [\n" +
 			"      {\n" +
@@ -92,7 +93,7 @@ class DedupeDbConverterTest {
 			"    \"name\": \"testcdc.inventory.products.Value\"\n" +
 			"  }").getAsJsonObject();
 
-	private static final JsonObject TESTING_DATA = new JsonParser().parse("{\n" +
+	private static final JsonObject TESTING_DATA = JsonParser.parseString("{\n" +
 			"    \"id\": 122,\n" +
 			"    \"name\": \"ccc\",\n" +
 			"    \"description\": \"hafanana\",\n" +
