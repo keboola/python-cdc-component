@@ -3,13 +3,12 @@ Template Component main class.
 
 """
 import base64
-import glob
 import logging
 import os
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from functools import cached_property
 
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
@@ -18,13 +17,17 @@ from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
 from configuration import Configuration, DbOptions, SnapshotMode
-from db_components.db_common.staging import Staging, SnowflakeStaging, DuckDBStaging
+from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters
 from extractor.postgres_extractor import PostgresDebeziumExtractor
 from extractor.postgres_extractor import SUPPORTED_TYPES
 from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+
+KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
+
+KEY_DUCKDB_PATH = '/tmp/tmpdb.duckdb'
 
 KEY_STAGING_TYPE = 'staging_type'
 
@@ -44,7 +47,8 @@ class Component(ComponentBase):
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
-        ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")]
+        # ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")
+    ]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
                                   "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
@@ -61,8 +65,6 @@ class Component(ComponentBase):
         self._source_schema_metadata: dict[str, TableSchema]
 
         self._staging: Staging
-
-        self._last_schema: dict[str, TableSchema] = self._get_schemas_from_state()
 
         if not self.configuration.parameters.get("debug"):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
@@ -95,18 +97,22 @@ class Component(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
-            debezium_executor = DebeziumExecutor(debezium_properties, DEBEZIUM_CORE_PATH,
+            debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
+                                                 duckdb_config=DuckDBParameters(KEY_DUCKDB_PATH),
+                                                 jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection,
                                                  result_log_path=log_artefact_path)
+
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
             logging.info("Running Debezium Engine")
-            debezium_executor.execute(self.tables_out_path,
-                                      max_duration_s=8000,
-                                      max_wait_s=self._configuration.sync_options.max_wait_s)
+            result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      max_duration_s=8000,
+                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
+                                                      previous_schema=self.last_debezium_schema)
 
             start = time.time()
             result_tables = self._load_tables_to_stage()
@@ -114,7 +120,11 @@ class Component(ComponentBase):
             logging.info(f"Load to stage finished in {end - start}")
             self.write_manifests([res[0] for res in result_tables])
 
-            self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables])
+            self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables], result_schema)
+
+            # cleanup duckdb (local dev)
+            if os.path.exists(KEY_DUCKDB_PATH):
+                os.remove(KEY_DUCKDB_PATH)
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -175,21 +185,8 @@ class Component(ComponentBase):
                 pass
 
     def _init_workspace_client(self):
-        if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'snowflake':
-
-            logging.info("Using Snowflake staging")
-            self._staging = SnowflakeStaging(self.configuration.workspace_credentials,
-                                             self._convert_to_snowflake_column_definitions,
-                                             self._normalize_columns)
-
-        elif self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
-            logging.info("Using DuckDB staging")
-            self._staging = DuckDBStaging(self._convert_to_snowflake_column_definitions,
-                                          self._normalize_columns)
-
-        else:
-            raise UserException(
-                f"Staging type not supported: {self.configuration.image_parameters.get(KEY_STAGING_TYPE)}")
+        logging.info("Using DuckDB staging")
+        self._staging = DuckDBStagingExporter(KEY_DUCKDB_PATH)
 
     def _init_configuration(self):
         self.validate_configuration_parameters(Configuration.get_dataclass_required_parameters())
@@ -214,14 +211,6 @@ class Component(ComponentBase):
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
         return (base64.b64encode(image_data_binary)).decode('ascii')
 
-    def _get_schemas_from_state(self) -> dict[str, TableSchema]:
-        schemas_dict: dict = self.get_state_file().get(KEY_LAST_SCHEMA, dict())
-        schema_map = dict()
-        if schemas_dict:
-            for key, value in schemas_dict.items():
-                schema_map[key] = init_table_schema_from_dict(value)
-        return schema_map
-
     def _collect_source_metadata(self):
         """
         Collects metadata such as table and columns schema for the monitored tables from the source database.
@@ -238,47 +227,42 @@ class Component(ComponentBase):
             schema, table = table.split('.')
             ts = self._client.metadata_provider.get_table_metadata(schema=schema,
                                                                    table_name=table)
-            table_schemas[f"{schema}.{table}"] = ts
+            # TODO: change the topic name (testcdc)
+            table_schemas[f"testcdc_{schema}_{table}"] = ts
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
-        result_tables = glob.glob(os.path.join(self.tables_out_path, '*.csv'))
-        result_table_defs = []
-
-        if self._staging.multi_threading_support:
-            with self._staging.connect():
-                with ThreadPoolExecutor(max_workers=self._configuration.max_workers) as executor:
-                    futures = {
-                        executor.submit(self._create_table_in_stage, table): table for
-                        table in result_tables
-                    }
-                    for future in as_completed(futures):
-                        if future.exception():
-                            raise UserException(
-                                f"Could not create table: {futures[future]}, reason: {future.exception()}")
-
-                        result_table_defs.append(future.result())
-        else:
-            for table in result_tables:
-                result_table_defs.append(self._create_table_in_stage(table))
+        with self._staging.connect():
+            result_table_defs = []
+            for table in self._staging.get_extracted_tables():
+                result_table_defs.append(self._process_table_in_stage(table))
 
         return result_table_defs
 
-    def _create_table_in_stage(self, table_path: str) -> tuple[TableDefinition, TableSchema]:
-        table_key = os.path.basename(table_path).split('.csv')[0].split('.', 1)[1]
+    def _process_table_in_stage(self, table_key: str) -> tuple[TableDefinition, TableSchema]:
+        """
+        Processes table in stage. Creates table definition and schema based on the result schema.
+        Args:
+            table_key:
 
-        result_table_name = table_key.replace('.', '_')
+        Returns:
 
-        schema = self._get_table_schema(table_key)
+        """
 
-        logging.info(f"Creating table {result_table_name} in stage")
+        result_schema = self._staging.get_table_schema(table_key)
+        schema = self._get_source_table_schema(table_key)
 
-        self._staging.process_table(table_path, result_table_name, schema, self.dedupe_required())
+        self.sort_columns_by_result(schema, result_schema)
 
         incremental_load = self._configuration.destination.is_incremental_load
         # remove primary key when using append mode
         if self._configuration.destination.load_type in ('append_incremental', 'append_full'):
             schema.primary_keys = []
+
+        table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
+
+        logging.info(f"Creating table {table_key} in stage")
+        self._staging.process_table(table_key, table_definition.full_path)
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
@@ -304,9 +288,10 @@ class Component(ComponentBase):
             column_types.append({"name": c.name, "type": dtype})
         return column_types
 
-    def _get_table_schema(self, table_key: str) -> TableSchema:
+    def _get_source_table_schema(self, table_key: str) -> TableSchema:
         """
-        Returns complete table schema including metadata fields and fields already existing in Storage
+        Returns complete table schema from the source database
+        including metadata fields and fields already existing in Storage
         Args:
             table_key:
 
@@ -314,7 +299,7 @@ class Component(ComponentBase):
 
         """
         schema = self._source_schema_metadata[table_key]
-        last_schema = self._last_schema.get(table_key)
+        last_schema = self.previous_storage_schema.get(table_key)
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
@@ -373,7 +358,7 @@ class Component(ComponentBase):
         logging.debug(f'Dedupping table {table_name}: {query}')
         self._staging.execute_query(query)
 
-    def _write_result_state(self, offset: str, table_schemas: list[TableSchema]):
+    def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema:dict):
         """
         Writes state file with last offset and last schema and last synced tables
         Args:
@@ -383,17 +368,11 @@ class Component(ComponentBase):
         Returns:
 
         """
-        # load schema.json from data folder and include it's content in the state file
-        debezium_schema = {}
-        if os.path.exists(f"{self.tables_out_path}/schema.json"):
-            with open(f"{self.tables_out_path}/schema.json", 'r') as f:
-                debezium_schema = f.read()
-            os.remove(f"{self.tables_out_path}/schema.json")
 
         state = {KEY_LAST_OFFSET: offset,
                  KEY_LAST_SCHEMA: {},
-                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables,
-                 "debezium_schema": debezium_schema}
+                 KEY_DEBEZIUM_SCHEMA: debezium_schema,
+                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
 
         for schema in table_schemas:
             schema_key = f"{schema.schema_name}.{schema.name}"
@@ -411,9 +390,23 @@ class Component(ComponentBase):
         return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
-    @property
+    @cached_property
     def is_initial_run(self):
         return self.get_state_file().get(KEY_LAST_OFFSET) is None
+
+    @cached_property
+    def last_debezium_schema(self) -> dict:
+        return self.get_state_file().get(KEY_DEBEZIUM_SCHEMA, {})
+
+    @cached_property
+    def previous_storage_schema(self) -> dict[str, TableSchema]:
+        schemas_dict: dict = self.get_state_file().get(KEY_LAST_SCHEMA, dict())
+        schema_map = dict()
+        if schemas_dict:
+            for key, value in schemas_dict.items():
+                schema_map[key] = init_table_schema_from_dict(value)
+
+        return schema_map
 
     def get_snapshot_mode(self) -> str:
         """
@@ -494,6 +487,21 @@ class Component(ComponentBase):
             suffix = "prod"
 
         return f"kbc_{config_id}_{suffix}"
+
+    def sort_columns_by_result(self, table_schema: TableSchema, result_schema: dict):
+        """
+        Sorts columns based on the result schema
+        Args:
+            table_schema: 
+            result_schema: 
+
+        Returns:
+
+        """
+        # rename column names of result schema
+        result_order = self._normalize_columns([c for c in result_schema])
+        # sort columns based on the result schema
+        table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
 
 
 """
