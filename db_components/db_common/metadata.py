@@ -52,7 +52,7 @@ class JDBCMetadataProvider(ABC):
             additional_types: By default include only TABLE types, additionally VIEW, SYSTEM TABLE
                               or SYSTEM VIEW can be included.
 
-        Returns: tuple schema_name, table_name
+        Returns: tuple schema_name, script_name
 
         """
         table_types = ['TABLE']

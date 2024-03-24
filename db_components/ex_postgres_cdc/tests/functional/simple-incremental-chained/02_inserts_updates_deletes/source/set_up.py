@@ -2,7 +2,7 @@ import os
 
 from datadirtest import TestDataDir
 
-from tests.test_functional import TestDatabaseEnvironment
+from db_components.debezium.tests.functional import TestDatabaseEnvironment
 
 
 def get_transactions_queries():
