@@ -158,6 +158,7 @@ class DebeziumExecutor:
         return args
 
     def execute(self, result_folder_path: str,
+                mode: Literal['APPEND', 'DEDUPE'] = 'APPEND',
                 max_duration_s: int = 3600,
                 max_wait_s: int = 10, previous_schema: dict = None) -> dict:
 
@@ -165,6 +166,7 @@ class DebeziumExecutor:
         Execute the Debezium CDC engine with the given properties file and additional arguments.
         Args:
             result_folder_path:
+            mode: Mode of result processing, APPEND or DEDUPE. Dedupe keeps only latest event per record.
             max_duration_s:
             max_wait_s:
             previous_schema: Optional schema of the previous run to keep the expanding schema of tables
@@ -177,7 +179,7 @@ class DebeziumExecutor:
                 json.dump(previous_schema, schema_file)
 
         additional_args = DebeziumExecutor._build_args_from_dict({"pf": self._keboola_properties_path,
-                                                                  "md": max_duration_s, "mw": max_wait_s})
+                                                                  "md": max_duration_s, "mw": max_wait_s, "m": mode})
         args = ['java', '-jar', self._jar_path] + [self._properties_path, result_folder_path] + additional_args
         process = subprocess.Popen(args,
                                    stdout=subprocess.PIPE,
