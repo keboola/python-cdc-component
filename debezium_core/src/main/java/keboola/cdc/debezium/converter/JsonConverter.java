@@ -12,7 +12,7 @@ public interface JsonConverter {
 	String KBC_PRIMARY_KEY = "kbc__primary_key";
 	JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
 
-	void processJson(Set<String> key, JsonObject jsonValue, JsonObject debeziumSchema);
+	void processJson(String key, JsonObject jsonValue, JsonObject debeziumSchema);
 
 	void close();
 
