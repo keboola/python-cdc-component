@@ -71,6 +71,7 @@ class Component(ComponentBase):
 
     def run(self):
         self._init_configuration()
+        self.cleanup_duckdb()
         with self._init_client() as db_config:
             self._init_workspace_client()
 
@@ -110,6 +111,7 @@ class Component(ComponentBase):
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      mode='DEDUPE' if self.dedupe_required() else 'APPEND',
                                                       max_duration_s=8000,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
@@ -122,9 +124,12 @@ class Component(ComponentBase):
 
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables], result_schema)
 
-            # cleanup duckdb (local dev)
-            if os.path.exists(KEY_DUCKDB_PATH):
-                os.remove(KEY_DUCKDB_PATH)
+            self.cleanup_duckdb()
+
+    def cleanup_duckdb(self):
+        # cleanup duckdb (local dev)
+        if os.path.exists(KEY_DUCKDB_PATH):
+            os.remove(KEY_DUCKDB_PATH)
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -358,7 +363,7 @@ class Component(ComponentBase):
         logging.debug(f'Dedupping table {table_name}: {query}')
         self._staging.execute_query(query)
 
-    def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema:dict):
+    def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema: dict):
         """
         Writes state file with last offset and last schema and last synced tables
         Args:
@@ -492,8 +497,8 @@ class Component(ComponentBase):
         """
         Sorts columns based on the result schema
         Args:
-            table_schema: 
-            result_schema: 
+            table_schema:
+            result_schema:
 
         Returns:
 

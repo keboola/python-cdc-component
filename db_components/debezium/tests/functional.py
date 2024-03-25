@@ -1,5 +1,6 @@
 import csv
 import glob
+import json
 import os
 import shutil
 import tempfile
@@ -30,7 +31,7 @@ class TestDatabaseEnvironment:
         queries = table.init_queries
         for q in queries:
             if q.strip():
-                self.connection.perform_query(q)
+                self.perform_query(q)
 
 
 class DebeziumCDCDatadirTest(TestDataDir):
@@ -63,8 +64,10 @@ class DebeziumCDCDatadirTest(TestDataDir):
     @staticmethod
     def _remove_column_slice(table_path: str, column_names: list[str]):
         tmp_path = f'{table_path}__tmp.csv'
+        columns = json.load(open(f'{table_path}.manifest'))['columns']
         with open(table_path, 'r') as inp, open(tmp_path, 'w+') as outp:
-            reader = csv.DictReader(inp)
+
+            reader = csv.DictReader(inp, fieldnames=columns)
             new_columns = reader.fieldnames.copy()
             for col in column_names:
                 new_columns.remove(col)
@@ -91,12 +94,9 @@ class DebeziumCDCDatadirTest(TestDataDir):
         ci = CommonInterface(self.source_data_dir)
         in_tables: list = glob.glob(f'{ci.tables_out_path}/*.csv')
 
-        # we now we need to remove last 2columns
-        columns_to_remove = ['kbc__event_timestamp']
-
         for in_table in in_tables:
             # we now we need to remove last 2columns
-            columns_to_remove = ['kbc__event_timestamp']
+            columns_to_remove = ['KBC__EVENT_TIMESTAMP_MS']
             if 'debezium_signals' in in_table:
                 # in case of debezium signal we need to remove id column
                 columns_to_remove.append('id')
