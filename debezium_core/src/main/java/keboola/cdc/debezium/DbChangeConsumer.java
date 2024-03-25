@@ -26,19 +26,23 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	private static final Gson GSON = new Gson();
 
 	private final AtomicInteger count;
-	private final ConcurrentMap<String, JsonToDbConverter> converters;
+	private final ConcurrentMap<String, JsonConverter> converters;
 	private final String jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
 	@SuppressWarnings("unused")
 	private final SyncStats syncStats;
+	private final JsonConverter.ConverterProvider converterProvider;
 
 
-	public DbChangeConsumer(AtomicInteger count, String resultFolder, SyncStats syncStats, DuckDbWrapper dbWrapper) {
+	public DbChangeConsumer(AtomicInteger count, String resultFolder,
+							SyncStats syncStats, DuckDbWrapper dbWrapper,
+							JsonConverter.ConverterProvider converterProvider) {
 		this.count = count;
 		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json").toString();
 		this.converters = new ConcurrentHashMap<>();
 		this.dbWrapper = dbWrapper;
 		this.syncStats = syncStats;
+		this.converterProvider = converterProvider;
 		init();
 	}
 
@@ -50,7 +54,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 				for (var entry : schemaJson.entrySet()) {
 					var tableIdentifier = entry.getKey();
 					var initSchema = entry.getValue().getAsJsonArray();
-					var converter = new JsonToDbConverter(GSON, this.dbWrapper, tableIdentifier, initSchema);
+					var converter = this.converterProvider.getConverter(GSON, this.dbWrapper, tableIdentifier, initSchema);
 					this.converters.put(tableIdentifier, converter);
 				}
 			} catch (IOException e) {
@@ -89,7 +93,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
 		this.converters.computeIfAbsent(tableIdentifier,
-						tableName -> new JsonToDbConverter(GSON, this.dbWrapper, tableName, null))
+						tableName -> this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, null))
 				.processJson(keySet, payload, schema);
 	}
 
@@ -111,7 +115,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 
 	public void closeWriterStreams() {
 		this.converters.values()
-				.forEach(JsonToDbConverter::close);
+				.forEach(JsonConverter::close);
 		this.dbWrapper.close();
 	}
 
