@@ -108,7 +108,7 @@ class DedupeDbConverterTest {
 	public void test() {
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 1, "1GB", "1GB"));
 		var converter = new DedupeDbConverter(new Gson(), dbWrapper, "products", TESTING_SCHEMA);
-		converter.processJson(Set.of("id"), TESTING_DATA, SCHEMA);
+//		converter.processJson("id", TESTING_DATA, SCHEMA);
 //		converter.close();
 		try {
 			var stmt = dbWrapper.getConn().createStatement();

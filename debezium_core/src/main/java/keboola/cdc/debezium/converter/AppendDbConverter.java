@@ -2,12 +2,14 @@ package keboola.cdc.debezium.converter;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 public class AppendDbConverter extends AbstractDbConverter implements JsonConverter {
@@ -31,10 +33,8 @@ public class AppendDbConverter extends AbstractDbConverter implements JsonConver
 	}
 
 	@Override
-	protected void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
-			memoized(jsonSchema);
-		}
+	public void processJson(String keyJson, JsonObject jsonValue, JsonObject debeziumSchema) {
+		processJson(Set.of(), jsonValue, debeziumSchema, debeziumSchema.get("fields").getAsJsonArray());
 	}
 
 	@Override

@@ -56,9 +56,11 @@ abstract class AbstractDbConverter implements JsonConverter {
 
 	abstract String upsertQuery(String tableName, List<String> columns);
 
-	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
+	public abstract void processJson(final String keyJson, final JsonObject jsonValue, final JsonObject debeziumSchema);
+
+	protected void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema, JsonArray debeziumSchemaFields) {
 		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
-		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
+		adjustSchemaIfNecessary(debeziumSchemaFields);
 
 		putToDb(key, jsonValue);
 		log.debug("Json added to table {} processed.", this.tableName);
@@ -118,7 +120,11 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 	}
 
-	protected abstract void adjustSchemaIfNecessary(final JsonArray jsonSchema);
+	private void adjustSchemaIfNecessary(final JsonArray jsonSchema){
+		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
+			memoized(jsonSchema);
+		}
+	}
 
 	protected void memoized(JsonArray jsonSchema) {
 		var deserialized = deserialize(jsonSchema);
@@ -196,7 +202,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 			return switch (this.type) {
 				case "int", "int32" -> {
 					if (isDebeziumDate()) {
-						yield DuckDBColumnType.VARCHAR;
+						yield DuckDBColumnType.DATE;
 					}
 					yield DuckDBColumnType.INTEGER;
 				}
