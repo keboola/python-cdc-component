@@ -19,10 +19,7 @@ import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -141,6 +138,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 			stmt.close();
 			var columnNames = String.join(", ", columns);
 			log.info("Updating insert statement with new columns: {}", columnNames);
+			this.memoized.closeStatement();
 
 			final var sql = upsertQuery(this.tableName, columns);
 
@@ -172,7 +170,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 	}
 
 	public void close() {
-		this.memoized.close();
+		this.memoized.closeStatement();
 	}
 
 	public JsonElement getSchema() {
@@ -220,7 +218,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 	}
 
 	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
-		private void close() {
+		private void closeStatement() {
 			try {
 				if (this.statement != null) {
 					this.statement.executeBatch();
