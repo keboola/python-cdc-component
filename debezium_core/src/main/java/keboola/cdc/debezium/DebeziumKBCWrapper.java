@@ -25,22 +25,27 @@ public class DebeziumKBCWrapper implements Runnable {
 
 	@Option(names = {"-mw", "--max-wait"}, description = "The maximum wait duration(s) for next event before engine stops")
 	private int maxWait;
+	@Option(names = {"-m", "--mode"}, description = "The maximum wait duration(s) for next event before engine stops", defaultValue = "APPEND")
+	private Mode mode;
 
 
 	@Override
 	public void run() {
 		log.info("Engine started");
+
 		var debeziumTask = this.keboolaPropertiesPath == null ?
 				new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
-						Path.of(this.resultFolderPath)) :
+						Path.of(this.resultFolderPath),
+						mode) :
 
 				new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Path.of(this.keboolaPropertiesPath),
 						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
-						Path.of(this.resultFolderPath));
+						Path.of(this.resultFolderPath),
+						mode);
 		try {
 			debeziumTask.run();
 		} catch (Exception e) {
@@ -53,5 +58,10 @@ public class DebeziumKBCWrapper implements Runnable {
 
 	public static void main(String[] args) {
 		new CommandLine(new DebeziumKBCWrapper()).execute(args);
+	}
+
+	public enum Mode {
+		APPEND,
+		DEDUPE
 	}
 }

@@ -25,31 +25,49 @@ public class AbstractDebeziumTask {
 
 	private final Duration maxDuration;
 	private final Path resultFolder;
+	private final JsonConverter.ConverterProvider converterProvider;
+
 	private Duration maxWait = Duration.ofSeconds(10);
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Duration maxDuration,
 								Duration maxWait,
-								Path resultFolder) {
-		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath), new Properties(),
-				maxDuration, resultFolder, maxWait);
+								Path resultFolder,
+								DebeziumKBCWrapper.Mode mode) {
+		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
+				new Properties(),
+				maxDuration,
+				resultFolder,
+				mode == DebeziumKBCWrapper.Mode.APPEND ? AppendDbConverter::new : DedupeDbConverter::new,
+				maxWait);
 	}
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Path keboolaPropertiesPath,
 								Duration maxDuration,
 								Duration maxWait,
-								Path resultFolder) {
-		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath), loadProperties(keboolaPropertiesPath),
-				maxDuration, resultFolder, maxWait);
+								Path resultFolder,
+								DebeziumKBCWrapper.Mode mode) {
+
+		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
+				loadProperties(keboolaPropertiesPath),
+				maxDuration,
+				resultFolder,
+				mode == DebeziumKBCWrapper.Mode.APPEND ? AppendDbConverter::new : DedupeDbConverter::new,
+				maxWait);
 	}
 
-	public AbstractDebeziumTask(Properties debeziumProperties, Properties keboolaProperties,
-								Duration maxDuration, Path resultFolder, Duration maxWait) {
+	private AbstractDebeziumTask(Properties debeziumProperties,
+								 Properties keboolaProperties,
+								 Duration maxDuration,
+								 Path resultFolder,
+								 JsonConverter.ConverterProvider converterProvider,
+								 Duration maxWait) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
 		this.maxDuration = maxDuration;
 		this.resultFolder = resultFolder;
+		this.converterProvider = converterProvider;
 		if (maxWait != null) {
 			this.maxWait = maxWait;
 		}
@@ -65,7 +83,7 @@ public class AbstractDebeziumTask {
 		// callback
 		CompletionCallback completionCallback = new CompletionCallback(executorService);
 		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats,
-				new DuckDbWrapper(this.keboolaProperties));
+				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
 //		var changeConsumer = new ChangeConsumer(this, this.log, count,syncStats,
 //				this.resultFolder.toString());
 
