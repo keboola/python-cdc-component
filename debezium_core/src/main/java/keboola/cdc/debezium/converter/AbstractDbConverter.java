@@ -6,6 +6,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import io.debezium.data.Uuid;
+import io.debezium.time.Date;
+import io.debezium.time.Time;
+import io.debezium.time.Timestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -117,7 +121,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 	}
 
-	private void adjustSchemaIfNecessary(final JsonArray jsonSchema){
+	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
 		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
 			memoized(jsonSchema);
 		}
@@ -156,7 +160,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 	 * @param field schema element
 	 */
 	private Object convertValue(JsonElement value, SchemaElement field) {
-		if (field.isDebeziumDate()) {
+		if (field.isDate()) {
 			return LocalDate.ofEpochDay(value.getAsInt())
 					.format(DateTimeFormatter.ISO_LOCAL_DATE);
 		}
@@ -190,23 +194,47 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 
 
-		boolean isDebeziumDate() {
-			return this.name != null
-					&& (this.name.equals("io.debezium.time.Date")
-					|| this.name.equals("org.apache.kafka.connect.data.Date"));
+		boolean isDate() {
+			return Objects.equals(this.name, Date.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Date.LOGICAL_NAME);
+		}
+
+		boolean isTime() {
+			return Objects.equals(this.name, Time.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Time.LOGICAL_NAME);
+		}
+
+		private boolean isTimestamp() {
+			return Objects.equals(this.name, Timestamp.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME);
 		}
 
 		public DuckDBColumnType dbType() {
 			return switch (this.type) {
-				case "int", "int32" -> {
-					if (isDebeziumDate()) {
+				case "int", "int16", "int32" -> {
+					if (isDate()) {
 						yield DuckDBColumnType.DATE;
+					}
+					if (isTime()) {
+						yield DuckDBColumnType.TIME;
 					}
 					yield DuckDBColumnType.INTEGER;
 				}
-				case "int64" -> DuckDBColumnType.BIGINT;
+				case "int64" -> {
+					if (isTimestamp()) {
+						yield DuckDBColumnType.TIMESTAMP;
+					}
+					yield DuckDBColumnType.BIGINT;
+				}
 				case "timestamp" -> DuckDBColumnType.TIMESTAMP;
-				case "string" -> DuckDBColumnType.VARCHAR;
+				case "string" -> {
+					if (Objects.equals(this.name, Uuid.LOGICAL_NAME)) {
+						yield DuckDBColumnType.UUID;
+					}
+					yield DuckDBColumnType.VARCHAR;
+				}
+				case "bytes" -> DuckDBColumnType.BLOB;
+				case "array", "struct" -> DuckDBColumnType.VARCHAR;
 				case "boolean" -> DuckDBColumnType.BOOLEAN;
 				case "float" -> DuckDBColumnType.FLOAT;
 				case "double" -> DuckDBColumnType.DOUBLE;
