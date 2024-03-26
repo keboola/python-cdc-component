@@ -1,4 +1,4 @@
-package keboola.cdc.debezium;
+package keboola.cdc.debezium.converter;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.gson.Gson;
@@ -6,6 +6,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import io.debezium.data.Uuid;
+import io.debezium.time.Date;
+import io.debezium.time.Time;
+import io.debezium.time.Timestamp;
+import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -18,25 +23,25 @@ import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Getter
-public abstract class AbstractDbConverter implements JsonConverter{
+abstract class AbstractDbConverter implements JsonConverter {
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
+	private static final int MAX_BATCH_SIZE = 100;
 
 	private final DuckDBConnection conn;
 	private final String tableName;
 	private final Gson gson;
 	private final ConcurrentMap<String, SchemaElement> schema;
 	private Memoized memoized;
+	private final AtomicInteger batchSize;
 
 	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
 		this.gson = gson;
@@ -44,6 +49,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new ConcurrentHashMap<>(initialSchema != null ? initialSchema.size() : 16);
 		this.memoized = new Memoized(null, null, List.of());
+		this.batchSize = new AtomicInteger(0);
 		init(initialSchema);
 	}
 
@@ -51,15 +57,17 @@ public abstract class AbstractDbConverter implements JsonConverter{
 
 	abstract String upsertQuery(String tableName, List<String> columns);
 
-	public void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema) {
+	public abstract void processJson(final String keyJson, final JsonObject jsonValue, final JsonObject debeziumSchema);
+
+	protected void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema, JsonArray debeziumSchemaFields) {
 		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
-		adjustSchemaIfNecessary(debeziumSchema.get("fields").getAsJsonArray());
+		adjustSchemaIfNecessary(debeziumSchemaFields);
 
 		putToDb(key, jsonValue);
 		log.debug("Json added to table {} processed.", this.tableName);
 	}
 
-	protected void createTables(final List<SchemaElement> deserializedSchema) {
+	protected void createTable(final List<SchemaElement> deserializedSchema) {
 		var columnDefinition = deserializedSchema.stream()
 				.map(schemaElement -> {
 					//  initialize schema and prepare column definition
@@ -102,6 +110,11 @@ public abstract class AbstractDbConverter implements JsonConverter{
 				this.memoized.statement().setObject(i + 1, value);
 			}
 			this.memoized.statement().addBatch();
+
+			if (this.batchSize.incrementAndGet() > MAX_BATCH_SIZE) {
+				this.memoized.statement().executeBatch();
+				this.batchSize.set(0);
+			}
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
 			throw new RuntimeException(e);
@@ -109,12 +122,12 @@ public abstract class AbstractDbConverter implements JsonConverter{
 	}
 
 	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		if (!Objects.equals(this.memoized.lastDebeziumSchema(), jsonSchema)) {
+		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
 			memoized(jsonSchema);
 		}
 	}
 
-	private void memoized(JsonArray jsonSchema) {
+	protected void memoized(JsonArray jsonSchema) {
 		var deserialized = deserialize(jsonSchema);
 		var columns = new ArrayList<String>(deserialized.size());
 		try {
@@ -129,6 +142,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 			stmt.close();
 			var columnNames = String.join(", ", columns);
 			log.info("Updating insert statement with new columns: {}", columnNames);
+			this.memoized.closeStatement();
 
 			final var sql = upsertQuery(this.tableName, columns);
 
@@ -146,7 +160,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 	 * @param field schema element
 	 */
 	private Object convertValue(JsonElement value, SchemaElement field) {
-		if (field.isDebeziumDate()) {
+		if (field.isDate()) {
 			return LocalDate.ofEpochDay(value.getAsInt())
 					.format(DateTimeFormatter.ISO_LOCAL_DATE);
 		}
@@ -160,7 +174,7 @@ public abstract class AbstractDbConverter implements JsonConverter{
 	}
 
 	public void close() {
-		this.memoized.close();
+		this.memoized.closeStatement();
 	}
 
 	public JsonElement getSchema() {
@@ -180,23 +194,47 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		}
 
 
-		boolean isDebeziumDate() {
-			return this.name != null
-					&& (this.name.equals("io.debezium.time.Date")
-					|| this.name.equals("org.apache.kafka.connect.data.Date"));
+		boolean isDate() {
+			return Objects.equals(this.name, Date.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Date.LOGICAL_NAME);
+		}
+
+		boolean isTime() {
+			return Objects.equals(this.name, Time.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Time.LOGICAL_NAME);
+		}
+
+		private boolean isTimestamp() {
+			return Objects.equals(this.name, Timestamp.SCHEMA_NAME)
+					|| Objects.equals(this.name, org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME);
 		}
 
 		public DuckDBColumnType dbType() {
 			return switch (this.type) {
-				case "int", "int32" -> {
-					if (isDebeziumDate()) {
-						yield DuckDBColumnType.VARCHAR;
+				case "int", "int16", "int32" -> {
+					if (isDate()) {
+						yield DuckDBColumnType.DATE;
+					}
+					if (isTime()) {
+						yield DuckDBColumnType.TIME;
 					}
 					yield DuckDBColumnType.INTEGER;
 				}
-				case "int64" -> DuckDBColumnType.BIGINT;
+				case "int64" -> {
+					if (isTimestamp()) {
+						yield DuckDBColumnType.TIMESTAMP;
+					}
+					yield DuckDBColumnType.BIGINT;
+				}
 				case "timestamp" -> DuckDBColumnType.TIMESTAMP;
-				case "string" -> DuckDBColumnType.VARCHAR;
+				case "string" -> {
+					if (Objects.equals(this.name, Uuid.LOGICAL_NAME)) {
+						yield DuckDBColumnType.UUID;
+					}
+					yield DuckDBColumnType.VARCHAR;
+				}
+				case "bytes" -> DuckDBColumnType.BLOB;
+				case "array", "struct" -> DuckDBColumnType.VARCHAR;
 				case "boolean" -> DuckDBColumnType.BOOLEAN;
 				case "float" -> DuckDBColumnType.FLOAT;
 				case "double" -> DuckDBColumnType.DOUBLE;
@@ -207,8 +245,8 @@ public abstract class AbstractDbConverter implements JsonConverter{
 		}
 	}
 
-	private record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
-		private void close() {
+	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
+		private void closeStatement() {
 			try {
 				if (this.statement != null) {
 					this.statement.executeBatch();

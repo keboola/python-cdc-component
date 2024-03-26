@@ -1,5 +1,10 @@
 package keboola.cdc.debezium;
 
+import keboola.cdc.debezium.converter.AppendDbConverter;
+import keboola.cdc.debezium.converter.DedupeDbConverter;
+import keboola.cdc.debezium.converter.JsonConverter;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
@@ -33,19 +38,18 @@ public class DebeziumKBCWrapper implements Runnable {
 	public void run() {
 		log.info("Engine started");
 
-		var debeziumTask = this.keboolaPropertiesPath == null ?
-				new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
+		var debeziumTask = this.keboolaPropertiesPath == null
+				? new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
-						mode) :
-
-				new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
+						this.mode.getConverterProvider())
+				: new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Path.of(this.keboolaPropertiesPath),
 						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
-						mode);
+						this.mode.getConverterProvider());
 		try {
 			debeziumTask.run();
 		} catch (Exception e) {
@@ -60,8 +64,11 @@ public class DebeziumKBCWrapper implements Runnable {
 		new CommandLine(new DebeziumKBCWrapper()).execute(args);
 	}
 
-	public enum Mode {
-		APPEND,
-		DEDUPE
+	@Getter
+	@AllArgsConstructor
+	private enum Mode {
+		APPEND(AppendDbConverter::new),
+		DEDUPE(DedupeDbConverter::new);
+		private final JsonConverter.ConverterProvider converterProvider;
 	}
 }

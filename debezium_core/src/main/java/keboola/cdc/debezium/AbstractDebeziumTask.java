@@ -4,6 +4,7 @@ import io.debezium.config.Configuration;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
 import io.debezium.engine.format.Json;
+import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.FileInputStream;
@@ -22,23 +23,21 @@ public class AbstractDebeziumTask {
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;
-
 	private final Duration maxDuration;
 	private final Path resultFolder;
 	private final JsonConverter.ConverterProvider converterProvider;
-
-	private Duration maxWait = Duration.ofSeconds(10);
+	private final Duration maxWait;
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
-								DebeziumKBCWrapper.Mode mode) {
+								JsonConverter.ConverterProvider provider) {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
 				maxDuration,
 				resultFolder,
-				mode == DebeziumKBCWrapper.Mode.APPEND ? AppendDbConverter::new : DedupeDbConverter::new,
+				provider,
 				maxWait);
 	}
 
@@ -47,13 +46,13 @@ public class AbstractDebeziumTask {
 								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
-								DebeziumKBCWrapper.Mode mode) {
+								JsonConverter.ConverterProvider provider) {
 
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
 				maxDuration,
 				resultFolder,
-				mode == DebeziumKBCWrapper.Mode.APPEND ? AppendDbConverter::new : DedupeDbConverter::new,
+				provider,
 				maxWait);
 	}
 
@@ -68,9 +67,7 @@ public class AbstractDebeziumTask {
 		this.maxDuration = maxDuration;
 		this.resultFolder = resultFolder;
 		this.converterProvider = converterProvider;
-		if (maxWait != null) {
-			this.maxWait = maxWait;
-		}
+		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
 	}
 
 	public void run() throws Exception {
@@ -84,8 +81,6 @@ public class AbstractDebeziumTask {
 		CompletionCallback completionCallback = new CompletionCallback(executorService);
 		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats,
 				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
-//		var changeConsumer = new ChangeConsumer(this, this.log, count,syncStats,
-//				this.resultFolder.toString());
 
 		// start
 		try (DebeziumEngine<ChangeEvent<String, String>> engine = DebeziumEngine.create(Json.class)

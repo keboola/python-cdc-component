@@ -73,7 +73,6 @@ class DebeziumCDCDatadirTest(TestDataDir):
                 new_columns.remove(col)
 
             writer = csv.DictWriter(outp, fieldnames=new_columns, lineterminator='\n', quoting=csv.QUOTE_MINIMAL)
-            writer.writeheader()
             for row in reader:
                 for col in column_names:
                     row.pop(col)

@@ -1,29 +1,19 @@
-package keboola.cdc.debezium;
+package keboola.cdc.debezium.converter;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonParser;
+import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.duckdb.DuckDBColumnType;
-import org.duckdb.DuckDBConnection;
 
-import java.lang.reflect.Type;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.text.MessageFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 @Slf4j
 public class DedupeDbConverter extends AbstractDbConverter implements JsonConverter {
@@ -47,12 +37,34 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 			var primaryKey = getGson().fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
 			deserialized = List.of(primaryKey);
 		}
-		createTables(deserialized);
+		createTable(deserialized);
 	}
 
 	@Override
 	String upsertQuery(String tableName, List<String> columns) {
 		return MessageFormat.format("INSERT OR REPLACE INTO {0} ({1}) VALUES (?{2});",
 						tableName, String.join(", ", columns), ", ?".repeat(columns.size() - 1));
+	}
+
+	@Override
+	public void processJson(String keyJson, JsonObject jsonValue, JsonObject debeziumSchema) {
+		var keySet = extractPrimaryKey(JsonParser.parseString(keyJson).getAsJsonObject());
+		var fields = debeziumSchema.get("fields").getAsJsonArray();
+		if (!fields.contains(PRIMARY_KEY_JSON_ELEMENT)) {
+			fields.add(PRIMARY_KEY_JSON_ELEMENT);
+		}
+		processJson(keySet, jsonValue, debeziumSchema, fields);
+	}
+
+	private static Set<String> extractPrimaryKey(JsonObject key) {
+		var keySet = StreamSupport.stream(
+						key.getAsJsonObject("schema")
+								.get("fields")
+								.getAsJsonArray()
+								.spliterator(), false)
+				.map(jsonElement -> jsonElement.getAsJsonObject().get("field").getAsString())
+				.collect(Collectors.toUnmodifiableSet());
+		log.debug("Primary key columns: {}", keySet);
+		return keySet;
 	}
 }
