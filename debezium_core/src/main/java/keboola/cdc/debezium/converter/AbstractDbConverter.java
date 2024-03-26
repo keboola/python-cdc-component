@@ -8,8 +8,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import io.debezium.data.Uuid;
 import io.debezium.time.Date;
-import io.debezium.time.Time;
+import io.debezium.time.Interval;
 import io.debezium.time.Timestamp;
+import io.debezium.time.ZonedTimestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,10 @@ import java.lang.reflect.Type;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.text.MessageFormat;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -161,12 +165,15 @@ abstract class AbstractDbConverter implements JsonConverter {
 	 * @param field schema element
 	 */
 	private Object convertValue(JsonElement value, SchemaElement field) {
+		if (value.isJsonNull()) {
+			return null;
+		}
 		if (field.isDate()) {
 			return LocalDate.ofEpochDay(value.getAsInt())
 					.format(DateTimeFormatter.ISO_LOCAL_DATE);
 		}
-		if (value.isJsonNull()) {
-			return null;
+		if (field.isTimestamp()) {
+			return LocalDateTime.ofInstant(Instant.ofEpochMilli(value.getAsLong()), ZoneOffset.UTC);
 		}
 		if (value.isJsonPrimitive()) {
 			return value.getAsString();
@@ -194,15 +201,9 @@ abstract class AbstractDbConverter implements JsonConverter {
 					this.defaultValue != null ? "DEFAULT " + this.defaultValue : "");
 		}
 
-
 		boolean isDate() {
 			return Objects.equals(this.name, Date.SCHEMA_NAME)
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Date.LOGICAL_NAME);
-		}
-
-		boolean isTime() {
-			return Objects.equals(this.name, Time.SCHEMA_NAME)
-					|| Objects.equals(this.name, org.apache.kafka.connect.data.Time.LOGICAL_NAME);
 		}
 
 		private boolean isTimestamp() {
@@ -210,39 +211,50 @@ abstract class AbstractDbConverter implements JsonConverter {
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME);
 		}
 
-		public DuckDBColumnType dbType() {
+		public String dbType() {
 			return switch (this.type) {
 				case "int", "int16", "int32" -> {
 					if (isDate()) {
-						yield DuckDBColumnType.DATE;
+						yield DuckDBColumnType.DATE.name();
 					}
-					if (isTime()) {
-						yield DuckDBColumnType.TIME;
-					}
-					yield DuckDBColumnType.INTEGER;
+					yield DuckDBColumnType.INTEGER.name();
 				}
 				case "int64" -> {
 					if (isTimestamp()) {
-						yield DuckDBColumnType.TIMESTAMP;
+						yield DuckDBColumnType.TIMESTAMP.name();
 					}
-					yield DuckDBColumnType.BIGINT;
+					yield DuckDBColumnType.BIGINT.name();
 				}
-				case "timestamp" -> DuckDBColumnType.TIMESTAMP;
+				case "timestamp" -> DuckDBColumnType.TIMESTAMP.name();
 				case "string" -> {
 					if (Objects.equals(this.name, Uuid.LOGICAL_NAME)) {
-						yield DuckDBColumnType.UUID;
+						yield DuckDBColumnType.UUID.name();
 					}
-					yield DuckDBColumnType.VARCHAR;
+					if (isZonedTimestamp()) {
+						yield "timestamptz";
+					}
+					if (isInterval()) {
+						yield DuckDBColumnType.INTERVAL.name();
+					}
+					yield DuckDBColumnType.VARCHAR.name();
 				}
-				case "bytes" -> DuckDBColumnType.BLOB;
-				case "array", "struct" -> DuckDBColumnType.VARCHAR;
-				case "boolean" -> DuckDBColumnType.BOOLEAN;
-				case "float" -> DuckDBColumnType.FLOAT;
-				case "double" -> DuckDBColumnType.DOUBLE;
-				case "date" -> DuckDBColumnType.DATE;
-				case "time" -> DuckDBColumnType.TIME;
+				case "bytes" -> DuckDBColumnType.VARCHAR.name();
+				case "array", "struct" -> DuckDBColumnType.VARCHAR.name();
+				case "boolean" -> DuckDBColumnType.BOOLEAN.name();
+				case "float" -> DuckDBColumnType.FLOAT.name();
+				case "double" -> DuckDBColumnType.DOUBLE.name();
+				case "date" -> DuckDBColumnType.DATE.name();
+				case "time" -> DuckDBColumnType.TIME.name();
 				default -> throw new IllegalArgumentException("Unknown type: " + this.type);
 			};
+		}
+
+		private boolean isInterval() {
+			return Objects.equals(this.name, Interval.SCHEMA_NAME);
+		}
+
+		private boolean isZonedTimestamp() {
+			return Objects.equals(this.name, ZonedTimestamp.SCHEMA_NAME);
 		}
 	}
 
