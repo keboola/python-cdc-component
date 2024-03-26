@@ -27,7 +27,8 @@ class DbTestTable(ABC):
 
         """
         transactions_path = os.path.join(traits_folder, self.sql_script_name)
-        return str(open(transactions_path, 'r').read()).split(';')
+        with open(transactions_path, 'r') as f:
+            return f.read().split(';')
 
     @staticmethod
     def get_available_scripts() -> list[str]:

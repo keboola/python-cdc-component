@@ -5,6 +5,9 @@ Template Component main class.
 import base64
 import logging
 import os
+import shutil
+
+DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 import tempfile
 import time
 from contextlib import contextmanager
@@ -26,8 +29,6 @@ from extractor.postgres_extractor import build_postgres_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
-
-KEY_DUCKDB_PATH = '/tmp/tmpdb.duckdb'
 
 KEY_STAGING_TYPE = 'staging_type'
 
@@ -99,7 +100,7 @@ class Component(ComponentBase):
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(KEY_DUCKDB_PATH),
+                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection,
                                                  result_log_path=log_artefact_path)
@@ -127,9 +128,17 @@ class Component(ComponentBase):
             self.cleanup_duckdb()
 
     def cleanup_duckdb(self):
-        # cleanup duckdb (local dev)
-        if os.path.exists(KEY_DUCKDB_PATH):
-            os.remove(KEY_DUCKDB_PATH)
+        # cleanup duckdb (useful for local dev,to clean resources)
+        if os.path.exists(DUCK_DB_DIR):
+            shutil.rmtree(DUCK_DB_DIR)
+
+    @cached_property
+    def duck_db_path(self):
+        duckdb_dir = DUCK_DB_DIR
+        os.makedirs(duckdb_dir, exist_ok=True)
+        tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
+        os.remove(tmpdb.name)
+        return tmpdb.name
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -191,7 +200,7 @@ class Component(ComponentBase):
 
     def _init_workspace_client(self):
         logging.info("Using DuckDB staging")
-        self._staging = DuckDBStagingExporter(KEY_DUCKDB_PATH)
+        self._staging = DuckDBStagingExporter(self.duck_db_path)
 
     def _init_configuration(self):
         self.validate_configuration_parameters(Configuration.get_dataclass_required_parameters())
@@ -264,6 +273,7 @@ class Component(ComponentBase):
         if self._configuration.destination.load_type in ('append_incremental', 'append_full'):
             schema.primary_keys = []
 
+        self._convert_to_snowflake_column_definitions(schema.fields)
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")

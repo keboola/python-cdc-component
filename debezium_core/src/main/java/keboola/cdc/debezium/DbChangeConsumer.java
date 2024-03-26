@@ -1,10 +1,12 @@
 package keboola.cdc.debezium;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
+import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -50,12 +52,15 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var schemaFile = new File(this.jsonSchemaFilePath);
 		if (schemaFile.exists()) {
 			try {
-				var schemaJson = JsonParser.parseReader(new FileReader(schemaFile)).getAsJsonObject();
-				for (var entry : schemaJson.entrySet()) {
-					var tableIdentifier = entry.getKey();
-					var initSchema = entry.getValue().getAsJsonArray();
-					var converter = this.converterProvider.getConverter(GSON, this.dbWrapper, tableIdentifier, initSchema);
-					this.converters.put(tableIdentifier, converter);
+				var jsonElement = JsonParser.parseReader(new FileReader(schemaFile));
+				if (!jsonElement.isJsonNull()) {
+					var schemaJson = jsonElement.getAsJsonObject();
+					for (var entry : schemaJson.entrySet()) {
+						var tableIdentifier = entry.getKey();
+						var initSchema = entry.getValue().getAsJsonArray();
+						var converter = this.converterProvider.getConverter(GSON, this.dbWrapper, tableIdentifier, initSchema);
+						this.converters.put(tableIdentifier, converter);
+					}
 				}
 			} catch (IOException e) {
 				log.error("{}", e.getMessage(), e);
@@ -65,7 +70,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 
 	@Override
 	public void handleBatch(List<ChangeEvent<String, String>> records,
-	                        DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
+							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
 		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (final var r : records) {
@@ -89,24 +94,15 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		var payload = valueJson.getAsJsonObject("payload");
 		var schema = valueJson.getAsJsonObject("schema");
 
-		var keySet = extractPrimaryKey(JsonParser.parseString(key).getAsJsonObject());
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
 		this.converters.computeIfAbsent(tableIdentifier,
-						tableName -> this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, null))
-				.processJson(keySet, payload, schema);
-	}
-
-	private static Set<String> extractPrimaryKey(JsonObject key) {
-		var keySet = StreamSupport.stream(
-						key.getAsJsonObject("schema")
-								.get("fields")
-								.getAsJsonArray()
-								.spliterator(), false)
-				.map(jsonElement -> jsonElement.getAsJsonObject().get("field").getAsString())
-				.collect(Collectors.toUnmodifiableSet());
-		log.debug("Primary key columns: {}", keySet);
-		return keySet;
+						tableName -> {
+							log.info("Creating new converter for table {}", tableName);
+							var fields = schema.get("fields").getAsJsonArray();
+							return this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, fields);
+						})
+				.processJson(key, payload, schema);
 	}
 
 	public AtomicInteger getRecordsCount() {
