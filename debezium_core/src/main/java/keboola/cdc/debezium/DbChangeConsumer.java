@@ -1,7 +1,6 @@
 package keboola.cdc.debezium;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.debezium.engine.ChangeEvent;
@@ -16,12 +15,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
@@ -118,7 +114,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void storeSchemaMap() throws IOException {
 		JsonObject obj = new JsonObject();
 		for (var e : this.converters.entrySet()) {
-			obj.add(e.getKey(), e.getValue().getSchema());
+			obj.add(e.getKey(), e.getValue().getJsonSchema());
 		}
 		// Convert the list to JSON and write it to a file
 		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath)) {
