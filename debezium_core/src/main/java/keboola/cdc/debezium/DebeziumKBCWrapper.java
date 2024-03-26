@@ -14,6 +14,15 @@ public class DebeziumKBCWrapper implements Runnable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DebeziumKBCWrapper.class);
 
+    static {
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
     @Parameters(index = "0", description = "The debezium properties path")
     private String debeziumPropertiesPath;
 
