@@ -6,7 +6,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.text.MessageFormat;
 import java.util.List;
@@ -17,32 +16,24 @@ import java.util.stream.StreamSupport;
 @Slf4j
 public class DedupeDbConverter extends AbstractDbConverter implements JsonConverter {
 
-	public DedupeDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
+	public DedupeDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, JsonArray initialSchema) {
 		super(gson, dbWrapper, tableName, initialSchema);
 	}
 
 	@Override
-	protected void init(@Nullable JsonArray initialSchema) {
+	protected void init(JsonArray initialSchema) {
 		log.info("Initializing schema for json to DB converter {}.", getTableName());
-		List<SchemaElement> deserialized;
-		if (initialSchema != null) {
-			log.info("Initializing schema with {} default fields: {}", initialSchema.size(), initialSchema);
-			if (!initialSchema.contains(PRIMARY_KEY_JSON_ELEMENT)) {
-				initialSchema.add(PRIMARY_KEY_JSON_ELEMENT);
-			}
-			deserialized = deserialize(initialSchema);
-		} else {
-			log.info("No initial schema for table {} using schema with PK only.", getTableName());
-			var primaryKey = getGson().fromJson(PRIMARY_KEY_JSON_ELEMENT, SchemaElement.class);
-			deserialized = List.of(primaryKey);
+		log.info("Initializing schema with {} default fields: {}", initialSchema.size(), initialSchema);
+		if (!initialSchema.contains(PRIMARY_KEY_JSON_ELEMENT)) {
+			initialSchema.add(PRIMARY_KEY_JSON_ELEMENT);
 		}
-		createTable(deserialized);
+		createTable(deserialize(initialSchema));
 	}
 
 	@Override
 	String upsertQuery(String tableName, List<String> columns) {
 		return MessageFormat.format("INSERT OR REPLACE INTO {0} ({1}) VALUES (?{2});",
-						tableName, String.join(", ", columns), ", ?".repeat(columns.size() - 1));
+				tableName, String.join(", ", columns), ", ?".repeat(columns.size() - 1));
 	}
 
 	@Override
@@ -56,6 +47,7 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 	}
 
 	private static Set<String> extractPrimaryKey(JsonObject key) {
+		log.debug("Extracting primary key columns from key: {}", key);
 		var keySet = StreamSupport.stream(
 						key.getAsJsonObject("schema")
 								.get("fields")

@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import io.debezium.data.Uuid;
 import io.debezium.time.Date;
@@ -14,7 +15,6 @@ import io.debezium.time.ZonedTimestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.duckdb.DuckDBColumnType;
 import org.duckdb.DuckDBConnection;
 
@@ -45,17 +45,17 @@ abstract class AbstractDbConverter implements JsonConverter {
 	private Memoized memoized;
 	private final AtomicInteger batchSize;
 
-	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, @Nullable JsonArray initialSchema) {
+	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, JsonArray initialSchema) {
 		this.gson = gson;
 		this.conn = dbWrapper.getConn();
 		this.tableName = tableName.replaceAll("\\.", "_");
-		this.schema = new LinkedHashMap<>(initialSchema != null ? initialSchema.size() : 16);
+		this.schema = new LinkedHashMap<>(initialSchema.size());
 		this.memoized = new Memoized(null, null, List.of());
 		this.batchSize = new AtomicInteger(0);
 		init(initialSchema);
 	}
 
-	abstract void init(@Nullable JsonArray initialSchema);
+	abstract void init(JsonArray initialSchema);
 
 	abstract String upsertQuery(String tableName, List<String> columns);
 
@@ -190,15 +190,15 @@ abstract class AbstractDbConverter implements JsonConverter {
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	protected record SchemaElement(String field, String type, String name, Integer version, boolean optional,
-								   String defaultValue) {
+	protected record SchemaElement(String type, boolean optional, @SerializedName("default") String defaultValue,
+								   String name, Integer version, String field) {
 		public String columnDefinition() {
 			if (this.field.equals(JsonConverter.KBC_PRIMARY_KEY)) {
 				return MessageFormat.format("{0} {1} PRIMARY KEY", this.field, dbType());
 			}
 			return MessageFormat.format("{0} {1}{2}{3}",
 					this.field, dbType(), this.optional ? "" : " NOT NULL",
-					this.defaultValue != null ? "DEFAULT " + this.defaultValue : "");
+					this.defaultValue != null ? " DEFAULT " + this.defaultValue : "");
 		}
 
 		boolean isDate() {
@@ -256,6 +256,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 		private boolean isZonedTimestamp() {
 			return Objects.equals(this.name, ZonedTimestamp.SCHEMA_NAME);
 		}
+
 	}
 
 	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
