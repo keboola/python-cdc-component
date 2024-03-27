@@ -1,0 +1,239 @@
+{
+  "type": "struct",
+  "fields": [
+    {
+      "type": "int16",
+      "optional": true,
+      "field": "smallint_col"
+    },
+    {
+      "type": "int32",
+      "optional": true,
+      "field": "integer_col"
+    },
+    {
+      "type": "int64",
+      "optional": true,
+      "field": "bigint_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "decimal_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "numeric_col"
+    },
+    {
+      "type": "float",
+      "optional": true,
+      "field": "real_col"
+    },
+    {
+      "type": "double",
+      "optional": true,
+      "field": "double_precision_col"
+    },
+    {
+      "type": "int32",
+      "optional": false,
+      "default": 0,
+      "field": "serial_col"
+    },
+    {
+      "type": "int64",
+      "optional": false,
+      "default": 0,
+      "field": "bigserial_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "money_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "character_varying_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "varchar_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "character_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "char_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "text_col"
+    },
+    {
+      "type": "bytes",
+      "optional": true,
+      "field": "bytea_col"
+    },
+    {
+      "type": "int64",
+      "optional": true,
+      "name": "org.apache.kafka.connect.data.Timestamp",
+      "version": 1,
+      "field": "timestamp_col"
+    },
+    {
+      "type": "int32",
+      "optional": true,
+      "name": "org.apache.kafka.connect.data.Date",
+      "version": 1,
+      "field": "date_col"
+    },
+    {
+      "type": "int32",
+      "optional": true,
+      "name": "org.apache.kafka.connect.data.Time",
+      "version": 1,
+      "field": "time_col"
+    },
+    {
+      "type": "boolean",
+      "optional": true,
+      "field": "boolean_col"
+    },
+    {
+      "type": "int64",
+      "optional": true,
+      "name": "io.debezium.time.MicroDuration",
+      "version": 1,
+      "field": "interval_col"
+    },
+    {
+      "type": "struct",
+      "fields": [
+        {
+          "type": "double",
+          "optional": false,
+          "field": "x"
+        },
+        {
+          "type": "double",
+          "optional": false,
+          "field": "y"
+        },
+        {
+          "type": "bytes",
+          "optional": true,
+          "field": "wkb"
+        },
+        {
+          "type": "int32",
+          "optional": true,
+          "field": "srid"
+        }
+      ],
+      "optional": true,
+      "name": "io.debezium.data.geometry.Point",
+      "version": 1,
+      "doc": "Geometry (POINT)",
+      "field": "point_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "cidr_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "inet_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "macaddr_col"
+    },
+    {
+      "type": "bytes",
+      "optional": true,
+      "name": "io.debezium.data.Bits",
+      "version": 1,
+      "parameters": {
+        "length": "10"
+      },
+      "field": "bit_col"
+    },
+    {
+      "type": "bytes",
+      "optional": true,
+      "name": "io.debezium.data.Bits",
+      "version": 1,
+      "parameters": {
+        "length": "10"
+      },
+      "field": "bit_varying_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "name": "io.debezium.data.Uuid",
+      "version": 1,
+      "field": "uuid_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "name": "io.debezium.data.Xml",
+      "version": 1,
+      "field": "xml_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "name": "io.debezium.data.Json",
+      "version": 1,
+      "field": "json_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "name": "io.debezium.data.Json",
+      "version": 1,
+      "field": "jsonb_col"
+    },
+    {
+      "type": "array",
+      "items": {
+        "type": "int32",
+        "optional": true
+      },
+      "optional": true,
+      "field": "array_col"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "kbc__operation"
+    },
+    {
+      "type": "int64",
+      "optional": true,
+      "field": "kbc__event_timestamp"
+    },
+    {
+      "type": "string",
+      "optional": true,
+      "field": "__deleted"
+    }
+  ],
+  "optional": false,
+  "name": "testcdc.benchmark.all_data_types.Value"
+}
