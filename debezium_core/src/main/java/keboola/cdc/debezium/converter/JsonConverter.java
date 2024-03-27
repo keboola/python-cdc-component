@@ -6,8 +6,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import keboola.cdc.debezium.DuckDbWrapper;
 
-import java.util.Set;
-
 public interface JsonConverter {
 	String KBC_PRIMARY_KEY = "kbc__primary_key";
 	JsonElement PRIMARY_KEY_JSON_ELEMENT = createPrimaryKeyJsonElement();
@@ -16,7 +14,7 @@ public interface JsonConverter {
 
 	void close();
 
-	JsonElement getSchema();
+	JsonElement getJsonSchema();
 
 	interface ConverterProvider {
 		JsonConverter getConverter(Gson gson, DuckDbWrapper dbWrapper,
