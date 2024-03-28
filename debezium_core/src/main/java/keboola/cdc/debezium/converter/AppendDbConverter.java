@@ -27,6 +27,7 @@ public class AppendDbConverter extends AbstractDbConverter implements JsonConver
 				initialSchema.remove(PRIMARY_KEY_JSON_ELEMENT);
 			}
 			deserialized = deserialize(initialSchema);
+			log.debug("Deserialized schema: {}", deserialized);
 			super.createTable(deserialized);
 		}
 	}
