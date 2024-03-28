@@ -1,0 +1,55 @@
+{
+  "parameters": {
+    "db_settings": {
+      "ssh_options": [],
+      "host": "{{env.PGSQL_HOST}}",
+      "database": "postgres",
+      "port": 5432,
+      "user": "{{env.PGSQL_USER}}",
+      "#password": "{{env.PGSQL_PASSWORD}}",
+      "use_ssh": false
+    },
+    "destination": {
+      "load_type": "append_full"
+    },
+    "sync_options": {
+      "source_signal_table": "inventory.debezium_signals",
+      "max_wait_s": 10,
+      "snapshot_mode": "initial",
+      "snapshot_threads": 1,
+      "snapshot_fetch_size": 10240
+    },
+    "source_settings": {
+      "tables": [
+        "inventory.sales"
+      ],
+      "schemas": [
+        "inventory"
+      ]
+    },
+    "debug": true
+  },
+  "authorization": {
+    "workspace": {
+    },
+    "oauth_api": {
+      "id": "OAUTH_API_ID",
+      "credentials": {
+        "id": "main",
+        "authorizedFor": "Myself",
+        "creator": {
+          "id": "1234",
+          "description": "me@keboola.com"
+        },
+        "created": "2016-01-31 00:13:30",
+        "#data": "{\"refresh_token\":\"XXXXX-TOKEN\"}",
+        "oauthVersion": "2.0",
+        "appKey": "12345",
+        "#appSecret": "123qwe-CiN"
+      }
+    }
+  },
+  "action": "run",
+  "image_parameters": {
+  }
+}

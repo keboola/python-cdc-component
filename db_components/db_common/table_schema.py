@@ -60,7 +60,7 @@ class TableSchema:
 
     @property
     def csv_name(self) -> str:
-        return f"{self.schema_name}_{self.name}"
+        return f"{self.schema_name}_{self.name}.csv"
 
     def add_column(self, column: ColumnSchema) -> None:
         """

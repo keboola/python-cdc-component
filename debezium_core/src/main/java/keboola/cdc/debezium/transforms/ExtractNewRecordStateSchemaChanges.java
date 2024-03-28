@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 
 import io.debezium.transforms.ExtractNewRecordStateConfigDefinition;
 import io.debezium.transforms.SmtManager;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.ConnectRecord;
 import org.apache.kafka.connect.data.Schema;
@@ -41,8 +42,6 @@ import org.apache.kafka.connect.transforms.InsertField;
 import org.apache.kafka.connect.transforms.ReplaceField;
 import org.apache.kafka.connect.transforms.Transformation;
 import org.apache.kafka.connect.transforms.util.SchemaUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.debezium.config.Configuration;
 import io.debezium.config.Field;
@@ -70,9 +69,8 @@ import io.debezium.util.Strings;
  * @param <R> the subtype of {@link ConnectRecord} on which this transformation will operate
  * @author Jiri Pechanec
  */
+@Slf4j
 public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> implements Transformation<R> {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(ExtractNewRecordStateSchemaChanges.class);
 
 	private static final String PURPOSE = "source field insertion";
 	private static final String EXCLUDE = "exclude";
@@ -108,7 +106,7 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 		smtManager = new SmtManager<>(config);
 
 		final Field.Set configFields = Field.setOf(ExtractNewRecordStateConfigDefinition.DROP_TOMBSTONES, ExtractNewRecordStateConfigDefinition.HANDLE_DELETES);
-		if (!config.validateAndRecord(configFields, LOGGER::error)) {
+		if (!config.validateAndRecord(configFields, log::error)) {
 			throw new ConnectException("Unable to validate config.");
 		}
 
@@ -156,7 +154,7 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 	public R apply(final R record) {
 		if (record.value() == null) {
 			if (dropTombstones) {
-				LOGGER.trace("Tombstone {} arrived and requested to be dropped", record.key());
+				log.trace("Tombstone {} arrived and requested to be dropped", record.key());
 				return null;
 			}
 			if (!additionalHeaders.isEmpty()) {
@@ -177,7 +175,7 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 
 		R newRecord = afterDelegate.apply(record);
 		if (newRecord.value() == null && beforeDelegate.apply(record).value() == null) {
-			LOGGER.trace("Truncate event arrived and requested to be dropped");
+			log.trace("Truncate event arrived and requested to be dropped");
 			return null;
 		}
 		if (newRecord.value() == null) {
@@ -194,10 +192,10 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 			// Handling delete records
 			switch (handleDeletes) {
 				case DROP:
-					LOGGER.trace("Delete message {} requested to be dropped", record.key());
+					log.trace("Delete message {} requested to be dropped", record.key());
 					return null;
 				case REWRITE:
-					LOGGER.trace("Delete message {} requested to be rewritten", record.key());
+					log.trace("Delete message {} requested to be rewritten", record.key());
 					R oldRecord = beforeDelegate.apply(record);
 					oldRecord = addFields(additionalFields, record, oldRecord);
 
@@ -222,7 +220,7 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 			// Handling insert and update records
 			switch (handleDeletes) {
 				case REWRITE:
-					LOGGER.trace("Insert/update message {} requested to be rewritten", record.key());
+					log.trace("Insert/update message {} requested to be rewritten", record.key());
 					return updatedDelegate.apply(newRecord);
 				default:
 					return newRecord;
@@ -519,7 +517,7 @@ public class ExtractNewRecordStateSchemaChanges<R extends ConnectRecord<R>> impl
 			org.apache.kafka.connect.data.Field schemaField = parentSchema.field(field);
 
 			if (schemaField == null) {
-				LOGGER.debug("Field {} not found in {}. Trying in main payload", field, struct);
+				log.debug("Field {} not found in {}. Trying in main payload", field, struct);
 				if (!isInSchema(originalRecordSchema)) {
 					return Optional.empty();
 				}

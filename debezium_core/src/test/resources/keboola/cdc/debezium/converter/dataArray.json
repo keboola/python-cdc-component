@@ -1,0 +1,17 @@
+[{
+  "id": 122,
+  "name": "oldName",
+  "description": "oldDescription",
+  "weight": 0.012,
+  "kbc__operation": "i",
+  "kbc__event_timestamp": 1710349868992,
+  "__deleted": "false"
+},{
+  "id": 122,
+  "name": "newName",
+  "description": "newDescription",
+  "weight": 100.0,
+  "kbc__operation": "u",
+  "kbc__event_timestamp": 1710349898992,
+  "__deleted": "false"
+}]

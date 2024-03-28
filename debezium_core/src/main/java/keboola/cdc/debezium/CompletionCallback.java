@@ -1,38 +1,34 @@
 package keboola.cdc.debezium;
 
 import io.debezium.engine.DebeziumEngine;
-import org.slf4j.Logger;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ExecutorService;
 
-
+@Slf4j
 public class CompletionCallback implements DebeziumEngine.CompletionCallback {
-	private final Logger logger;
 
 	private final ExecutorService executorService;
 
 
+	@Getter
 	private Throwable error;
 	private String errorMessage;
+	@Getter
 	private boolean success;
 
-	public CompletionCallback(Logger logger, ExecutorService executorService) {
+	public CompletionCallback(ExecutorService executorService) {
 		this.executorService = executorService;
-		this.logger = logger;
 	}
-
-	public Throwable getError() {
-		return error;
-	}
-
 
 	@Override
 	public void handle(boolean success, String message, Throwable error) {
 		this.success = success;
 		if (success) {
-			this.logger.info("Debezium ended successfully with '{}'", message);
+			log.info("Debezium ended successfully with '{}'", message);
 		} else {
-			this.logger.error("Debezium failed with '{}'", message);
+			log.error("Debezium failed with '{}'", message);
 			this.errorMessage = message;
 		}
 
@@ -44,11 +40,8 @@ public class CompletionCallback implements DebeziumEngine.CompletionCallback {
 		if (this.error != null) {
 			return this.error.getMessage() + ": " + this.error.getCause().getMessage();
 		} else {
-			return errorMessage;
+			return this.errorMessage;
 		}
 	}
 
-	public boolean isSuccess() {
-		return success;
-	}
 }

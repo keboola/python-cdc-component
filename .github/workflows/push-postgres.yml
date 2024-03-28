@@ -14,12 +14,6 @@ env:
   PGSQL_PASSWORD: postgres
   PGSQL_DATABASE: postgres
   PGSQL_PORT: 5432
-  SNFL_WORKSPACE_HOST: ${{ secrets.SNFL_WORKSPACE_HOST }}
-  SNFL_WORKSPACE_USER: ${{ secrets.SNFL_WORKSPACE_USER }}
-  SNFL_WORKSPACE_PASSWORD: ${{ secrets.SNFL_WORKSPACE_PASSWORD }}
-  SNFL_WORKSPACE_DATABASE: ${{ secrets.SNFL_WORKSPACE_DATABASE }}
-  SNFL_WORKSPACE_SCHEMA: ${{ secrets.SNFL_WORKSPACE_SCHEMA }}
-  SNFL_WORKSPACE_WAREHOUSE: ${{ secrets.SNFL_WORKSPACE_WAREHOUSE }}
 
 jobs:
   variables:
@@ -36,12 +30,6 @@ jobs:
       PGSQL_PASSWORD: ${{ steps.step1.outputs.PGSQL_PASSWORD }}
       PGSQL_DATABASE: ${{ steps.step1.outputs.PGSQL_DATABASE }}
       PGSQL_PORT: ${{ steps.step1.outputs.PGSQL_PORT }}
-      SNFL_WORKSPACE_HOST: ${{ steps.step1.outputs.SNFL_WORKSPACE_HOST }}
-      SNFL_WORKSPACE_USER: ${{ steps.step1.outputs.SNFL_WORKSPACE_USER }}
-      SNFL_WORKSPACE_PASSWORD: ${{ steps.step1.outputs.SNFL_WORKSPACE_PASSWORD }}
-      SNFL_WORKSPACE_DATABASE: ${{ steps.step1.outputs.SNFL_WORKSPACE_DATABASE }}
-      SNFL_WORKSPACE_SCHEMA: ${{ steps.step1.outputs.SNFL_WORKSPACE_SCHEMA }}
-      SNFL_WORKSPACE_WAREHOUSE: ${{ steps.step1.outputs.SNFL_WORKSPACE_WAREHOUSE }}
     steps:
     - name: Assigns inputs passed to the reusable workflow
       id: step1
@@ -56,11 +44,6 @@ jobs:
         echo "PGSQL_USER=$PGSQL_USER" >> $GITHUB_OUTPUT
         echo "PGSQL_DATABASE=$PGSQL_DATABASE" >> $GITHUB_OUTPUT
         echo "PGSQL_PORT=$PGSQL_PORT" >> $GITHUB_OUTPUT
-        echo "SNFL_WORKSPACE_HOST=$SNFL_WORKSPACE_HOST" >> $GITHUB_OUTPUT
-        echo "SNFL_WORKSPACE_USER=$SNFL_WORKSPACE_USER" >> $GITHUB_OUTPUT
-        echo "SNFL_WORKSPACE_DATABASE=$SNFL_WORKSPACE_DATABASE" >> $GITHUB_OUTPUT
-        echo "SNFL_WORKSPACE_SCHEMA=$SNFL_WORKSPACE_SCHEMA" >> $GITHUB_OUTPUT
-        echo "SNFL_WORKSPACE_WAREHOUSE=$SNFL_WORKSPACE_WAREHOUSE" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
@@ -94,27 +77,28 @@ jobs:
     secrets: inherit
 
   tests:
+    runs-on: ubuntu-latest
     needs:
       - build-python
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/tests.yml@update-postgre-pipeline # change to main before deploy!
-    with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      PGSQL_HOST: ${{ needs.variables.outputs.PGSQL_HOST }}
-      PGSQL_USER: ${{ needs.variables.outputs.PGSQL_USER }}
-      PGSQL_PASSWORD: ${{ needs.variables.outputs.PGSQL_PASSWORD }}
-      PGSQL_DATABASE: ${{ needs.variables.outputs.PGSQL_DATABASE }}
-      PGSQL_PORT: ${{ needs.variables.outputs.PGSQL_PORT }}
-      SNFL_WORKSPACE_HOST: ${{ needs.variables.outputs.SNFL_WORKSPACE_HOST }}
-      SNFL_WORKSPACE_USER: ${{ needs.variables.outputs.SNFL_WORKSPACE_USER }}
-      SNFL_WORKSPACE_PASSWORD: ${{ needs.variables.outputs.SNFL_WORKSPACE_PASSWORD }}
-      SNFL_WORKSPACE_DATABASE: ${{ needs.variables.outputs.SNFL_WORKSPACE_DATABASE }}
-      SNFL_WORKSPACE_SCHEMA: ${{ needs.variables.outputs.SNFL_WORKSPACE_SCHEMA }}
-      SNFL_WORKSPACE_WAREHOUSE: ${{ needs.variables.outputs.SNFL_WORKSPACE_WAREHOUSE }}
-    secrets: inherit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: java-artifact
+
+      - name: Move JAR Artifact
+        run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+
+      - name: Run Tests
+        run: |
+          cd db_components/ex_postgres_cdc
+          docker-compose build tests
+          docker-compose run wait
+          docker-compose run tests
 
   tests-kbc:
     needs:
