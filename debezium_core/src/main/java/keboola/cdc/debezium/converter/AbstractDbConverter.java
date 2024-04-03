@@ -15,6 +15,7 @@ import io.debezium.time.ZonedTimestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.duckdb.DuckDBAppender;
 import org.duckdb.DuckDBColumnType;
 import org.duckdb.DuckDBConnection;
 
@@ -50,7 +51,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 		this.conn = dbWrapper.getConn();
 		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new LinkedHashMap<>(initialSchema.size());
-		this.memoized = new Memoized(null, null, List.of());
+		this.memoized = new Memoized(null, null, null, List.of());
 		this.batchSize = new AtomicInteger(0);
 		init(initialSchema);
 	}
@@ -123,7 +124,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 	}
 
-	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
+	protected void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
 		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
 			memoized(jsonSchema);
 		}
@@ -151,7 +152,9 @@ abstract class AbstractDbConverter implements JsonConverter {
 			log.info("Updating insert statement with new columns: {}", columnNames);
 
 			final var sql = upsertQuery(this.tableName, columns);
-			this.memoized = new Memoized(jsonSchema, this.conn.prepareStatement(sql), columns);
+			this.memoized = new Memoized(jsonSchema, this.conn.prepareStatement(sql),
+					this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, this.tableName),
+					columns);
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter adjustSchema!", e);
 			throw new RuntimeException(e);
@@ -206,7 +209,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Date.LOGICAL_NAME);
 		}
 
-		private boolean isTimestamp() {
+		boolean isTimestamp() {
 			return Objects.equals(this.name, Timestamp.SCHEMA_NAME)
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME);
 		}
@@ -259,12 +262,16 @@ abstract class AbstractDbConverter implements JsonConverter {
 
 	}
 
-	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
+	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement,
+							  org.duckdb.DuckDBAppender appender, List<String> columns) {
 		private void closeStatement() {
 			try {
 				if (this.statement != null) {
 					this.statement.executeBatch();
 					this.statement.close();
+				}
+				if (this.appender != null) {
+					this.appender.close();
 				}
 			} catch (SQLException e) {
 				log.error("Error during JsonToDbConverter close!", e);

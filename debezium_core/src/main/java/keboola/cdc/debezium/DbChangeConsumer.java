@@ -71,20 +71,17 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (final var r : records) {
 			this.count.incrementAndGet();
-			try {
-				writeToDb(r.key(), r.value());
-			} catch (IOException e) {
-				log.error("{}", e.getMessage(), e);
-				throw new InterruptedException(e.toString());
-			}
+			writeToDb(r.key(), r.value());
 			committer.markProcessed(r);
 		}
 		committer.markBatchFinished();
 		log.info("Processed {} records", this.count.get());
 		this.syncStats.setRecordCount(this.count.intValue());
+		this.syncStats.addRecords(this.count.intValue());
+		this.syncStats.setEndTime(ZonedDateTime.now());
 	}
 
-	private void writeToDb(String key, String value) throws IOException {
+	private void writeToDb(String key, String value) {
 
 		var valueJson = JsonParser.parseString(value).getAsJsonObject();
 		var payload = valueJson.getAsJsonObject("payload");
