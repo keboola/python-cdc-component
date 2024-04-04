@@ -6,7 +6,6 @@ import org.duckdb.DuckDBConnection;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 @Slf4j
 @Getter
@@ -43,9 +42,8 @@ public class DuckDbWrapper {
 	}
 
 	private void init() {
-		try {
+		try (var stmt = this.conn.createStatement()) {
 			// Create a Statement object for sending SQL statements to the DB
-			var stmt = createStatement();
 
 			// Set the temporary directory for DuckDB
 			stmt.execute("PRAGMA temp_directory='./tmp/dbtmp'");
@@ -58,17 +56,6 @@ public class DuckDbWrapper {
 
 			// Set the maximum amount of memory that DuckDB can use for temporary data storage
 			stmt.execute("PRAGMA max_memory='" + this.properties.maxMemory() + "'");
-
-			// Close the statement and connection
-			stmt.close();
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	private Statement createStatement() {
-		try {
-			return this.conn.createStatement();
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
