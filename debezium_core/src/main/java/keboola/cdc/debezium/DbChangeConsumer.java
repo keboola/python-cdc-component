@@ -1,17 +1,13 @@
 package keboola.cdc.debezium;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
+import com.google.gson.stream.JsonReader;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
 import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -82,20 +78,23 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private void writeToDb(String key, String value) {
-
 		var valueJson = JsonParser.parseString(value).getAsJsonObject();
 		var payload = valueJson.getAsJsonObject("payload");
 		var schema = valueJson.getAsJsonObject("schema");
 
 		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
 
-		this.converters.computeIfAbsent(tableIdentifier,
-						tableName -> {
-							log.info("Creating new converter for table {}", tableName);
-							var fields = schema.get("fields").getAsJsonArray();
-							return this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, fields);
-						})
+		findConverter(tableIdentifier, schema)
 				.processJson(key, payload, schema);
+	}
+
+	private JsonConverter findConverter(String tableIdentifier, JsonObject schema) {
+		return this.converters.computeIfAbsent(tableIdentifier,
+				tableName -> {
+					log.info("Creating new converter for table {}", tableName);
+					var fields = schema.get("fields").getAsJsonArray();
+					return this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, fields);
+				});
 	}
 
 	public AtomicInteger getRecordsCount() {
@@ -117,6 +116,5 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath)) {
 			GSON.toJson(obj, writer);
 		}
-
 	}
 }
