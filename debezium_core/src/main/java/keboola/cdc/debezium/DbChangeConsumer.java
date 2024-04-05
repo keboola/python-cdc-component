@@ -1,11 +1,16 @@
 package keboola.cdc.debezium;
 
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
 import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -67,34 +72,107 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (final var r : records) {
 			this.count.incrementAndGet();
-			writeToDb(r.key(), r.value());
+			writeToDbStreaming(r.key(), r.value());
 			committer.markProcessed(r);
 		}
 		committer.markBatchFinished();
-		log.info("Processed {} records", this.count.get());
 		this.syncStats.setRecordCount(this.count.intValue());
-		this.syncStats.addRecords(this.count.intValue());
 		this.syncStats.setEndTime(ZonedDateTime.now());
+		log.info("Processed {} records, with average speed: {}", this.count.intValue(), this.syncStats.averageSpeed());
 	}
 
-	private void writeToDb(String key, String value) {
-		var valueJson = JsonParser.parseString(value).getAsJsonObject();
-		var payload = valueJson.getAsJsonObject("payload");
-		var schema = valueJson.getAsJsonObject("schema");
+	private void writeToDbStreaming(String key, String value) {
+		log.trace("Key: {}", key);
+		log.trace("Value: {}", value);
+		var pair = extractTableNameAndPayload(value);
+		final var tableIdentifier = pair.getKey();
+		log.trace("Table identifier: {}", tableIdentifier);
+		final var payload = pair.getValue();
+		log.trace("Payload: {}", payload);
+		final JsonConverter converter;
 
-		var tableIdentifier = schema.get("name").getAsString().replace(".Value", "");
-
-		findConverter(tableIdentifier, schema)
-				.processJson(key, payload, schema);
+		if (this.converters.containsKey(tableIdentifier)) {
+			log.trace("Converter for {} already exists.", tableIdentifier);
+			converter = this.converters.get(tableIdentifier);
+			if (converter.isMissingAnyColumn(payload)) {
+				log.trace("Unfortunately some columns are missing in payload. Adjusting schema.");
+				var fields = extractSchemaFields(value);
+				converter.adjustSchema(fields);
+			}
+		} else {
+			log.trace("Converter missing for {}, create new.", tableIdentifier);
+			var fields = extractSchemaFields(value);
+			converter = this.converterProvider.getConverter(GSON, this.dbWrapper, tableIdentifier, fields);
+			this.converters.put(tableIdentifier, converter);
+		}
+		converter.processJson(key, payload);
 	}
 
-	private JsonConverter findConverter(String tableIdentifier, JsonObject schema) {
-		return this.converters.computeIfAbsent(tableIdentifier,
-				tableName -> {
-					log.info("Creating new converter for table {}", tableName);
-					var fields = schema.get("fields").getAsJsonArray();
-					return this.converterProvider.getConverter(GSON, this.dbWrapper, tableName, fields);
-				});
+	private static Pair<String, JsonObject> extractTableNameAndPayload(String value) {
+		JsonObject payload = null;
+		String tableName = null;
+		try {
+			JsonReader reader = new JsonReader(new StringReader(value));
+			reader.beginObject();
+			while (reader.hasNext()) {
+				var nextName = reader.nextName();
+				if ("payload".equals(nextName)) {
+					payload = JsonParser.parseReader(reader).getAsJsonObject();
+				} else if ("schema".equals(nextName)) {
+					reader.beginObject();
+					while (reader.hasNext()) {
+						nextName = reader.nextName();
+						if ("name".equals(nextName)) {
+							tableName = reader.nextString().replace(".Value", "");
+						} else {
+							reader.skipValue(); // ignore other fields
+						}
+					}
+					reader.endObject();
+				} else {
+					reader.skipValue(); // ignore other fields
+				}
+			}
+			reader.endObject();
+			reader.close();
+		} catch (Exception e) {
+			log.error("Here is error", e);
+			throw new RuntimeException(e);
+		}
+		if (tableName == null || payload == null) {
+			throw new IllegalArgumentException("Table name or payload not found in schema");
+		}
+		return new ImmutablePair<>(tableName, payload);
+	}
+
+	private static JsonArray extractSchemaFields(String value) {
+		try {
+			JsonReader reader = new JsonReader(new StringReader(value));
+			reader.beginObject();
+			while (reader.hasNext()) {
+				if ("schema".equals(reader.nextName())) {
+					reader.beginObject();
+					while (reader.hasNext()) {
+						if ("fields".equals(reader.nextName())) {
+							JsonArray fields = JsonParser.parseReader(reader).getAsJsonArray();
+							reader.close();
+							return fields;
+						} else {
+							reader.skipValue(); // ignore other fields
+						}
+					}
+					reader.endObject();
+				} else {
+					reader.skipValue(); // ignore other fields
+				}
+			}
+			reader.endObject();
+			reader.close();
+		} catch (Exception e) {
+			log.error("Here is error", e);
+			throw new RuntimeException(e);
+		}
+		throw new IllegalArgumentException("Schema fields not found in schema");
 	}
 
 	public AtomicInteger getRecordsCount() {

@@ -8,11 +8,15 @@ import keboola.cdc.debezium.DuckDbWrapper;
 
 public interface JsonConverter {
 
-	void processJson(String key, JsonObject jsonValue, JsonObject debeziumSchema);
+	void processJson(String key, JsonObject jsonValue);
 
 	void close();
 
 	JsonElement getJsonSchema();
+
+	void adjustSchema(JsonArray debeziumFields);
+
+	boolean isMissingAnyColumn(JsonObject jsonValue);
 
 	interface ConverterProvider {
 		JsonConverter getConverter(Gson gson, DuckDbWrapper dbWrapper,
