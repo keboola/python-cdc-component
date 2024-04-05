@@ -10,10 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.MessageFormat;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -28,8 +25,8 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 	}
 
 	@Override
-	public synchronized void processJson(String key, JsonObject jsonValue, JsonObject debeziumSchema) {
-		super.processJson(key, jsonValue, debeziumSchema);
+	public synchronized void processJson(String key, JsonObject jsonValue) {
+		super.processJson(key, jsonValue);
 		this.lastKey = key;
 	}
 

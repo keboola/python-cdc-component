@@ -10,15 +10,14 @@ public class SyncStats {
 	private ZonedDateTime endTime;
 	private ZonedDateTime lastRecord;
 	private int recordCount;
-	private long totalRecords;
 
 	public SyncStats() {
 		this.lastRecord = ZonedDateTime.now();
 		this.recordCount = 0;
-		this.totalRecords = 0;
 	}
 
-	public void addRecords(int recordCount) {
-		this.totalRecords += recordCount;
+	public double averageSpeed() {
+		long millis = this.endTime.toInstant().toEpochMilli() - this.startTime.toInstant().toEpochMilli();
+		return this.recordCount / (millis / 1000.0);
 	}
 }

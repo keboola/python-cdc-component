@@ -160,10 +160,7 @@ public class AbstractDebeziumTask {
 		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
 			log.info("Ended after max wait: {}. Last record before: {}", this.maxWait,
 					syncStats.getLastRecord().plus(this.maxWait).toEpochSecond());
-			long millis = syncStats.getEndTime().toInstant().toEpochMilli() - syncStats.getStartTime().toInstant().toEpochMilli();
-			log.info("Total milliseconds on processing : {}", millis);
-			double speed = syncStats.getRecordCount() / (millis / 1000.0);
-			log.info("Average processing speed is: {}", speed);
+			log.info("Average processing speed is: {}", syncStats.averageSpeed());
 			return true;
 		}
 
