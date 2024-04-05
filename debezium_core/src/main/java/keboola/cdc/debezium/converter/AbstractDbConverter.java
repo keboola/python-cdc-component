@@ -75,10 +75,9 @@ abstract class AbstractDbConverter implements JsonConverter {
 				.collect(Collectors.joining(", "));
 		try (final var stmt = this.conn.createStatement()) {
 			log.info("Creating table {} if does not exits.", this.tableName);
-			var createTable = "CREATE TABLE IF NOT EXISTS " + this.tableName + " (" + columnDefinition + ")";
-			log.info("Create table: {}", createTable);
-			stmt.execute(createTable);
+			stmt.execute("CREATE TABLE IF NOT EXISTS " + this.tableName + " (" + columnDefinition + ")");
 			log.info("Table {} created", this.tableName);
+			stmt.execute("CREATE INDEX kbc_event_timestamp_index ON " + this.tableName + " (kbc__event_timestamp)");
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
@@ -135,7 +134,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 	}
 
-	protected void adjustSchemaIfNecessary(final JsonArray  fields) {
+	protected void adjustSchemaIfNecessary(final JsonArray fields) {
 		if (!Objects.equals(this.memoized.getLastDebeziumSchema(), fields)) {
 			memoized(fields);
 		}

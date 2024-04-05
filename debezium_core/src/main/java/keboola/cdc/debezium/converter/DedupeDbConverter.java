@@ -36,21 +36,28 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 	private void createView() {
 		var viewName = getTableName().substring(0, getTableName().length() - 4);
 
-		var compositePk = extractKeyNames(this.lastKey);
-
-		var viewSql = MessageFormat.format(
-				"CREATE VIEW {0} AS " +
-						"SELECT t.* " +
-						"FROM {1} t " +
-						"JOIN ( " +
-						"  SELECT {2}, MAX(kbc__event_timestamp) AS max_timestamp " +
-						"  FROM {1} " +
-						"  GROUP BY {2} " +
-						") r " +
-						"ON t.{2} = r.{2} AND t.kbc__event_timestamp = r.max_timestamp;",
-				viewName, getTableName(), compositePk
-		);
-
+		String viewSql;
+		if (Objects.isNull(this.lastKey)) {
+			viewSql = MessageFormat.format(
+					"CREATE VIEW {0} AS " +
+							"SELECT t.* " +
+							"FROM {1} t;",
+					viewName, getTableName());
+		} else {
+			var compositePk = extractKeyNames(this.lastKey);
+			viewSql = MessageFormat.format(
+					"CREATE VIEW {0} AS " +
+							"SELECT t.* " +
+							"FROM {1} t " +
+							"JOIN ( " +
+							"  SELECT {2}, MAX(kbc__event_timestamp) AS max_timestamp " +
+							"  FROM {1} " +
+							"  GROUP BY {2} " +
+							") r " +
+							"ON t.{2} = r.{2} AND t.kbc__event_timestamp = r.max_timestamp;",
+					viewName, getTableName(), compositePk
+			);
+		}
 		try (Statement statement = getConn().createStatement()) {
 			statement.execute(viewSql);
 		} catch (SQLException e) {
