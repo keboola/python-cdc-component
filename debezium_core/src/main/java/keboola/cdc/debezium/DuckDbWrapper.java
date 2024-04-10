@@ -70,7 +70,7 @@ public class DuckDbWrapper {
 	}
 
 	public record Properties(String dbPath, int maxThreads, String memoryLimit, String maxMemory) {
-		private static final String TMP_DB_PATH = "/tmp/my-db.duckdb";
+		private static final String TMP_DB_PATH = "";
 		private static final int MAX_THREADS = 4;
 		private static final String MEMORY_LIMIT = "4G";
 		private static final String MAX_MEMORY = "2G";

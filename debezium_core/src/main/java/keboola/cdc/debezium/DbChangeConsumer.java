@@ -72,7 +72,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		this.syncStats.setLastRecord(ZonedDateTime.now());
 		for (final var r : records) {
 			this.count.incrementAndGet();
-			writeToDbStreaming(r.key(), r.value());
+			handle(r.key(), r.value());
 			committer.markProcessed(r);
 		}
 		committer.markBatchFinished();
@@ -81,7 +81,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		log.info("Processed {} records, with average speed: {}", this.count.intValue(), this.syncStats.averageSpeed());
 	}
 
-	private void writeToDbStreaming(String key, String value) {
+	private void handle(String key, String value) {
 		log.trace("Key: {}", key);
 		log.trace("Value: {}", value);
 		var pair = extractTableNameAndPayload(value);
