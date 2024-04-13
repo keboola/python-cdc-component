@@ -175,10 +175,14 @@ class DuckDBStaging(Protocol):
 
         column_types = self.convert_column_types(schema.fields)
         datatypes = {col_type["name"]: col_type["type"] for col_type in column_types}
-        id_cols = self.wrap_columns_in_quotes(schema.primary_keys)
-        id_cols_str = ','.join([f'{col}' for col in id_cols])
-        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{order_by_column}\")")
+
+        if schema.primary_keys:
+            id_cols = self.wrap_columns_in_quotes(schema.primary_keys)
+            id_cols_str = ','.join([f'{col}' for col in id_cols])
+            unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
+                                f"\"{order_by_column}\")")
+        else:
+            raise StagingException("Primary keys are required for DuckDB staging")
 
         # MAP
         new_tables = glob.glob(os.path.join(table_path, '*'))
@@ -186,17 +190,18 @@ class DuckDBStaging(Protocol):
             logging.debug(f"Loading slice {index}")
             select_statement = self.generate_select_column_statement(datatypes)
             sql_create = f"""
-                           CREATE OR REPLACE TABLE SLICE_{index} AS SELECT {select_statement}, 
+                            CREATE OR REPLACE TABLE SLICE_{index} AS SELECT {select_statement}, 
                                                                            {unique_id_concat} as __PK_TMP
-                                                       FROM
-                                                          read_csv('{table}', delim=',', header=false, 
-                                                          columns={datatypes}, auto_detect=false,
-                                                          nullstr='{null_string}')
-                                                          QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
-                                                           ORDER BY "{order_by_column}"::INT DESC) = 1"""
+                            FROM
+                                                        read_csv('{table}', delim=',', header=false, 
+                                                        columns={datatypes}, auto_detect=false,
+                                                        nullstr='{null_string}')
+                                                        QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
+                                                        ORDER BY "{order_by_column}"::INT DESC) = 1"""
+            logging.debug(f"sql_create: {sql_create}")
             duckdb.execute(sql_create)
 
-            # colect pkeys:
+            # collect pkeys:
             duckdb.execute(
                 f"INSERT INTO PKEY_CACHE SELECT {index} as slice_id, {unique_id_concat} as pkey FROM SLICE_{index}")
 
@@ -261,7 +266,7 @@ class DuckDBStaging(Protocol):
 
             result_path = os.path.join(result_path, f'copied_{table_name}')
 
-        args = ['kbc_slicer', f'--table-name={table_name}',
+        args = ['/Users/dominik/projects/python-cdc-component/db_components/ex_oracle_cdc/src/kbc_slicer', f'--table-name={table_name}',
                 f'--table-input-path={table_path}',
                 f'--table-output-path={result_path}',
                 f'--table-output-manifest-path=/tmp/{table_name}_slicer.manifest',

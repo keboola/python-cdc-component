@@ -58,16 +58,17 @@ SUPPORTED_TYPES = ["smallint",
                    "text"]
 
 
-def build_oracle_property_file(user: str, password: str, hostname: str, port: str, database: str,
-                                 offset_file_path: str,
-                                 schema_whitelist: list[str],
-                                 table_whitelist: list[str],
-                                 snapshot_mode: str = 'initial',
-                                 signal_table: str = None,
-                                 snapshot_fetch_size: int = 10240,
-                                 snapshot_max_threads: int = 1,
-                                 additional_properties: dict = None,
-                                 repl_suffix: str = 'dbz') -> str:
+def build_oracle_property_file(user: str, password: str, hostname: str, port: str, database: str, p_database: str,
+                               offset_file_path: str,
+                               schema_whitelist: list[str],
+                               table_whitelist: list[str],
+                               schema_history_filepath: str,
+                               snapshot_mode: str = 'initial',
+                               signal_table: str = None,
+                               snapshot_fetch_size: int = 10240,
+                               snapshot_max_threads: int = 1,
+                               additional_properties: dict = None,
+                               repl_suffix: str = 'dbz') -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -79,9 +80,11 @@ def build_oracle_property_file(user: str, password: str, hostname: str, port: st
         hostname:
         port:
         database:
+        p_database:
         offset_file_path: Path to the file where the connector will store the offset.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
+        schema_history_filepath: Path to the file where the connector will store the schema history (dbhistory.dat).
         additional_properties:
         snapshot_max_threads:
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
@@ -112,8 +115,8 @@ def build_oracle_property_file(user: str, password: str, hostname: str, port: st
         "database.port": port,
         "database.user": user,
         "database.password": password,
-        "database.dbname": "ORCLCDB",
-        "database.pdb.name": "ORCLPDB1",
+        "database.dbname": database,
+        "database.pdb.name": p_database,
         "snapshot.max.threads": snapshot_max_threads,
         "snapshot.fetch.size": snapshot_fetch_size,
         "snapshot.mode": snapshot_mode,
@@ -122,11 +125,10 @@ def build_oracle_property_file(user: str, password: str, hostname: str, port: st
         "schema.include.list": schema_include,
         "table.include.list": table_include,
         "errors.max.retries": 3,
-        "signal.enabled.channels": "file",
+        "signal.enabled.channels": "source",
         "signal.data.collection": signal_table,
-        "signal.file": "/Users/dominik/projects/python-cdc-component/debezium_core/testing_config/signal-file.jsonl",
         "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
-        "schema.history.internal.file.filename": "/Users/dominik/projects/python-cdc-component/debezium_core/testing_config/dbhistory.dat",
+        "schema.history.internal.file.filename": schema_history_filepath,
         "schema.history.internal.store.only.captured.tables.ddl": "true"
     }
 
@@ -146,18 +148,19 @@ class OracleDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
         self.__credentials = db_credentials
         driver_args = {'user': db_credentials.user, 'password': db_credentials.pswd_password}
-        logging.info(f"Connecting to Oracle database {db_credentials.host}:{db_credentials.port}/{db_credentials.database}")
 
         jdbc_path = os.path.abspath(jdbc_path)
         logging.info(f"JDBC path: {jdbc_path}")
         if not os.path.exists(jdbc_path):
-            raise Exception(f"Debezium jar not found at {jdbc_path}")
+            raise ExtractorUserException(f"Debezium jar not found at {jdbc_path}")
 
+        # For pluggable database
         self.connection = JDBCConnection('oracle.jdbc.driver.OracleDriver',
-                                         url=f'jdbc:oracle:thin:@{db_credentials.host}:{db_credentials.port}:'
-                                             f'{db_credentials.database}',
+                                         url=f'jdbc:oracle:thin:@//{db_credentials.host}:{db_credentials.port}/'
+                                             f'{db_credentials.p_database}',
                                          driver_args=driver_args,
                                          jars=jdbc_path)
+        # TODO: Add support for non-pluggable databases
         self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self.connection, OracleBaseTypeConverter())
 
@@ -198,7 +201,6 @@ class OracleDebeziumExtractor:
             WHERE grantee = ?
         """
         results = set(tuple(row) for row in self.connection.perform_query(query, [self.user]))
-
         missing_privileges = expected_results - results
 
         if missing_privileges:

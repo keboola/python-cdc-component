@@ -6,6 +6,7 @@ import base64
 import glob
 import logging
 import os
+from pathlib import Path
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -73,15 +74,23 @@ class Component(ComponentBase):
 
             self._reconstruct_offsset_from_state()
             sync_options = self._configuration.sync_options
-            snapshot_mode = self._configuration.sync_options.snapshot_mode.name
+            snapshot_mode = sync_options.snapshot_mode.name
+
+            prev_schema_history_file = self.get_in_artifact_full_in_path("dbhistory.dat")
+            schema_history_file = self.get_artifact_full_out_path("dbhistory.dat")
+            if os.path.exists(prev_schema_history_file):
+                os.rename(prev_schema_history_file, schema_history_file)
+
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_oracle_property_file(db_config.user, db_config.pswd_password,
                                                              db_config.host,
                                                              str(db_config.port), db_config.database,
+                                                             db_config.p_database,
                                                              self._temp_offset_file.name,
                                                              self._configuration.source_settings.schemas,
                                                              self._configuration.source_settings.tables,
+                                                             schema_history_file,
                                                              snapshot_mode=snapshot_mode,
                                                              signal_table=sync_options.source_signal_table,
                                                              snapshot_fetch_size=sync_options.snapshot_fetch_size,
@@ -111,6 +120,7 @@ class Component(ComponentBase):
             result_tables = self._load_tables_to_stage()
             end = time.time()
             logging.info(f"Load to stage finished in {end - start}")
+
             self.write_manifests([res[0] for res in result_tables])
 
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables])
@@ -237,11 +247,14 @@ class Component(ComponentBase):
             schema, table = table.split('.')
             ts = self._client.metadata_provider.get_table_metadata(schema=schema,
                                                                    table_name=table)
+
             table_schemas[f"{schema}.{table}"] = ts
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
         result_tables = glob.glob(os.path.join(self.tables_out_path, '*.csv'))
+        filtered_tables = [table for table in result_tables if not table.endswith('io.debezium.connector.oracle'
+                                                                                  '.SchemaChangeValue.csv')]
         result_table_defs = []
 
         if self._staging.multi_threading_support:
@@ -249,7 +262,7 @@ class Component(ComponentBase):
                 with ThreadPoolExecutor(max_workers=self._configuration.max_workers) as executor:
                     futures = {
                         executor.submit(self._create_table_in_stage, table): table for
-                        table in result_tables
+                        table in filtered_tables
                     }
                     for future in as_completed(futures):
                         if future.exception():
@@ -258,7 +271,7 @@ class Component(ComponentBase):
 
                         result_table_defs.append(future.result())
         else:
-            for table in result_tables:
+            for table in filtered_tables:
                 result_table_defs.append(self._create_table_in_stage(table))
 
         return result_table_defs
@@ -267,7 +280,6 @@ class Component(ComponentBase):
         table_key = os.path.basename(table_path).split('.csv')[0].split('.', 1)[1]
 
         result_table_name = table_key.replace('.', '_')
-
         schema = self._get_table_schema(table_key)
 
         logging.info(f"Creating table {result_table_name} in stage")
@@ -310,9 +322,10 @@ class Component(ComponentBase):
             table_key:
 
         Returns:
-
         """
-        schema = self._source_schema_metadata[table_key]
+        _table_key = self.handle_pluggable_prefix(table_key)
+        schema = self._source_schema_metadata[_table_key]
+
         last_schema = self._last_schema.get(table_key)
 
         if last_schema:
@@ -325,6 +338,20 @@ class Component(ComponentBase):
         # add system fields
         schema.fields.extend(self.SYSTEM_COLUMNS)
         return schema
+
+    @staticmethod
+    def is_pluggable(name: str) -> bool:
+        if name.upper().startswith("C__"):
+            return True
+        return False
+
+    def handle_pluggable_prefix(self, name: str) -> str:
+        logging.info(f"Checking pluggable prefix for table {name}")
+        if self.is_pluggable(name):
+            new_name = name.replace('C__', 'C##')
+            logging.info(f"Pluggable prefix detected, replacing {name} with {new_name}")
+            return new_name
+        return name
 
     def _drop_helper_columns(self, table_name: str, schema: TableSchema):
         # drop helper column
@@ -493,6 +520,31 @@ class Component(ComponentBase):
             suffix = "prod"
 
         return f"kbc_{config_id}_{suffix}"
+
+    def get_artifact_full_out_path(self, file_name: str) -> str:
+        """
+        Args:
+            file_name: Name of the file to get from the artifact folder
+        Returns: Full path to the artifact file
+        """
+        artifact_out_dir = os.path.join(self.data_folder_path, "artifacts", "out", "current")
+        os.makedirs(artifact_out_dir, exist_ok=True)
+
+        full_path = os.path.join(artifact_out_dir, file_name)
+        return full_path
+
+    def get_in_artifact_full_in_path(self, file_name: str) -> str:
+        """
+        Args:
+            file_name: Name of the file to get from the artifact folder
+        Returns: Full path to the artifact file
+        """
+        artifact_in_dir = os.path.join(self.data_folder_path, "artifacts", "in", "current")
+
+        if os.path.exists(artifact_in_dir):
+            full_path = os.path.join(artifact_in_dir, file_name)
+            return full_path
+        return ""
 
 
 """

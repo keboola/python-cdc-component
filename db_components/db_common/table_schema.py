@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Callable
@@ -60,6 +61,9 @@ class TableSchema:
 
     @property
     def csv_name(self) -> str:
+        if "C##" in self.schema_name:
+            logging.warning(f"Schema name {self.schema_name} contains C##. Replacing with C__ for csv output.")
+            return f"{self.schema_name.replace('C##', 'C__')}_{self.name}"
         return f"{self.schema_name}_{self.name}"
 
     def add_column(self, column: ColumnSchema) -> None:
