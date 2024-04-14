@@ -4,9 +4,9 @@ services:
   dev:
     build:
       context: ../../
-      dockerfile: db_components/ex_postgres_cdc/Dockerfile
+      dockerfile: db_components/ex_oracle_cdc/Dockerfile
     volumes:
-      - ./:/code/db_components/ex_postgres_cdc/
+      - ./:/code/db_components/ex_oracle_cdc/
       - ./data:/data
     environment:
       - KBC_DATADIR=/data
@@ -14,9 +14,9 @@ services:
     # Use to run flake8 and unittests checks
     build:
       context: ../../
-      dockerfile: db_components/ex_postgres_cdc/Dockerfile
+      dockerfile: db_components/ex_oracle_cdc/Dockerfile
     volumes:
-      - ./:/code/db_components/ex_postgres_cdc/
+      - ./:/code/db_components/ex_oracle_cdc/
       - ./data:/data
     environment:
       - KBC_DATADIR=/data
@@ -25,6 +25,6 @@ services:
       - -c
       - |
         set -e
-        cd /code/db_components/ex_postgres_cdc
+        cd /code/db_components/ex_oracle_cdc
         flake8 --config=flake8.cfg
         python -m unittest discover

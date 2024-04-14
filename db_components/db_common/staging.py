@@ -266,7 +266,7 @@ class DuckDBStaging(Protocol):
 
             result_path = os.path.join(result_path, f'copied_{table_name}')
 
-        args = ['/Users/dominik/projects/python-cdc-component/db_components/ex_oracle_cdc/src/kbc_slicer', f'--table-name={table_name}',
+        args = ['kbc_slicer', f'--table-name={table_name}',
                 f'--table-input-path={table_path}',
                 f'--table-output-path={result_path}',
                 f'--table-output-manifest-path=/tmp/{table_name}_slicer.manifest',
