@@ -6,7 +6,6 @@ import base64
 import glob
 import logging
 import os
-from pathlib import Path
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
