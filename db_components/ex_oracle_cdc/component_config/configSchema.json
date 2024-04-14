@@ -29,7 +29,7 @@
         "port": {
           "type": "integer",
           "title": "Port",
-          "default": 5432,
+          "default": 1521,
           "propertyOrder": 10,
           "options": {
             "grid_columns": 4
