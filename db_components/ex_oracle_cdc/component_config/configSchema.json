@@ -60,6 +60,14 @@
             "grid_columns": 12
           }
         },
+        "p_database": {
+          "type": "string",
+          "title": "Database",
+          "propertyOrder": 50,
+          "options": {
+            "grid_columns": 12
+          }
+        },
         "ssh_options": {
           "type": "object",
           "format": "ssh-editor",
