@@ -62,7 +62,7 @@
         },
         "p_database": {
           "type": "string",
-          "title": "Database",
+          "title": "Pluggable Database",
           "propertyOrder": 50,
           "options": {
             "grid_columns": 12
