@@ -15,11 +15,11 @@ import io.debezium.time.ZonedTimestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.duckdb.DuckDBAppender;
 import org.duckdb.DuckDBColumnType;
 import org.duckdb.DuckDBConnection;
 
 import java.lang.reflect.Type;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.time.Instant;
@@ -27,8 +27,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -36,37 +37,32 @@ import java.util.stream.Collectors;
 abstract class AbstractDbConverter implements JsonConverter {
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
-	private static final int MAX_BATCH_SIZE = 100;
 
 	private final DuckDBConnection conn;
 	private final String tableName;
 	private final Gson gson;
 	private final LinkedHashMap<String, SchemaElement> schema;
-	private Memoized memoized;
-	private final AtomicInteger batchSize;
+	private DuckDBAppender appender;
+
 
 	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, JsonArray initialSchema) {
 		this.gson = gson;
 		this.conn = dbWrapper.getConn();
 		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new LinkedHashMap<>(initialSchema.size());
-		this.memoized = new Memoized(null, null, List.of());
-		this.batchSize = new AtomicInteger(0);
 		init(initialSchema);
 	}
 
-	abstract void init(JsonArray initialSchema);
+	protected void init(final JsonArray initialSchema) {
+		log.debug("Initializing schema with default fields: {}", initialSchema);
+		final var deserialized = deserialize(initialSchema);
+		log.debug("Deserialized schema: {}", deserialized);
+		createTable(deserialized);
+	}
 
-	abstract String upsertQuery(String tableName, List<String> columns);
-
-	public abstract void processJson(final String keyJson, final JsonObject jsonValue, final JsonObject debeziumSchema);
-
-	protected void processJson(final Set<String> key, final JsonObject jsonValue, final JsonObject debeziumSchema, JsonArray debeziumSchemaFields) {
-		log.debug("Processing json value {} for table {} with scheme {}.", jsonValue, this.tableName, debeziumSchema);
-		adjustSchemaIfNecessary(debeziumSchemaFields);
-
-		putToDb(key, jsonValue);
-		log.debug("Json added to table {} processed.", this.tableName);
+	@Override
+	public synchronized void processJson(String key, JsonObject jsonValue) {
+		putToDb(jsonValue);
 	}
 
 	protected void createTable(final List<SchemaElement> deserializedSchema) {
@@ -77,15 +73,11 @@ abstract class AbstractDbConverter implements JsonConverter {
 					return schemaElement.columnDefinition();
 				})
 				.collect(Collectors.joining(", "));
-		try {
+		try (final var stmt = this.conn.createStatement()) {
 			log.info("Creating table {} if does not exits.", this.tableName);
-			final var stmt = this.conn.createStatement();
-			var createTable = "CREATE TABLE IF NOT EXISTS " + this.tableName + "(" + columnDefinition + ")";
-			log.info("Create table: {}", createTable);
-			stmt.execute(createTable);
-			stmt.close();
-			log.info("Table {} created", this.tableName);
-		} catch (Exception e) {
+			stmt.execute("CREATE TABLE IF NOT EXISTS " + this.tableName + " (" + columnDefinition + ")");
+			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, this.tableName);
+		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
 		}
@@ -99,61 +91,20 @@ abstract class AbstractDbConverter implements JsonConverter {
 	/**
 	 * Create new entry or update current one by ID in database
 	 *
-	 * @param key       column names of primary key
-	 * @param jsonValue json value to be upserted
+	 * @param jsonValue json value to be inserted
 	 */
-	private void putToDb(final Set<String> key, final JsonObject jsonValue) {
+	private void putToDb(final JsonObject jsonValue) {
 		try {
-			for (int i = 0; i < this.memoized.columns().size(); i++) {
-				var column = this.memoized.getColumn(i);
-				var value = Objects.equals(column, JsonConverter.KBC_PRIMARY_KEY)
-						? key.stream().map(k -> jsonValue.get(k).getAsString()).collect(Collectors.joining("_"))
-						: convertValue(jsonValue.get(column), this.schema.get(column));
-				this.memoized.statement().setObject(i + 1, value);
+			var appender = this.appender;
+			appender.beginRow();
+			for (var entry : this.schema.entrySet()) {
+				String column = entry.getKey();
+				log.debug("Appending column: {}", column);
+				appendValue(jsonValue.get(column), entry.getValue(), appender);
 			}
-			this.memoized.statement().addBatch();
-
-			if (this.batchSize.incrementAndGet() > MAX_BATCH_SIZE) {
-				this.memoized.statement().executeBatch();
-				this.batchSize.set(0);
-			}
+			appender.endRow();
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
-			throw new RuntimeException(e);
-		}
-	}
-
-	private void adjustSchemaIfNecessary(final JsonArray jsonSchema) {
-		if (!Objects.equals(getMemoized().lastDebeziumSchema(), jsonSchema)) {
-			memoized(jsonSchema);
-		}
-	}
-
-	protected void memoized(JsonArray jsonSchema) {
-		log.debug("New schema has been provided {}", jsonSchema);
-		var deserialized = deserialize(jsonSchema);
-		var columns = new ArrayList<String>(deserialized.size());
-		try {
-			this.memoized.closeStatement();
-
-			var stmt = this.conn.createStatement();
-			for (var element : deserialized) {
-				log.debug("Preparing column: {}", element.field());
-				columns.add(element.field());
-				if (this.schema.putIfAbsent(element.field(), element) == null) {
-					log.debug("Alter {} add column: {}", this.tableName, element);
-					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
-							this.tableName, element.field(), element.dbType()));
-				}
-			}
-			stmt.close();
-			var columnNames = String.join(", ", columns);
-			log.info("Updating insert statement with new columns: {}", columnNames);
-
-			final var sql = upsertQuery(this.tableName, columns);
-			this.memoized = new Memoized(jsonSchema, this.conn.prepareStatement(sql), columns);
-		} catch (SQLException e) {
-			log.error("Error during JsonToDbConverter adjustSchema!", e);
 			throw new RuntimeException(e);
 		}
 	}
@@ -161,41 +112,81 @@ abstract class AbstractDbConverter implements JsonConverter {
 	/**
 	 * Converts values in Debezium.Date format from epoch days into epoch microseconds
 	 *
+	 * @param field
 	 * @param value value to convert
-	 * @param field schema element
 	 */
-	private Object convertValue(JsonElement value, SchemaElement field) {
-		if (value.isJsonNull()) {
-			return null;
-		}
-		if (field.isDate()) {
-			return LocalDate.ofEpochDay(value.getAsInt())
+	private void appendValue(JsonElement value, SchemaElement field, DuckDBAppender appender) throws SQLException {
+		if (value == null || value.isJsonNull()) {
+			appender.append(null);
+		} else if (field.isDate()) {
+			var val = LocalDate.ofEpochDay(value.getAsInt())
 					.format(DateTimeFormatter.ISO_LOCAL_DATE);
+			appender.append(val);
+		} else if (field.isTimestamp()) {
+			appender.appendLocalDateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(value.getAsLong()), ZoneOffset.UTC));
+		} else if (value.isJsonPrimitive()) {
+			appender.append(value.getAsString());
+		} else {
+			appender.append(value.toString());
 		}
-		if (field.isTimestamp()) {
-			return LocalDateTime.ofInstant(Instant.ofEpochMilli(value.getAsLong()), ZoneOffset.UTC);
+	}
+
+	protected void memoized(JsonArray jsonSchema) {
+		log.debug("New schema has been provided {}", jsonSchema);
+		var deserialized = deserialize(jsonSchema);
+		close();
+
+		try (final var stmt = this.conn.createStatement()) {
+			for (var element : deserialized) {
+				log.debug("Preparing column: {}", element.field());
+				if (this.schema.putIfAbsent(element.field(), element) == null) {
+					log.debug("Alter {} add column: {}", this.tableName, element);
+					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
+							this.tableName, element.field(), element.dbType()));
+				}
+			}
+			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, this.tableName);
+		} catch (SQLException e) {
+			log.error("Error during JsonToDbConverter adjustSchema!", e);
+			throw new RuntimeException(e);
 		}
-		if (value.isJsonPrimitive()) {
-			return value.getAsString();
-		}
-		return value.toString();
 	}
 
 	public void close() {
-		this.memoized.closeStatement();
+		try {
+			if (this.appender != null) {
+				this.appender.close();
+			}
+		} catch (SQLException e) {
+			log.error("Error during JsonToDbConverter close!", e);
+			throw new RuntimeException(e);
+		}
 	}
 
 	public JsonElement getJsonSchema() {
 		return this.gson.toJsonTree(this.schema.values());
 	}
 
+	@Override
+	public void adjustSchema(JsonArray debeziumFields) {
+		memoized(debeziumFields);
+	}
+
+	@Override
+	public boolean isMissingAnyColumn(JsonObject jsonValue) {
+		for (var column : jsonValue.keySet()) {
+			if (!this.schema.containsKey(column)) {
+				log.info("Missing column: {}, schema has to be updated", column);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected record SchemaElement(String type, boolean optional, @SerializedName("default") String defaultValue,
 								   String name, Integer version, String field) {
 		public String columnDefinition() {
-			if (this.field.equals(JsonConverter.KBC_PRIMARY_KEY)) {
-				return MessageFormat.format("{0} {1} PRIMARY KEY", this.field, dbType());
-			}
 			return MessageFormat.format("{0} {1}{2}{3}",
 					this.field, dbType(), this.optional ? "" : " NOT NULL",
 					this.defaultValue != null ? " DEFAULT " + this.defaultValue : "");
@@ -206,7 +197,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Date.LOGICAL_NAME);
 		}
 
-		private boolean isTimestamp() {
+		boolean isTimestamp() {
 			return Objects.equals(this.name, Timestamp.SCHEMA_NAME)
 					|| Objects.equals(this.name, org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME);
 		}
@@ -257,23 +248,8 @@ abstract class AbstractDbConverter implements JsonConverter {
 			return Objects.equals(this.name, ZonedTimestamp.SCHEMA_NAME);
 		}
 
-	}
-
-	protected record Memoized(JsonArray lastDebeziumSchema, PreparedStatement statement, List<String> columns) {
-		private void closeStatement() {
-			try {
-				if (this.statement != null) {
-					this.statement.executeBatch();
-					this.statement.close();
-				}
-			} catch (SQLException e) {
-				log.error("Error during JsonToDbConverter close!", e);
-				throw new RuntimeException(e);
-			}
-		}
-
-		public String getColumn(int index) {
-			return this.columns.get(index);
+		public boolean isVarchar() {
+			return Objects.equals(this.type, "string");
 		}
 	}
 }

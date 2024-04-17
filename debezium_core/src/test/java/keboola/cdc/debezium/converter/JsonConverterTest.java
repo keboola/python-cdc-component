@@ -24,9 +24,8 @@ class JsonConverterTest {
 
 		var validationSchema = readResource("schema_extended.json").getAsJsonObject();
 		converter.processJson(
-				"",
-				readResource("singleData_extended.json").getAsJsonObject(),
-				validationSchema);
+				"", readResource("singleData_extended.json").getAsJsonObject()
+		);
 		converter.close();
 
 		var stmt = dbWrapper.getConn().createStatement();
