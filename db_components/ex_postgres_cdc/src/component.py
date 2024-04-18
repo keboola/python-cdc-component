@@ -249,6 +249,9 @@ class Component(ComponentBase):
         with self._staging.connect():
             result_table_defs = []
             for table in self._staging.get_extracted_tables():
+                if table not in self._source_schema_metadata:
+                    logging.warning(f"Table {table} not found in source metadata. Skipping.")
+                    continue
                 result_table_defs.append(self._process_table_in_stage(table))
 
         return result_table_defs
@@ -277,7 +280,7 @@ class Component(ComponentBase):
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")
-        self._staging.process_table(table_key, table_definition.full_path)
+        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys)
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
