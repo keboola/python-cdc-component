@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class AbstractDebeziumTask {
+	public static int MAX_CHUNK_SIZE;
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;
@@ -68,6 +69,11 @@ public class AbstractDebeziumTask {
 		this.resultFolder = resultFolder;
 		this.converterProvider = converterProvider;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
+		adjustMaxChunkSize(keboolaProperties);
+	}
+
+	private static void adjustMaxChunkSize(Properties keboolaProperties) {
+		MAX_CHUNK_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_chunk_size", "1000"));
 	}
 
 	public void run() throws Exception {

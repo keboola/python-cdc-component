@@ -30,7 +30,7 @@ public class DebeziumKBCWrapper implements Runnable {
 
 	@Option(names = {"-mw", "--max-wait"}, description = "The maximum wait duration(s) for next event before engine stops")
 	private int maxWait;
-	@Option(names = {"-m", "--mode"}, description = "The maximum wait duration(s) for next event before engine stops", defaultValue = "APPEND")
+	@Option(names = {"-m", "--mode"}, description = "Mode in which values will be stored in DB", defaultValue = "APPEND")
 	private Mode mode;
 
 
