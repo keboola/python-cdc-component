@@ -1,0 +1,68 @@
+{
+  "parameters": {
+    "debug": true,
+    "db_settings": {
+      "host": "cdc.cluster-coua81meiuch.us-east-2.rds.amazonaws.com",
+      "port": 3306,
+      "user": "admin",
+      "#password": "f2Yuh08hlcavddC3lwkg",
+      "use_ssh": false,
+      "ssh_options": {
+        "host": "143.198.163.210",
+        "port": 22,
+        "username": "root",
+        "#private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEA1Zb7WHMOeEQ1OEIwpiBj/e2pUoUdGr1DfuFQxe5iHB7dY1BA\nswoWfR8PUS1p0rPqIbocFRDs//6J48ojLiopCftNdgDbORgOYfHsrpFxtnIJDYLx\nSJ9O8bvpZSPIuf3xkDZHjAV278qtnOok39v0r0QNnNbQBy+Yt/ExAGTc6vJiekXo\nxLzvDIsG8ekxs8ZyD0EuLJ5GzicPzJXn86WhMUpzVuwGwt8iUlHGWTi/yAXHGVuD\n5OQ7jVNawoteqR7U8auGIJOooeukIKDScjItk3YM11lMrNAu6Pswj+jWeoLyNIQa\nBXF/z6sul6dFlrFGXuGdbKxwtyWKv3EtDfpEYQIDAQABAoIBAC+1pPkx4iaNHdIu\nPs2s6Ij9AFh1cXXaluwNikxcHkAnyM35TCpx82oJeRNp8HxnQcI83y75c+cOxWBD\nc65JLpeTMc9NC6rqK7RHJNYtmNfnCwygliLhqvGmRtEXuCuLhNzwsvSc999CR5uI\nVapHaJWJvvysoxUn1ZYo4wgyf4JfL4LNRjkd44zEW2mI/EEHuESRxu/8g/aZ+LHK\nUv+m/1tRxcJtT663A+f6GMJzmU13MmpI3sVNpqX7t9RWytoJsj618LCsgcwukSLF\nlf3pTVzChB6vFHL0c1McaE8k5mSgZEmyJivuFI6GJKeBe/SebJlOck+0fLU7uq/j\nCQet8y0CgYEA8xuTyL4pcu+ryLE0gc99hpvZMs42fc0DWu3/GYKFRwWIJzXMQTIJ\nNEjWgJfudkFELaVy4KRMeD9JMsirbxh0U9BxOnRIVgzFfMOYgZxuvmWk1LPlV7pM\nfItfSQkpiupH80/aCkGaQzS/FbBJrulmK+lpMMAvGg2smD13+eCzYyMCgYEA4Oqr\ndj/33nx15SfZXLQJha+QAIOlXBKTYHGfuo8Zno8ja/h/1C9UmUHy39P+3ibdBZ9K\nUnT16qh/C817AwyXMXeK/lmTIrmESJntzw0kK6iU9ZhNGOIzSL+mF5/6ZMVuaRfu\nG57DRmM6zjh84hlOpkbCqm/mGV+CkRveW6XjhKsCgYBtrZBj7Z8Hkqd+uKvGsNSh\n6Sf5at1criSIXn1Lhf4ZB57gib3n3+oVI5NamrDjuxhGO7FzNcymJ28fsTbevTqm\nIZEj3RhRchua6SehufCgh3zw1WRvysX9HmfTrIWIfaAOXoUxQV2WWnKnF0x21Cfb\nQcfKTboyV975JCo/mqdz3wKBgAiWLPGYw5fE3KNhABVf8jUeXLsIS5nWQ7Yc4GI4\n8FtzT4Dhvc+V9v7a27Db4REOHsYGLMo1GOZahG8o6xdUtbj3vWC0fr+GoZw79C5B\nbC4Wg4lUxSy8BgUy+95PBzotp2dvuHFpgD8Brs8MrQfcu3nxnaDwILK7SLrNe5G4\nJZV9AoGATy3C0zbsYjwEwCCEBUAMwrOsNkC85d81/DbaDdvwx6jPVxTnoilSe2Z0\n4wG0GJKZmvAyRJfJCq8JJmiLeAstkepuRtYnqb3X4+ExG8mBmunJ5xR7Va2kKB/z\n3bpresDP3xPVEQEaJntZ95JlUCqzv2I+fGGabYEVsfTCifYP78E=\n-----END RSA PRIVATE KEY-----\n"
+      }
+    },
+    "destination": {
+      "load_type": "incremental_load",
+      "outputBucket": ""
+    },
+    "sync_options": {
+      "handle_binary": "plain",
+      "snapshot_mode": "initial"
+    },
+    "source_settings": {
+      "tables": [
+        "test.sales"
+      ],
+      "schemas": [
+        "test"
+      ]
+    },
+    "advanced_options": {
+      "max_execution_time": "",
+      "show_binary_log_config": {
+        "method": "direct"
+      }
+    }
+  },
+  "authorization": {
+    "workspace": {
+      "host": "keboola.snowflakecomputing.com",
+      "user": "SAPI_WORKSPACE_742034376",
+      "password": "HGZjP7bzDqaMAZqqBr3NC3fU9ACYBHrg",
+      "database": "SAPI_5415",
+      "schema": "WORKSPACE_742034376",
+      "warehouse": "KEBOOLA_PROD"
+    },
+    "oauth_api": {
+      "id": "OAUTH_API_ID",
+      "credentials": {
+        "id": "main",
+        "authorizedFor": "Myself",
+        "creator": {
+          "id": "1234",
+          "description": "me@keboola.com"
+        },
+        "created": "2016-01-31 00:13:30",
+        "#data": "{\"refresh_token\":\"XXXXX-TOKEN\"}",
+        "oauthVersion": "2.0",
+        "appKey": "12345",
+        "#appSecret": "123qwe-CiN"
+      }
+    }
+  },
+  "action": "run",
+  "image_parameters": {}
+}
