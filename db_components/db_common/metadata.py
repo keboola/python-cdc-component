@@ -26,7 +26,7 @@ class JDBCMetadataProvider(ABC):
                                          description=col['REMARKS'] or '',
                                          default=default_value,
                                          length=col['COLUMN_SIZE'],
-                                         precision=col['COLUMN_DEF'],
+                                         precision=col.get('DECIMAL_DIGITS'),
                                          additional_properties=col
                                          )
             self._build_source_type_signature(column_schema)

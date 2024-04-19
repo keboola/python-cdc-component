@@ -4,10 +4,20 @@ from abc import ABC
 
 traits_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sql_trait_examples')
 
+_order_by_columns = dict()
+
 
 def set_sql_traits_folder(folder_path: str):
     global traits_folder
     traits_folder = folder_path
+
+
+def set_order_by_columns(table_name: str, columns: list[str]):
+    _order_by_columns[table_name] = columns
+
+
+def get_order_by_columns(table_name):
+    return _order_by_columns.get(table_name, ['KBC__EVENT_TIMESTAMP_MS', 'price'])
 
 
 class DbTestTable(ABC):
