@@ -18,11 +18,6 @@
       "field": "description"
     },
     {
-      "type": "double",
-      "optional": true,
-      "field": "weight"
-    },
-    {
       "type": "int64",
       "optional": true,
       "name": "org.apache.kafka.connect.data.Timestamp",

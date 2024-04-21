@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class AbstractDebeziumTask {
-	public static int MAX_CHUNK_SIZE;
+	public static int MAX_CHUNK_SIZE = 1000;
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;

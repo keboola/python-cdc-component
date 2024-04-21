@@ -42,7 +42,7 @@ public class AppendDbConverter extends AbstractDbConverter implements JsonConver
 	}
 
 	@Override
-	public synchronized void processJson(String key, JsonObject jsonValue) {
+	public synchronized void processJson(JsonObject jsonValue) {
 		store(jsonValue);
 	}
 

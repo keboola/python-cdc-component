@@ -105,7 +105,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			converter = this.converterProvider.getConverter(GSON, this.dbWrapper, tableIdentifier, fields);
 			this.converters.put(tableIdentifier, converter);
 		}
-		converter.processJson(key, payload);
+		converter.processJson(payload);
 	}
 
 	private static Pair<String, JsonObject> extractTableNameAndPayload(String value) {

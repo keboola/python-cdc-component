@@ -61,7 +61,6 @@ abstract class AbstractDbConverter implements JsonConverter {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
 		}
-		log.info("Json to db converter '{}' initialized", tableName);
 	}
 
 	/**
@@ -132,7 +131,6 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 		return false;
 	}
-
 
 	protected List<SchemaElement> deserialize(JsonArray fields) {
 		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
