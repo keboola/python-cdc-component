@@ -5,7 +5,7 @@ Connection components.
 
 ## Configuration
 
-### Properties path
+### Debezium properties path
 
 Path to `.properties` file containing Debezium properties related to the selected connector.
 
@@ -41,6 +41,28 @@ signal.enabled.channels=file
 signal.file=/testing_config/signal-file.jsonl
 ```
 
+### Keboola properties path
+
+Path to `.properties` file containing Keboola properties related to the module options.
+
+
+```
+keboola.duckdb.db.path -> path where duckDB will be stored 
+keboola.duckdb.max.threads -> maximum number of threads for duckDB
+keboola.duckdb.memory.limit -> memory limit for duckDB
+keboola.duckdb.memory.max -> maximum memory limit for duckDB
+keboola.converter.dedupe.max_chunk_size -> maximum chunk size for deduplication mode
+```
+
+**NOTE:** If no value is specified for given property, default value is applied:
+
+```properties
+keboola.duckdb.db.path=""
+keboola.duckdb.max.threads=4
+keboola.duckdb.memory.limit=4GB
+keboola.duckdb.memory.max=2GB
+keboola.converter.dedupe.max_chunk_size=1000
+```
 
 ## Enforcing snapshot (blocking)
 
@@ -65,7 +87,7 @@ To force blocking snapshot for table `public.example_table` add following row:
 **Parameters**
 
 ```
-Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>]
+Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>] [-m=<mode>]
                     <debeziumPropertiesPath> <resultFolderPath>
       <debeziumPropertiesPath>
                            The debezium properties path
@@ -75,7 +97,8 @@ Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>]
       -mw, --max-wait=<maxWait>
                            The maximum wait duration(s) for next event before
                              engine stops
-
+      -m, --mode           The mode in which values will be stored in DB, 
+                             possible options: [APPEND (default), DEDUPE]
 ```
 
 **Example**:

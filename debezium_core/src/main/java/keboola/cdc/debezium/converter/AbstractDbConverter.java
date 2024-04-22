@@ -13,7 +13,9 @@ import io.debezium.time.Interval;
 import io.debezium.time.Timestamp;
 import io.debezium.time.ZonedTimestamp;
 import keboola.cdc.debezium.DuckDbWrapper;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.duckdb.DuckDBAppender;
 import org.duckdb.DuckDBColumnType;
@@ -30,62 +32,36 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Getter
+@Setter(AccessLevel.PROTECTED)
 abstract class AbstractDbConverter implements JsonConverter {
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
 
 	private final DuckDBConnection conn;
-	private final String tableName;
 	private final Gson gson;
 	private final LinkedHashMap<String, SchemaElement> schema;
+
 	private DuckDBAppender appender;
 
-
-	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, JsonArray initialSchema) {
+	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, JsonArray initialSchema) {
 		this.gson = gson;
 		this.conn = dbWrapper.getConn();
-		this.tableName = tableName.replaceAll("\\.", "_");
 		this.schema = new LinkedHashMap<>(initialSchema.size());
-		init(initialSchema);
 	}
 
-	protected void init(final JsonArray initialSchema) {
-		log.debug("Initializing schema with default fields: {}", initialSchema);
-		final var deserialized = deserialize(initialSchema);
-		log.debug("Deserialized schema: {}", deserialized);
-		createTable(deserialized);
-	}
-
-	@Override
-	public synchronized void processJson(String key, JsonObject jsonValue) {
-		putToDb(jsonValue);
-	}
-
-	protected void createTable(final List<SchemaElement> deserializedSchema) {
-		var columnDefinition = deserializedSchema.stream()
-				.map(schemaElement -> {
-					//  initialize schema and prepare column definition
-					this.schema.put(schemaElement.field(), schemaElement);
-					return schemaElement.columnDefinition();
-				})
-				.collect(Collectors.joining(", "));
+	protected void createTable(String columnDefinition, String tableName) {
 		try (final var stmt = this.conn.createStatement()) {
-			log.info("Creating table {} if does not exits.", this.tableName);
-			stmt.execute("CREATE TABLE IF NOT EXISTS " + this.tableName + " (" + columnDefinition + ")");
-			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, this.tableName);
+			log.info("Creating table {} if does not exits.", tableName);
+			stmt.execute("CREATE TABLE IF NOT EXISTS \"" + tableName + "\" (" + columnDefinition + ")");
+			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, tableName);
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
 		}
-		log.info("Json to db converter '{}' initialized", this.tableName);
-	}
-
-	protected List<SchemaElement> deserialize(JsonArray fields) {
-		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
+		log.info("Json to db converter '{}' initialized", tableName);
 	}
 
 	/**
@@ -93,16 +69,15 @@ abstract class AbstractDbConverter implements JsonConverter {
 	 *
 	 * @param jsonValue json value to be inserted
 	 */
-	private void putToDb(final JsonObject jsonValue) {
+	protected void store(final JsonObject jsonValue) {
 		try {
-			var appender = this.appender;
-			appender.beginRow();
+			this.appender.beginRow();
 			for (var entry : this.schema.entrySet()) {
 				String column = entry.getKey();
 				log.debug("Appending column: {}", column);
-				appendValue(jsonValue.get(column), entry.getValue(), appender);
+				appendValue(jsonValue.get(column), entry.getValue(), this.appender);
 			}
-			appender.endRow();
+			this.appender.endRow();
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter putToDb!", e);
 			throw new RuntimeException(e);
@@ -110,10 +85,11 @@ abstract class AbstractDbConverter implements JsonConverter {
 	}
 
 	/**
-	 * Converts values in Debezium.Date format from epoch days into epoch microseconds
+	 * Converts values in Debezium format and append them
 	 *
-	 * @param field
 	 * @param value value to convert
+	 * @param field schema field
+	 * @param appender appender to append value
 	 */
 	private void appendValue(JsonElement value, SchemaElement field, DuckDBAppender appender) throws SQLException {
 		if (value == null || value.isJsonNull()) {
@@ -128,27 +104,6 @@ abstract class AbstractDbConverter implements JsonConverter {
 			appender.append(value.getAsString());
 		} else {
 			appender.append(value.toString());
-		}
-	}
-
-	protected void memoized(JsonArray jsonSchema) {
-		log.debug("New schema has been provided {}", jsonSchema);
-		var deserialized = deserialize(jsonSchema);
-		close();
-
-		try (final var stmt = this.conn.createStatement()) {
-			for (var element : deserialized) {
-				log.debug("Preparing column: {}", element.field());
-				if (this.schema.putIfAbsent(element.field(), element) == null) {
-					log.debug("Alter {} add column: {}", this.tableName, element);
-					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
-							this.tableName, element.field(), element.dbType()));
-				}
-			}
-			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, this.tableName);
-		} catch (SQLException e) {
-			log.error("Error during JsonToDbConverter adjustSchema!", e);
-			throw new RuntimeException(e);
 		}
 	}
 
@@ -168,11 +123,6 @@ abstract class AbstractDbConverter implements JsonConverter {
 	}
 
 	@Override
-	public void adjustSchema(JsonArray debeziumFields) {
-		memoized(debeziumFields);
-	}
-
-	@Override
 	public boolean isMissingAnyColumn(JsonObject jsonValue) {
 		for (var column : jsonValue.keySet()) {
 			if (!this.schema.containsKey(column)) {
@@ -181,6 +131,11 @@ abstract class AbstractDbConverter implements JsonConverter {
 			}
 		}
 		return false;
+	}
+
+
+	protected List<SchemaElement> deserialize(JsonArray fields) {
+		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
@@ -246,10 +201,6 @@ abstract class AbstractDbConverter implements JsonConverter {
 
 		private boolean isZonedTimestamp() {
 			return Objects.equals(this.name, ZonedTimestamp.SCHEMA_NAME);
-		}
-
-		public boolean isVarchar() {
-			return Objects.equals(this.type, "string");
 		}
 	}
 }
