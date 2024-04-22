@@ -40,6 +40,7 @@ class DuckDBParameters:
     max_threads: int = 6
     memory_limit: str = '2GB'
     memory_max: str = '1GB'
+    dedupe_max_chunk_size: int = 5_000_000
 
 
 class DebeziumExecutor:
@@ -89,6 +90,7 @@ class DebeziumExecutor:
             config_file.write(f'keboola.duckdb.max.threads={duckdb_config.max_threads}\n')
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
+            config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
         return temp_file.name
 
     def signal_snapshot(self, table_names: list[str], snapshot_type: Literal['blocking', 'incremental'] = 'blocking',

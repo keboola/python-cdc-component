@@ -94,6 +94,7 @@ class SyncOptions(ConfigurationBase):
     max_wait_s: int = 40
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
+    dedupe_max_chunk_size: int = 5000000
 
 
 class LoadType(str, Enum):

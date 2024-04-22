@@ -99,8 +99,11 @@ class Component(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
+
+            duckdb_config = DuckDBParameters(self.duck_db_path,
+                                             dedupe_max_chunk_size=sync_options.dedupe_max_chunk_size)
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 duckdb_config=duckdb_config,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection,
                                                  result_log_path=log_artefact_path)
@@ -283,7 +286,7 @@ class Component(ComponentBase):
         staging_key = table_key
         if nr_chunks > 0:
             # get latest schema
-            staging_key = table_key + f'_chunk_{nr_chunks-1}'
+            staging_key = table_key + f'_chunk_{nr_chunks - 1}'
         result_schema = self._staging.get_table_schema(staging_key)
         schema = self._get_source_table_schema(table_key)
 
