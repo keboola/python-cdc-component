@@ -3,82 +3,66 @@ package keboola.cdc.debezium.converter;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import keboola.cdc.debezium.AbstractDebeziumTask;
 import keboola.cdc.debezium.DuckDbWrapper;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.text.MessageFormat;
-import java.util.Objects;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @Slf4j
 public class DedupeDbConverter extends AbstractDbConverter implements JsonConverter {
 
-	public static final String SUFFIX = "_all";
-	private String lastKey;
+	private final String baseTableName;
+	private String columnDefinition;
+	private final AtomicInteger chunk;
+	private final AtomicInteger actualChunkSize;
 
 	public DedupeDbConverter(Gson gson, DuckDbWrapper dbWrapper, String tableName, JsonArray initialSchema) {
-		super(gson, dbWrapper, tableName + SUFFIX, initialSchema);
+		super(gson, dbWrapper, initialSchema);
+		this.chunk = new AtomicInteger(0);
+		this.actualChunkSize = new AtomicInteger(0);
+		this.baseTableName = tableName.replaceAll("\\.", "_");
+		init(initialSchema);
+	}
+
+	protected void init(final JsonArray initialSchema) {
+		log.debug("Initializing schema with default fields: {}", initialSchema);
+		final var deserialized = deserialize(initialSchema);
+		log.debug("Deserialized schema: {}", deserialized);
+		createNewChunkTable(deserialized);
 	}
 
 	@Override
 	public synchronized void processJson(String key, JsonObject jsonValue) {
-		super.processJson(key, jsonValue);
-		this.lastKey = key;
-	}
-
-	private void createView() {
-		var viewName = getTableName().substring(0, getTableName().length() - 4);
-
-		String viewSql;
-		if (Objects.isNull(this.lastKey)) {
-			viewSql = MessageFormat.format(
-					"CREATE VIEW {0} AS " +
-							"SELECT t.* " +
-							"FROM {1} t;",
-					viewName, getTableName());
-		} else {
-			var compositePk = extractKeyNames(this.lastKey);
-			viewSql = MessageFormat.format(
-					"CREATE VIEW {0} AS " +
-							"SELECT t.* " +
-							"FROM {1} t " +
-							"JOIN ( " +
-							"  SELECT {2}, MAX(kbc__event_timestamp) AS max_timestamp " +
-							"  FROM {1} " +
-							"  GROUP BY {2} " +
-							") r " +
-							"ON t.{2} = r.{2} AND t.kbc__event_timestamp = r.max_timestamp;",
-					viewName, getTableName(), compositePk
-			);
-		}
-		try (Statement statement = getConn().createStatement()) {
-			statement.execute(viewSql);
-		} catch (SQLException e) {
-			throw new RuntimeException("Failed to create view " + viewName, e);
+		store(jsonValue);
+		if (this.actualChunkSize.getAndIncrement() > AbstractDebeziumTask.MAX_CHUNK_SIZE) {
+			close();
+			createNewChunkTable(this.columnDefinition);
 		}
 	}
 
-	@Override
-	public void close() {
-		createView();
-		super.close();
-	}
-
-	private static String extractKeyNames(String keyRaw) {
-		var key = JsonParser.parseString(keyRaw).getAsJsonObject();
-		log.debug("Extracting primary key columns from key: {}", key);
-		var keySet = StreamSupport.stream(
-						key.getAsJsonObject("schema")
-								.get("fields")
-								.getAsJsonArray()
-								.spliterator(), false)
-				.map(jsonElement -> jsonElement.getAsJsonObject().get("field").getAsString())
+	private void createNewChunkTable(final List<AppendDbConverter.SchemaElement> deserializedSchema) {
+		deserializedSchema.forEach(schemaElement ->
+				getSchema().putIfAbsent(schemaElement.field(), schemaElement));
+		this.columnDefinition = getSchema().values()
+				.stream()
+				.map(SchemaElement::columnDefinition)
 				.collect(Collectors.joining(", "));
-		log.debug("Primary key columns: {}", keySet);
-		return keySet;
+		createNewChunkTable(this.columnDefinition);
+	}
+
+	private void createNewChunkTable(String columnDefinition) {
+		var tableName = this.baseTableName + "_chunk_" + this.chunk.getAndIncrement();
+		createTable(columnDefinition, tableName);
+		this.actualChunkSize.set(0);
+	}
+
+	public void adjustSchema(JsonArray jsonSchema) {
+		log.debug("New schema has been provided {}", jsonSchema);
+		var deserialized = deserialize(jsonSchema);
+		close();
+		createNewChunkTable(deserialized);
 	}
 }
