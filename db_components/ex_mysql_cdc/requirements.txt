@@ -8,6 +8,7 @@ pandas
 duckdb
 sshtunnel
 paramiko
+kbcstorage==0.7.2
 # tests
 mock
 freezegun
