@@ -36,6 +36,7 @@ class TestDatabaseEnvironment:
 
 
 class DebeziumCDCDatadirTest(TestDataDir):
+
     def setUp(self):
 
         try:

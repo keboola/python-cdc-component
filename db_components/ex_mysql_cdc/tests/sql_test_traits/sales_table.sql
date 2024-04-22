@@ -1,20 +1,20 @@
-
+CREATE DATABASE IF NOT EXISTS inventory;
 DROP TABLE IF EXISTS inventory.sales;
 
 CREATE TABLE inventory.sales
 (
-    usergender    text,
-    usercity      text,
-    usersentiment integer,
-    zipcode       text,
-    sku           text,
-    createdate    varchar(64) NOT NULL PRIMARY KEY,
-    category      text,
-    price         decimal(12, 5),
-    county        text,
-    countycode    text,
-    userstate     text,
-    categorygroup text
+    usergender    LONGTEXT,
+    usercity      LONGTEXT,
+    usersentiment INT,
+    zipcode       LONGTEXT,
+    sku           LONGTEXT,
+    createdate    VARCHAR(64) NOT NULL PRIMARY KEY,
+    category      LONGTEXT,
+    price         DECIMAL(12, 5),
+    county        LONGTEXT,
+    countycode    LONGTEXT,
+    userstate     LONGTEXT,
+    categorygroup LONGTEXT
 );
 
 INSERT INTO inventory.sales (usergender, usercity, usersentiment, zipcode, sku, createdate, category, price, county,
