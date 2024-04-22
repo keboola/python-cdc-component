@@ -3,18 +3,18 @@ DROP TABLE IF EXISTS inventory.sales;
 
 CREATE TABLE inventory.sales
 (
-    usergender    LONGTEXT,
-    usercity      LONGTEXT,
+    usergender    MEDIUMTEXT,
+    usercity      MEDIUMTEXT,
     usersentiment INT,
-    zipcode       LONGTEXT,
-    sku           LONGTEXT,
+    zipcode       MEDIUMTEXT,
+    sku           MEDIUMTEXT,
     createdate    VARCHAR(64) NOT NULL PRIMARY KEY,
-    category      LONGTEXT,
+    category      MEDIUMTEXT,
     price         DECIMAL(12, 5),
-    county        LONGTEXT,
-    countycode    LONGTEXT,
-    userstate     LONGTEXT,
-    categorygroup LONGTEXT
+    county        MEDIUMTEXT,
+    countycode    MEDIUMTEXT,
+    userstate     MEDIUMTEXT,
+    categorygroup MEDIUMTEXT
 );
 
 INSERT INTO inventory.sales (usergender, usercity, usersentiment, zipcode, sku, createdate, category, price, county,

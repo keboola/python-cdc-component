@@ -17,26 +17,37 @@ class ExtractorUserException(Exception):
 
 
 class MySQLBaseTypeConverter(BaseTypeConverter):
-    MAPPING = {"smallint": "INTEGER",
-               "integer": "INTEGER",
+    MAPPING = {"tinyint": "INTEGER",
+               "smallint": "INTEGER",
+               "mediumint": "INTEGER",
+               "int": "INTEGER",
                "bigint": "INTEGER",
                "decimal": "NUMERIC",
-               "numeric": "NUMERIC",
-               "real": "NUMERIC",
+               "float": "NUMERIC",
                "double": "NUMERIC",
-               "smallserial": "INTEGER",
-               "serial": "INTEGER",
-               "bigserial": "INTEGER",
-               "timestamp": "TIMESTAMP",
+               "bit": "STRING",
                "date": "DATE",
+               "datetime": "TIMESTAMP",
+               "timestamp": "TIMESTAMP",
                "time": "TIMESTAMP",
-               "boolean": "BOOLEAN",
-               "varchar": "STRING",
+               "year": "DATE",
                "char": "STRING",
-               "text": "STRING"}
+               "varchar": "STRING",
+               "binary": "STRING",
+               "varbinary": "STRING",
+               "tinyblob": "STRING",
+               "blob": "STRING",
+               "mediumblob": "STRING",
+               "longblob": "STRING",
+               "tinytext": "STRING",
+               "text": "STRING",
+               "mediumtext": "STRING",
+               "longtext": "STRING",
+               "enum": "STRING",
+               "set": "STRING"}
 
     def __call__(self, source_type: str):
-        return self.MAPPING.get(source_type, 'STRING')
+        return self.MAPPING.get(source_type.lower(), 'STRING')
 
 
 SUPPORTED_TYPES = ["smallint",
