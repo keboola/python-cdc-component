@@ -3,24 +3,47 @@ Created on 12. 11. 2018
 
 @author: esner
 '''
-import unittest
-import mock
+import json
 import os
-from freezegun import freeze_time
+import tempfile
+import unittest
+import uuid
 
-from component import Component
+from keboola.component import CommonInterface
+
+from db_components.db_common import artefacts
 
 
 class TestComponent(unittest.TestCase):
 
-    # set global time to 2010-10-10 - affects functions like datetime.now()
-    @freeze_time("2010-10-10")
-    # set KBC_DATADIR env to non-existing dir
-    @mock.patch.dict(os.environ, {'KBC_DATADIR': './non-existing-dir'})
-    def test_run_no_cfg_fails(self):
-        with self.assertRaises(ValueError):
-            comp = Component()
-            comp.run()
+    def setUp(self):
+        self.temp_data_dir = tempfile.mkdtemp()
+        with open(os.path.join(self.temp_data_dir, 'config.json'), 'w+') as f:
+            json.dump({}, f)
+        os.environ['KBC_COMPONENTID'] = 'test-component'
+        os.environ['KBC_STACKID'] = 'connection.keboola.com'
+        os.environ['KBC_TOKEN'] = os.environ['STORAGE_TOKEN']
+        self.ci = CommonInterface(data_folder_path=self.temp_data_dir)
+
+    def test_get_artefacts(self):
+        test_file = os.path.join(self.temp_data_dir, 'test_data.json')
+        with open(test_file, 'w+') as f:
+            json.dump({"test": "data"}, f)
+        # store artefact
+        artefacts.store_artefact(test_file, self.ci)
+
+        random_id = uuid.uuid4()
+        with open(test_file, 'w+') as f:
+            json.dump({"test": f"{random_id}"}, f)
+        artefacts.store_artefact(test_file, self.ci)
+        # get artefact
+        file_path, tags = artefacts.get_artefact('test_data.json', self.ci)
+        with open(file_path) as f:
+            result = json.load(f)
+        # content equals
+        self.assertEqual(result['test'], f"{random_id}")
+        # tags equal
+        self.assertListEqual(tags, ['test-component-simulated-artefact'])
 
 
 if __name__ == "__main__":
