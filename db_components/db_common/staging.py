@@ -140,7 +140,7 @@ class DuckDBStagingExporter:
 
     @contextmanager
     def connect(self):
-        connection = duckdb.connect(database=self.db_path, read_only=True)
+        connection = duckdb.connect(database=self.db_path, read_only=False)
         self._connection = connection
         connection.execute("SET temp_directory	='/tmp/dbtmp'")
         connection.execute(f"SET threads TO {self.max_threads}")
@@ -167,8 +167,8 @@ class DuckDBStagingExporter:
         return columns
 
     def process_table(self, table_name: str, result_table_path: str, dedupe_required: bool, primary_keys: list[str],
-                      order_by_column: str = 'kbc__event_timestamp',
-                      null_string: str = 'KBC__NULL'):
+                      result_columns: list[str],
+                      order_by_column: str = 'kbc__event_timestamp'):
         """
         Processes the table and uploads it to the staging area -> converts to csv.
 
@@ -183,41 +183,24 @@ class DuckDBStagingExporter:
         """
 
         logging.debug(f"Exporting table {table_name}")
-        table_schema = self.get_table_schema(table_name)
-        all_columns = [self.wrap_in_quote(c) for c in table_schema]
-
-        order_by = ''
-        include_header = 'false'
         if not dedupe_required:
-            # all_columns.remove('kbc__primary_key')
-            export_path = result_table_path
+            table_schema = result_columns
+            all_columns = [self.wrap_in_quote(c) for c in table_schema]
+
+            order_by = ''
+            include_header = 'false'
+
+            select_columns = ','.join(all_columns)
+            offload_query = (
+                f"COPY (SELECT {select_columns} FROM {table_name}{order_by}) "
+                f"TO \'{result_table_path}\' (HEADER {include_header}, DELIMITER \',\');")
+
+            logging.debug(offload_query)
+            self._connection.execute(offload_query)
+
         else:
-            export_path = f'{result_table_path}_tmp'
-            order_by = f" ORDER BY {self.wrap_in_quote(order_by_column)} ASC"
-            include_header = 'true'
-
-        select_columns = ','.join(all_columns)
-        offload_query = (
-            f"COPY (SELECT {select_columns} FROM {table_name}{order_by}) "
-            f"TO \'{export_path}\' (HEADER {include_header}, DELIMITER \',\');")
-
-        logging.debug(offload_query)
-        self._connection.execute(offload_query)
-
-        if dedupe_required:
-            column_types = self.convert_jdbc_to_duckdb_types(table_schema)
-            self.process_table_dedupe(result_table_path, export_path, column_types, primary_keys, order_by_column,
-                                      null_string)
-
-    def generate_select_column_statement(self, column_types: dict) -> str:
-        column_statements = []
-        for name, data_type in column_types.items():
-            if data_type in ['DATE', 'TIMESTAMP', 'TIME']:
-                column_statements.append(self.wrap_in_quote(name))
-                column_types[name] = 'BIGINT'
-            else:
-                column_statements.append(self.wrap_in_quote(name))
-        return ','.join(column_statements)
+            # in this case the result will be sliced
+            self.process_table_dedupe(table_name, result_table_path, primary_keys, result_columns, order_by_column)
 
     def wrap_columns_in_quotes(self, columns):
         return [self.wrap_in_quote(col) for col in columns]
@@ -228,9 +211,9 @@ class DuckDBStagingExporter:
     def close(self):
         self._connection.close()
 
-    def process_table_dedupe(self, result_path: str, source_table_path: str, datatypes: dict, primary_keys: list[str],
-                             order_by_column: str = 'kbc__event_timestamp',
-                             null_string: str = 'KBC__NULL'):
+    def process_table_dedupe(self, table_name: str, result_path: str, primary_keys: list[str],
+                             result_columns: list[str],
+                             order_by_column: str = 'kbc__event_timestamp'):
         """
         Processes the table and uploads it to the staging area.
 
@@ -239,20 +222,17 @@ class DuckDBStagingExporter:
         and performing deduplication if required.
 
         Args:
-            source_table_path (str): Path to the CSV file to be uploaded.
-            result_table_name (str): Name of the table to be created in the staging area.
+            table_name (str): Name of the source table
+            result_path (str): Result path where the deduped files will be stored.
             schema (TableSchema): Schema of the table to be created.
             order_by_column: Column used to order and keep the latest record
             null_string: String that represents NULL values in the CSV files.
 
         """
-        # export the table
-        self._slice_input(source_table_path, result_path)
-        # delete the original file
-        os.remove(source_table_path)
+        new_tables = self.get_table_chunks(table_name)
 
         # create pkey table
-        duckdb.execute("CREATE OR REPLACE TABLE PKEY_CACHE (slice_id INT, pkey TEXT)")
+        self._connection.execute("CREATE OR REPLACE TABLE PKEY_CACHE (slice_id INT, pkey TEXT)")
 
         # unique_id_concat = 'kbc__primary_key'
         id_cols = self.wrap_columns_in_quotes(primary_keys)
@@ -260,31 +240,31 @@ class DuckDBStagingExporter:
         unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
                             f"\"{order_by_column}\")")
         # MAP
-        new_tables = glob.glob(os.path.join(result_path, '*'))
+        # make sure the tables are sorted, the order represents order of events in the slice
+        new_tables.sort(reverse=False)
         for index, table in enumerate(new_tables):
             logging.debug(f"Loading slice {index}")
-            select_statement = self.generate_select_column_statement(datatypes)
+
+            select_statement = self.generate_select_column_statement(table, result_columns)
             sql_create = f"""
                            CREATE OR REPLACE TABLE SLICE_{index} AS SELECT {select_statement}, 
                                                                            {unique_id_concat} as __PK_TMP
                                                        FROM
-                                                          read_csv('{table}', delim=',', header=false, 
-                                                          columns={dict(datatypes)}, auto_detect=false,
-                                                          nullstr='{null_string}')
+                                                          "{table}"
                                                           QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
                                                            ORDER BY "{order_by_column}"::BIGINT DESC) = 1"""
-            duckdb.execute(sql_create)
+            self._connection.execute(sql_create)
 
             # colect pkeys:
-            duckdb.execute(
+            self._connection.execute(
                 f"INSERT INTO PKEY_CACHE SELECT {index} as slice_id, {unique_id_concat} as pkey FROM SLICE_{index}")
 
         # REDUCE
-        new_tables.sort(reverse=True)
+        Path(result_path).mkdir(parents=True, exist_ok=True)
         slice_nr = len(new_tables)
-
         for index, table in enumerate(new_tables):
             logging.debug(f"Exporting slice {index}")
+            select_statement = ', '.join(self.wrap_columns_in_quotes(result_columns))
             offload_query = (
                 f"COPY (SELECT {select_statement} FROM SLICE_{slice_nr - 1 - index} t "
                 f"LEFT JOIN PKEY_CACHE pc ON t.__PK_TMP=pc.pkey "
@@ -294,23 +274,35 @@ class DuckDBStagingExporter:
             # without this the Duckdb fails on OOM
             gc.collect()
 
-            duckdb.execute(offload_query)
+            self._connection.execute(offload_query)
+            # cleanup temp table
+            self._connection.execute(f"DROP TABLE SLICE_{slice_nr - 1 - index}")
 
-        # delete old tables
-        for table in new_tables:
-            os.remove(table)
+    def get_table_chunks(self, table_name: str) -> list[str]:
+        table_chunks = []
+        for t in self.get_extracted_tables():
+            if t == table_name or ('_chunk_' in t and t.startswith(table_name)):
+                table_chunks.append(t)
+        return table_chunks
 
-        # # rename source folder to the result_table_name
-        # os.rename(source_table_path, f'{Path(source_table_path).parent.as_posix()}/{result_table_name}')
+    def generate_select_column_statement(self, table_name: str, total_result_columns: list[str]) -> str:
+        """
+        Generates the select statement for the table. It will select all columns from the table and NULL for the
+        columns that are not in the total_result_columns.
+        Args:
+            table_name:
+            total_result_columns:
 
-    def generate_select_column_statement(self, column_types: dict) -> str:
+        Returns:
+
+        """
         column_statements = []
-        for name, data_type in column_types.items():
-            if data_type in ['DATE', 'TIMESTAMP', 'TIME']:
+        table_columns = self.get_table_schema(table_name)
+        for name, data_type in table_columns.items():
+            if name in total_result_columns:
                 column_statements.append(self.wrap_in_quote(name))
-                column_types[name] = 'BIGINT'
             else:
-                column_statements.append(self.wrap_in_quote(name))
+                column_statements.append(f"NULL as {self.wrap_in_quote(name)}")
         return ','.join(column_statements)
 
     def wrap_columns_in_quotes(self, columns):
