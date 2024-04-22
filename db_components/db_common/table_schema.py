@@ -48,6 +48,7 @@ class TableSchema:
     """
     name: str
     schema_name: str
+    database_name: str = None
     fields: List[ColumnSchema] = field(default_factory=list)
     primary_keys: Optional[List[str]] = None
     parent_tables: Optional[List[str]] = None
@@ -60,7 +61,13 @@ class TableSchema:
 
     @property
     def csv_name(self) -> str:
-        return f"{self.schema_name}_{self.name}.csv"
+        name_prefixes = []
+        if self.database_name:
+            name_prefixes.append(self.database_name)
+        if self.schema_name:
+            name_prefixes.append(self.schema_name)
+        name_prefix = '_'.join(name_prefixes)
+        return f"{name_prefix}_{self.name}.csv"
 
     def add_column(self, column: ColumnSchema) -> None:
         """
