@@ -99,8 +99,11 @@ class Component(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
+
+            duckdb_config = DuckDBParameters(self.duck_db_path,
+                                             dedupe_max_chunk_size=sync_options.dedupe_max_chunk_size)
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 duckdb_config=duckdb_config,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection,
                                                  result_log_path=log_artefact_path)
@@ -248,25 +251,43 @@ class Component(ComponentBase):
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
         with self._staging.connect():
             result_table_defs = []
-            for table in self._staging.get_extracted_tables():
+            for table, nr_chunks in self.get_extracted_tables().items():
                 if table not in self._source_schema_metadata:
                     logging.warning(f"Table {table} not found in source metadata. Skipping.")
                     continue
-                result_table_defs.append(self._process_table_in_stage(table))
+                result_table_defs.append(self._process_table_in_stage(table, nr_chunks))
 
         return result_table_defs
 
-    def _process_table_in_stage(self, table_key: str) -> tuple[TableDefinition, TableSchema]:
+    def get_extracted_tables(self) -> dict[str, int]:
+        """
+        Get all tables extracted from the staging and number of chunks (0 if not chunked)
+        Returns: Dict of tables and chunked flag
+
+        """
+        tables = dict()
+        for table in self._staging.get_extracted_tables():
+            if '_chunk_' in table:
+                tables[table.split('_chunk_')[0]] = tables.get(table.split('_chunk_')[0], 0) + 1
+            else:
+                tables[table] = 0
+        return tables
+
+    def _process_table_in_stage(self, table_key: str, nr_chunks: int) -> tuple[TableDefinition, TableSchema]:
         """
         Processes table in stage. Creates table definition and schema based on the result schema.
         Args:
             table_key:
+            nr_chunks: Number of chunks
 
         Returns:
 
         """
-
-        result_schema = self._staging.get_table_schema(table_key)
+        staging_key = table_key
+        if nr_chunks > 0:
+            # get latest schema
+            staging_key = table_key + f'_chunk_{nr_chunks - 1}'
+        result_schema = self._staging.get_table_schema(staging_key)
         schema = self._get_source_table_schema(table_key)
 
         self.sort_columns_by_result(schema, result_schema)
@@ -280,7 +301,8 @@ class Component(ComponentBase):
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")
-        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys)
+        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
+                                    list(result_schema.keys()))
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
