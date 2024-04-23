@@ -6,10 +6,13 @@ import base64
 import logging
 import os
 import shutil
+from pathlib import Path
 
 from db_components.db_common import artefacts
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file
+
+SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
 DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 import tempfile
@@ -64,7 +67,7 @@ class Component(ComponentBase):
         self._configuration: Configuration
 
         self._temp_offset_file = tempfile.NamedTemporaryFile(suffix='.dat', delete=False)
-        self._temp_schema_history_file = tempfile.NamedTemporaryFile(suffix='_schema_history.jsonl', delete=False)
+        self._temp_schema_history_file = Path(tempfile.gettempdir()).joinpath(SCHEMA_HISTORY_FILENAME).as_posix()
         self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
@@ -89,7 +92,7 @@ class Component(ComponentBase):
                                                                db_config.host,
                                                                str(db_config.port),
                                                                self._temp_offset_file.name,
-                                                               self._temp_schema_history_file.name,
+                                                               self._temp_schema_history_file,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
                                                                self._build_unique_server_id(),
@@ -239,11 +242,12 @@ class Component(ComponentBase):
         Returns:
 
         """
-        existing_file, tags = artefacts.get_artefact('schema_history.jsonl', self, ['debezium'])
+        # TODO: support all stacks
+        existing_file, tags = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
 
-        if existing_file:
-            shutil.move(existing_file, self._temp_schema_history_file.name)
-        elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
+        if existing_file and not self.is_initial_run:
+            shutil.move(existing_file, self._temp_schema_history_file)
+        elif self.is_initial_run:
             logging.warning("No schema history file found, running initial load.")
         else:
             raise UserException("No schema history file found. This can happen when the file expires, "
@@ -451,7 +455,7 @@ class Component(ComponentBase):
         Returns:
 
         """
-        artefacts.store_artefact(self._temp_schema_history_file.name, self, ['debezium'])
+        artefacts.store_artefact(self._temp_schema_history_file, self, ['debezium'])
 
     def dedupe_required(self) -> bool:
         """

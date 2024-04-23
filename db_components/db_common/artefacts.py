@@ -14,7 +14,11 @@ def _build_unique_tags(context: CommonInterface, additional_tags: list[str] = No
     Returns:
         List of unique tags
     """
-    tags = [f'{context.environment_variables.component_id}-simulated-artefact']
+    tags = [f'{context.environment_variables.component_id}-simulated-artefact',
+            f'{context.environment_variables.project_id}-project_id',
+            f'{context.environment_variables.config_id}-config_id',
+            f'{context.environment_variables.config_row_id}-config_row_id',
+            f'{context.environment_variables.branch_id}-branch_id']
     if additional_tags:
         tags.extend(additional_tags)
     return tags

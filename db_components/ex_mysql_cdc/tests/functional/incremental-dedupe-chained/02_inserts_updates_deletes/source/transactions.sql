@@ -44,3 +44,5 @@ WHERE sku = 'SKU3';
 -- Delete one of the records
 DELETE FROM inventory.sales
 WHERE sku = 'SKU3';
+
+COMMIT;

@@ -15,13 +15,17 @@ def run(context: TestDataDir):
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
     sql_client.connection.connect()
 
-    schema = 'inventory'
-    sql_client.perform_query(f'SET search_path TO {schema}')
-
     queries = get_transactions_queries()
     for q in queries:
         if q.strip():
             sql_client.perform_query(q)
     sql_client.perform_query('commit')
     sql_client.connection.close()
+
+    os.environ['KBC_COMPONENTID'] = 'test-01_simple-full-load'
+    os.environ['KBC_STACKID'] = 'connection.keboola.com'
+    os.environ['KBC_CONFIGID'] = '123'
+    os.environ['KBC_CONFIGROWID'] = '456'
+    os.environ['KBC_BRANCHID'] = '789'
+    os.environ['KBC_PROJECTID'] = '10'
     print("Running before script")

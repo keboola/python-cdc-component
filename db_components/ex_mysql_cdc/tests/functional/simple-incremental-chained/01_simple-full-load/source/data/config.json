@@ -2,17 +2,17 @@
   "parameters": {
     "db_settings": {
       "ssh_options": [],
-      "host": "{{env.PGSQL_HOST}}",
-      "database": "postgres",
-      "port": 5432,
-      "user": "{{env.PGSQL_USER}}",
-      "#password": "{{env.PGSQL_PASSWORD}}",
+      "host": "{{env.MYSQL_HOST}}",
+      "port": 3306,
+      "user": "{{env.MYSQL_USER}}",
+      "#password": "{{env.MYSQL_PASSWORD}}",
       "use_ssh": false
     },
     "destination": {
       "load_type": "append_full"
     },
     "sync_options": {
+      "handle_binary": "base64",
       "source_signal_table": "inventory.debezium_signals",
       "max_wait_s": 10,
       "snapshot_mode": "initial",
@@ -50,6 +50,5 @@
     }
   },
   "action": "run",
-  "image_parameters": {
-  }
+  "image_parameters": {}
 }
