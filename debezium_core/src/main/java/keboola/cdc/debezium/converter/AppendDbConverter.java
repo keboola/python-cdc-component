@@ -14,6 +14,7 @@ import java.text.MessageFormat;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
 @Slf4j
 public class AppendDbConverter extends AbstractDbConverter implements JsonConverter {
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
@@ -30,6 +31,9 @@ public class AppendDbConverter extends AbstractDbConverter implements JsonConver
 	protected void init(final JsonArray initialSchema) {
 		log.debug("Initializing schema with default fields: {}", initialSchema);
 		final var deserialized = deserialize(initialSchema);
+		if (!deserialized.contains(ORDER_EVENT)) {
+			deserialized.add(ORDER_EVENT);
+		}
 		log.debug("Deserialized schema: {}", deserialized);
 		var columnDefinition = deserialized.stream()
 				.map(schemaElement -> {
