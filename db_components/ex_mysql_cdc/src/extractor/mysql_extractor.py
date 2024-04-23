@@ -74,6 +74,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  schema_history_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
+                                 server_id_unique: int,
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
@@ -93,6 +94,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         offset_file_path: Path to the file where the connector will store the offset.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
+        server_id_unique: Unique server id for the connector.
         additional_properties:
         snapshot_max_threads:
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
@@ -119,7 +121,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "offset.flush.interval.ms": 0,
         # connector properties
         "connector.class": "io.debezium.connector.mysql.MySqlConnector",
-        "database.server.id": 123456,
+        "database.server.id": server_id_unique,
         "database.hostname": hostname,
         "database.port": port,
         "database.user": user,

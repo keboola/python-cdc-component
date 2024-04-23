@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 
+from db_components.db_common import artefacts
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file
 
@@ -79,6 +80,7 @@ class Component(ComponentBase):
             self._init_workspace_client()
 
             self._reconstruct_offsset_from_state()
+            self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
@@ -90,6 +92,7 @@ class Component(ComponentBase):
                                                                self._temp_schema_history_file.name,
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
+                                                               self._build_unique_server_id(),
                                                                snapshot_mode=snapshot_mode,
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
@@ -127,6 +130,7 @@ class Component(ComponentBase):
             self.write_manifests([res[0] for res in result_tables])
 
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables], result_schema)
+            self._store_schema_history_file()
 
             self.cleanup_duckdb()
 
@@ -215,6 +219,11 @@ class Component(ComponentBase):
             params)
 
     def _reconstruct_offsset_from_state(self):
+        """
+        Reconstructs the Debezium offset file from the state file
+        Returns:
+
+        """
         last_state = self.get_state_file()
 
         if last_state.get(KEY_LAST_OFFSET):
@@ -223,6 +232,23 @@ class Component(ComponentBase):
                 outp.write(last_state)
         elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
             logging.warning("No State found, running full sync.")
+
+    def _reconstruct_schema_history_file(self):
+        """
+        Reconstructs the Debezium schema history file from the artefacts
+        Returns:
+
+        """
+        existing_file, tags = artefacts.get_artefact('schema_history.jsonl', self, ['debezium'])
+
+        if existing_file:
+            shutil.move(existing_file, self._temp_schema_history_file.name)
+        elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
+            logging.warning("No schema history file found, running initial load.")
+        else:
+            raise UserException("No schema history file found. This can happen when the file expires, "
+                                "the configuration wasn't run for more then 14 days. Initial run is required "
+                                "(reset the component state).")
 
     def _get_offest_string(self) -> str:
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
@@ -251,25 +277,43 @@ class Component(ComponentBase):
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
         with self._staging.connect():
             result_table_defs = []
-            for table in self._staging.get_extracted_tables():
+            for table, nr_chunks in self.get_extracted_tables().items():
                 if table not in self._source_schema_metadata:
                     logging.warning(f"Table {table} not found in source metadata. Skipping.")
                     continue
-                result_table_defs.append(self._process_table_in_stage(table))
+                result_table_defs.append(self._process_table_in_stage(table, nr_chunks))
 
         return result_table_defs
 
-    def _process_table_in_stage(self, table_key: str) -> tuple[TableDefinition, TableSchema]:
+    def get_extracted_tables(self) -> dict[str, int]:
+        """
+        Get all tables extracted from the staging and number of chunks (0 if not chunked)
+        Returns: Dict of tables and chunked flag
+
+        """
+        tables = dict()
+        for table in self._staging.get_extracted_tables():
+            if '_chunk_' in table:
+                tables[table.split('_chunk_')[0]] = tables.get(table.split('_chunk_')[0], 0) + 1
+            else:
+                tables[table] = 0
+        return tables
+
+    def _process_table_in_stage(self, table_key: str, nr_chunks: int) -> tuple[TableDefinition, TableSchema]:
         """
         Processes table in stage. Creates table definition and schema based on the result schema.
         Args:
             table_key:
+            nr_chunks: Number of chunks
 
         Returns:
 
         """
-
-        result_schema = self._staging.get_table_schema(table_key)
+        staging_key = table_key
+        if nr_chunks > 0:
+            # get latest schema
+            staging_key = table_key + f'_chunk_{nr_chunks - 1}'
+        result_schema = self._staging.get_table_schema(staging_key)
         schema = self._get_source_table_schema(table_key)
 
         self.sort_columns_by_result(schema, result_schema)
@@ -283,7 +327,8 @@ class Component(ComponentBase):
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")
-        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys)
+        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
+                                    list(result_schema.keys()))
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
@@ -400,6 +445,14 @@ class Component(ComponentBase):
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
         self.write_state_file(state)
 
+    def _store_schema_history_file(self):
+        """
+        Stores the schema history file as an artefact
+        Returns:
+
+        """
+        artefacts.store_artefact(self._temp_schema_history_file.name, self, ['debezium'])
+
     def dedupe_required(self) -> bool:
         """
         dedupe only if running sync from binlog and not in append_incremental mode.
@@ -494,20 +547,16 @@ class Component(ComponentBase):
         # TODO: Add upper/lower case conversions
         return new_columns
 
-    def _build_unique_replication_suffix(self):
+    def _build_unique_server_id(self) -> int:
         """
-        Returns unique publication name based on configuration and branch id
+        Returns unique server id based on the configuration and context in the project it runs to ensure uniqueness.
         Returns:
 
         """
-        config_id = self.environment_variables.config_id
-        branch_id = self.environment_variables.branch_id
-        if branch_id:
-            suffix = f"dev_{branch_id}"
-        else:
-            suffix = "prod"
-
-        return f"kbc_{config_id}_{suffix}"
+        config_id = self.environment_variables.config_id or 1
+        branch_id = self.environment_variables.branch_id or 2
+        project_id = self.environment_variables.project_id or 3
+        return int(f"{project_id}{config_id}{branch_id}")
 
     def sort_columns_by_result(self, table_schema: TableSchema, result_schema: dict):
         """
