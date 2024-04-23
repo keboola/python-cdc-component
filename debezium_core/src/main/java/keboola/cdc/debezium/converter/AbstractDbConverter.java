@@ -32,36 +32,38 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Getter
 @Setter(AccessLevel.PROTECTED)
 abstract class AbstractDbConverter implements JsonConverter {
+	protected static final SchemaElement ORDER_EVENT = new SchemaElement("int", false, null, null, 1, "event_order", true);
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
 
 	private final DuckDBConnection conn;
 	private final Gson gson;
 	private final LinkedHashMap<String, SchemaElement> schema;
-
+	private final AtomicInteger order;
 	private DuckDBAppender appender;
 
 	public AbstractDbConverter(Gson gson, DuckDbWrapper dbWrapper, JsonArray initialSchema) {
 		this.gson = gson;
 		this.conn = dbWrapper.getConn();
 		this.schema = new LinkedHashMap<>(initialSchema.size());
+		this.order = new AtomicInteger(0);
 	}
 
 	protected void createTable(String columnDefinition, String tableName) {
 		try (final var stmt = this.conn.createStatement()) {
-			log.info("Creating table {} if does not exits.", tableName);
+			log.debug("Creating table {} if does not exits.", tableName);
 			stmt.execute("CREATE TABLE IF NOT EXISTS \"" + tableName + "\" (" + columnDefinition + ")");
 			this.appender = this.conn.createAppender(DuckDBConnection.DEFAULT_SCHEMA, tableName);
 		} catch (SQLException e) {
 			log.error("Error during JsonToDbConverter schema initialization!", e);
 			throw new RuntimeException(e);
 		}
-		log.info("Json to db converter '{}' initialized", tableName);
 	}
 
 	/**
@@ -87,12 +89,14 @@ abstract class AbstractDbConverter implements JsonConverter {
 	/**
 	 * Converts values in Debezium format and append them
 	 *
-	 * @param value value to convert
-	 * @param field schema field
+	 * @param value    value to convert
+	 * @param field    schema field
 	 * @param appender appender to append value
 	 */
 	private void appendValue(JsonElement value, SchemaElement field, DuckDBAppender appender) throws SQLException {
-		if (value == null || value.isJsonNull()) {
+		if (field.orderEvent()) {
+			appender.append(this.order.getAndIncrement());
+		} else if (value == null || value.isJsonNull()) {
 			appender.append(null);
 		} else if (field.isDate()) {
 			var val = LocalDate.ofEpochDay(value.getAsInt())
@@ -133,14 +137,14 @@ abstract class AbstractDbConverter implements JsonConverter {
 		return false;
 	}
 
-
 	protected List<SchemaElement> deserialize(JsonArray fields) {
 		return this.gson.fromJson(fields, SCHEMA_ELEMENT_LIST_TYPE);
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected record SchemaElement(String type, boolean optional, @SerializedName("default") String defaultValue,
-								   String name, Integer version, String field) {
+								   String name, Integer version, String field, boolean orderEvent) {
+
 		public String columnDefinition() {
 			return MessageFormat.format("{0} {1}{2}{3}",
 					this.field, dbType(), this.optional ? "" : " NOT NULL",

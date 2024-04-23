@@ -16,16 +16,24 @@ class JsonConverterTest {
 	@Test
 	public void updateSchema() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
+		var payload = readResource("singleData_extended.json").getAsJsonObject();
 
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
 				"4G", "2G"));
 
 		var converter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
-		var validationSchema = readResource("schema_extended.json").getAsJsonObject();
-		converter.processJson(
-				"", readResource("singleData_extended.json").getAsJsonObject()
-		);
+		// check that there are missing fields
+		Assertions.assertTrue(converter.isMissingAnyColumn(payload));
+
+		// adjust schme
+		var validationSchema = readResource("schema_extended.json")
+				.getAsJsonObject()
+				.getAsJsonArray("fields");
+		converter.adjustSchema(validationSchema);
+
+		// put new data
+		converter.processJson(payload);
 		converter.close();
 
 		var stmt = dbWrapper.getConn().createStatement();
@@ -35,7 +43,7 @@ class JsonConverterTest {
 				() -> Assertions.assertEquals(122, rs.getInt("id")),
 				() -> Assertions.assertEquals("ccc", rs.getString("name")),
 				() -> Assertions.assertEquals("hafanana", rs.getString("description")),
-				() -> Assertions.assertEquals(100.0, rs.getDouble("weight")),
+				() -> Assertions.assertNull(rs.getString("weight")),
 				() -> Assertions.assertEquals(LocalDateTime.parse("2023-01-01T12:34:56.789"),
 						rs.getTimestamp("timestamp_col").toLocalDateTime()),
 				() -> Assertions.assertEquals("u", rs.getString("kbc__operation")),
