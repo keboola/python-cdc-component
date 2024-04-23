@@ -30,17 +30,20 @@ public class DedupeDbConverter extends AbstractDbConverter implements JsonConver
 	protected void init(final JsonArray initialSchema) {
 		log.debug("Initializing schema with default fields: {}", initialSchema);
 		final var deserialized = deserialize(initialSchema);
+		if (!deserialized.contains(ORDER_EVENT)) {
+			deserialized.add(ORDER_EVENT);
+		}
 		log.debug("Deserialized schema: {}", deserialized);
 		createNewChunkTable(deserialized);
 	}
 
 	@Override
-	public synchronized void processJson(String key, JsonObject jsonValue) {
-		store(jsonValue);
-		if (this.actualChunkSize.getAndIncrement() > AbstractDebeziumTask.MAX_CHUNK_SIZE) {
+	public synchronized void processJson(JsonObject jsonValue) {
+		if (this.actualChunkSize.incrementAndGet() > AbstractDebeziumTask.MAX_CHUNK_SIZE) {
 			close();
 			createNewChunkTable(this.columnDefinition);
 		}
+		store(jsonValue);
 	}
 
 	private void createNewChunkTable(final List<AppendDbConverter.SchemaElement> deserializedSchema) {
