@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,7 +30,6 @@ class DbChangeConsumerTest {
 	void setUp() {
 		this.count = new AtomicInteger();
 		SyncStats syncStats = new SyncStats();
-		syncStats.setStartTime(ZonedDateTime.now());
 		this.dbChangeConsumer = new DbChangeConsumer(this.count, "", syncStats,
 				this.dbWrapper, (gson, wrapper, tableName, initialSchema) -> this.converter);
 	}

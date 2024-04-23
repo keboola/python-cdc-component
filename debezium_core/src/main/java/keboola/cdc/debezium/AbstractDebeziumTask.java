@@ -95,8 +95,6 @@ public class AbstractDebeziumTask {
 				.notifying(changeConsumer)
 				.using(completionCallback)
 				.build()) {
-			syncStats.setStartTime(ZonedDateTime.now());
-
 			executorService.execute(engine);
 
 			Await.until(() -> this.ended(executorService, started, syncStats), Duration.ofSeconds(10));
@@ -166,7 +164,6 @@ public class AbstractDebeziumTask {
 		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
 			log.info("Ended after max wait: {}. Last record before: {}", this.maxWait,
 					syncStats.getLastRecord().plus(this.maxWait).toEpochSecond());
-			log.info("Average processing speed is: {}", syncStats.averageSpeed());
 			return true;
 		}
 

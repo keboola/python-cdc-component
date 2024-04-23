@@ -77,8 +77,6 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		}
 		committer.markBatchFinished();
 		this.syncStats.setRecordCount(this.count.intValue());
-		this.syncStats.setEndTime(ZonedDateTime.now());
-		log.info("Processed {} records, with average speed: {}", this.count.intValue(), this.syncStats.averageSpeed());
 	}
 
 	private void handle(String key, String value) {
