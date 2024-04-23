@@ -3,36 +3,50 @@
     "type": "int32",
     "optional": false,
     "default": "0",
-    "field": "id"
+    "field": "id",
+    "orderEvent": false
   },
   {
     "type": "string",
     "optional": false,
-    "field": "name"
+    "field": "name",
+    "orderEvent": false
   },
   {
     "type": "string",
     "optional": true,
-    "field": "description"
+    "field": "description",
+    "orderEvent": false
   },
   {
     "type": "double",
     "optional": true,
-    "field": "weight"
+    "field": "weight",
+    "orderEvent": false
   },
   {
     "type": "string",
     "optional": true,
-    "field": "kbc__operation"
+    "field": "kbc__operation",
+    "orderEvent": false
   },
   {
     "type": "int64",
     "optional": true,
-    "field": "kbc__event_timestamp"
+    "field": "kbc__event_timestamp",
+    "orderEvent": false
   },
   {
     "type": "string",
     "optional": true,
-    "field": "__deleted"
+    "field": "__deleted",
+    "orderEvent": false
+  },
+  {
+    "type": "int",
+    "optional": false,
+    "version": 1,
+    "field": "event_order",
+    "orderEvent": true
   }
 ]

@@ -8,7 +8,7 @@ import keboola.cdc.debezium.DuckDbWrapper;
 
 public interface JsonConverter {
 
-	void processJson(String key, JsonObject jsonValue);
+	void processJson(JsonObject jsonValue);
 
 	void close();
 
