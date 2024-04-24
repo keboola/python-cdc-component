@@ -288,8 +288,8 @@ class Component(ComponentBase):
             # get latest schema
             staging_key = table_key + f'_chunk_{nr_chunks - 1}'
         result_schema = self._staging.get_table_schema(staging_key)
+        # TODO: fiter the schema by the result_schema as there may be filters applied
         schema = self._get_source_table_schema(table_key)
-
         self.sort_columns_by_result(schema, result_schema)
 
         incremental_load = self._configuration.destination.is_incremental_load

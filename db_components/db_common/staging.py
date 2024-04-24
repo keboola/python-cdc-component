@@ -15,6 +15,7 @@ import duckdb
 from duckdb.duckdb import DuckDBPyConnection
 
 from db_components.db_common.table_schema import TableSchema
+# from db_components.db_common.workspace_client import SnowflakeClient
 
 
 def _get_csv_header(file_path: str) -> list[str]:
@@ -121,7 +122,7 @@ class Staging(Protocol):
 #
 #         logging.debug(f'Dedupping table {table_name}: {query}')
 #         self._snowflake_client.execute_query(query)
-
+#
 
 class StagingException(Exception):
     pass
@@ -167,7 +168,7 @@ class DuckDBStagingExporter:
 
     def process_table(self, table_name: str, result_table_path: str, dedupe_required: bool, primary_keys: list[str],
                       result_columns: list[str],
-                      order_by_column: str = 'kbc__event_timestamp'):
+                      order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area -> converts to csv.
 
@@ -212,7 +213,7 @@ class DuckDBStagingExporter:
 
     def process_table_dedupe(self, table_name: str, result_path: str, primary_keys: list[str],
                              result_columns: list[str],
-                             order_by_column: str = 'kbc__event_timestamp'):
+                             order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area.
 
