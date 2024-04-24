@@ -242,6 +242,7 @@ class Component(ComponentBase):
         if self._configuration.sync_options.source_signal_table not in tables_to_collect:
             tables_to_collect.append(self._configuration.sync_options.source_signal_table)
 
+        logging.info(f"Collecting metadata for tables: {tables_to_collect}")
         for table in tables_to_collect:
             schema, table = table.split('.')
             ts = self._client.metadata_provider.get_table_metadata(schema=schema,

@@ -128,6 +128,24 @@
             }
           },
           "propertyOrder": 102
+        },
+        "source_signal_table": {
+          "type": "string",
+          "title": "Signal Table",
+          "description": "Signal table that the component will write into.",
+          "enum": [],
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "async": {
+              "label": "Re-load tables",
+              "action": "get_tables",
+              "autoload": [
+                "parameters.source_settings.schemas"
+              ]
+            }
+          },
+          "propertyOrder": 103
         }
       }
     },
