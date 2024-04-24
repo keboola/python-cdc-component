@@ -168,7 +168,7 @@ class DuckDBStagingExporter:
 
     def process_table(self, table_name: str, result_table_path: str, dedupe_required: bool, primary_keys: list[str],
                       result_columns: list[str],
-                      order_by_column: str = 'kbc__event_timestamp'):
+                      order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area -> converts to csv.
 
@@ -213,7 +213,7 @@ class DuckDBStagingExporter:
 
     def process_table_dedupe(self, table_name: str, result_path: str, primary_keys: list[str],
                              result_columns: list[str],
-                             order_by_column: str = 'kbc__event_timestamp'):
+                             order_by_column: str = 'kbc__batch_event_order'):
         """
         Processes the table and uploads it to the staging area.
 
