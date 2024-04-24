@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Getter
 @Setter(AccessLevel.PROTECTED)
 abstract class AbstractDbConverter implements JsonConverter {
-	protected static final SchemaElement ORDER_EVENT = new SchemaElement("int", false, null, null, 1, "event_order", true);
+	protected static final SchemaElement ORDER_EVENT = new SchemaElement("int", false, null, null, 1, "kbc__batch_event_order", true);
 	private static final Type SCHEMA_ELEMENT_LIST_TYPE = new TypeToken<List<SchemaElement>>() {
 	}.getType();
 
