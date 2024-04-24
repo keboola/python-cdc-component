@@ -17,7 +17,7 @@ def set_order_by_columns(table_name: str, columns: list[str]):
 
 
 def get_order_by_columns(table_name):
-    return _order_by_columns.get(table_name, ['KBC__EVENT_TIMESTAMP_MS', 'price'])
+    return _order_by_columns.get(table_name, ['KBC__BATCH_EVENT_ORDER'])
 
 
 class DbTestTable(ABC):
