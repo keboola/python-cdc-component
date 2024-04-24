@@ -128,24 +128,6 @@
             }
           },
           "propertyOrder": 102
-        },
-        "source_signal_table": {
-          "type": "string",
-          "title": "Signal Table",
-          "description": "Signal table that the component will write into.",
-          "enum": [],
-          "format": "select",
-          "uniqueItems": true,
-          "options": {
-            "async": {
-              "label": "Re-load tables",
-              "action": "get_tables",
-              "autoload": [
-                "parameters.source_settings.schemas"
-              ]
-            }
-          },
-          "propertyOrder": 103
         }
       }
     },
@@ -183,6 +165,24 @@
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
           "default": 1,
           "propertyOrder": 10
+        },
+                "source_signal_table": {
+          "type": "string",
+          "title": "Signal Table",
+          "description": "Signal table that the component will write into.",
+          "enum": [],
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "async": {
+              "label": "Re-load tables",
+              "action": "get_tables",
+              "autoload": [
+                "parameters.source_settings.schemas"
+              ]
+            }
+          },
+          "propertyOrder": 103
         }
       }
     },
