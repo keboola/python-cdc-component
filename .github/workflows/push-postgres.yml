@@ -14,12 +14,6 @@ env:
   PGSQL_PASSWORD: postgres
   PGSQL_DATABASE: postgres
   PGSQL_PORT: 5432
-  SNFL_WORKSPACE_HOST: ${{ secrets.SNFL_WORKSPACE_HOST }}
-  SNFL_WORKSPACE_USER: ${{ secrets.SNFL_WORKSPACE_USER }}
-  SNFL_WORKSPACE_PASSWORD: ${{ secrets.SNFL_WORKSPACE_PASSWORD }}
-  SNFL_WORKSPACE_DATABASE: ${{ secrets.SNFL_WORKSPACE_DATABASE }}
-  SNFL_WORKSPACE_SCHEMA: ${{ secrets.SNFL_WORKSPACE_SCHEMA }}
-  SNFL_WORKSPACE_WAREHOUSE: ${{ secrets.SNFL_WORKSPACE_WAREHOUSE }}
 
 jobs:
   variables:
@@ -36,12 +30,6 @@ jobs:
       PGSQL_PASSWORD: ${{ steps.step1.outputs.PGSQL_PASSWORD }}
       PGSQL_DATABASE: ${{ steps.step1.outputs.PGSQL_DATABASE }}
       PGSQL_PORT: ${{ steps.step1.outputs.PGSQL_PORT }}
-      SNFL_WORKSPACE_HOST: ${{ steps.step1.outputs.SNFL_WORKSPACE_HOST }}
-      SNFL_WORKSPACE_USER: ${{ steps.step1.outputs.SNFL_WORKSPACE_USER }}
-      SNFL_WORKSPACE_PASSWORD: ${{ steps.step1.outputs.SNFL_WORKSPACE_PASSWORD }}
-      SNFL_WORKSPACE_DATABASE: ${{ steps.step1.outputs.SNFL_WORKSPACE_DATABASE }}
-      SNFL_WORKSPACE_SCHEMA: ${{ steps.step1.outputs.SNFL_WORKSPACE_SCHEMA }}
-      SNFL_WORKSPACE_WAREHOUSE: ${{ steps.step1.outputs.SNFL_WORKSPACE_WAREHOUSE }}
     steps:
     - name: Assigns inputs passed to the reusable workflow
       id: step1
@@ -94,6 +82,7 @@ jobs:
     secrets: inherit
 
   tests:
+    runs-on: ubuntu-latest
     needs:
       - build-python
       - variables

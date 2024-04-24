@@ -6,8 +6,9 @@ __pycache__/
 .DS_Store
 .env
 
-# kbc datafolder
-*/data
+# kbc datafolders
+/db_components/ex_postgres_cdc/data
+/db_components/ex_mysql_cdc/data
 */venv
 testing_config/
 
@@ -25,7 +26,6 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn
 /testing_config
-**/data/
 **/venv
 test.py
 

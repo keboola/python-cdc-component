@@ -49,6 +49,7 @@ class TableSchema:
     """
     name: str
     schema_name: str
+    database_name: str = None
     fields: List[ColumnSchema] = field(default_factory=list)
     primary_keys: Optional[List[str]] = None
     parent_tables: Optional[List[str]] = None
@@ -63,8 +64,15 @@ class TableSchema:
     def csv_name(self) -> str:
         if "C##" in self.schema_name:
             logging.warning(f"Schema name {self.schema_name} contains C##. Replacing with C__ for csv output.")
-            return f"{self.schema_name.replace('C##', 'C__')}_{self.name}"
-        return f"{self.schema_name}_{self.name}"
+            self.schema_name = f"{self.schema_name.replace('C##', 'C__')}_{self.name}"
+
+        name_prefixes = []
+        if self.database_name:
+            name_prefixes.append(self.database_name)
+        if self.schema_name:
+            name_prefixes.append(self.schema_name)
+        name_prefix = '_'.join(name_prefixes)
+        return f"{name_prefix}_{self.name}.csv"
 
     def add_column(self, column: ColumnSchema) -> None:
         """
