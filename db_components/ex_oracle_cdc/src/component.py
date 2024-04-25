@@ -19,7 +19,7 @@ from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_
 
 
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.db_common.staging import Staging, SnowflakeStaging, DuckDBStaging
+from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException
 
 from keboola.component.base import ComponentBase, sync_action
@@ -71,7 +71,7 @@ class Component(ComponentBase):
         with self._init_client() as db_config:
             self._init_workspace_client()
 
-            self._reconstruct_offsset_from_state()
+            self._reconstruct_offset_from_state()
             sync_options = self._configuration.sync_options
             snapshot_mode = sync_options.snapshot_mode.name
 
@@ -122,7 +122,7 @@ class Component(ComponentBase):
 
             self.write_manifests([res[0] for res in result_tables])
 
-            self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables])
+            self._write_result_state(self._get_offset_string(), [res[1] for res in result_tables])
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -183,18 +183,11 @@ class Component(ComponentBase):
                 pass
 
     def _init_workspace_client(self):
-        if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'snowflake':
 
-            logging.info("Using Snowflake staging")
-            self._staging = SnowflakeStaging(self.configuration.workspace_credentials,
-                                             self._convert_to_snowflake_column_definitions,
-                                             self._normalize_columns)
-
-        elif self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
+        if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
             logging.info("Using DuckDB staging")
-            self._staging = DuckDBStaging(self._convert_to_snowflake_column_definitions,
+            self._staging = DuckDBStagingExporter(self._convert_to_snowflake_column_definitions,
                                           self._normalize_columns)
-
         else:
             raise UserException(
                 f"Staging type not supported: {self.configuration.image_parameters.get(KEY_STAGING_TYPE)}")
@@ -207,7 +200,7 @@ class Component(ComponentBase):
             params['db_settings']['ssh_options'] = {}
         self._configuration: Configuration = Configuration.load_from_dict(params)
 
-    def _reconstruct_offsset_from_state(self):
+    def _reconstruct_offset_from_state(self):
         last_state = self.get_state_file()
 
         if last_state.get(KEY_LAST_OFFSET):
@@ -217,7 +210,7 @@ class Component(ComponentBase):
         elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
             logging.warning("No State found, running full sync.")
 
-    def _get_offest_string(self) -> str:
+    def _get_offset_string(self) -> str:
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
         return (base64.b64encode(image_data_binary)).decode('ascii')
 
