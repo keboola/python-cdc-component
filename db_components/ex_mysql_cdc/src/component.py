@@ -560,7 +560,11 @@ class Component(ComponentBase):
         config_id = self.environment_variables.config_id or 1
         branch_id = self.environment_variables.branch_id or 2
         project_id = self.environment_variables.project_id or 3
-        return int(f"{project_id}{config_id}{branch_id}")
+
+        # make sure it's not exceeding the max Long value
+        server_id = int(f"{project_id}{config_id}{branch_id}") % (2 ** 63 - 1)
+        logging.info(f"Unique server id: {server_id}")
+        return server_id
 
     def sort_columns_by_result(self, table_schema: TableSchema, result_schema: dict):
         """
