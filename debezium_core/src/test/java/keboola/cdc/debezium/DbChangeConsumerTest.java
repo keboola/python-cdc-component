@@ -30,7 +30,7 @@ class DbChangeConsumerTest {
 	void setUp() {
 		this.count = new AtomicInteger();
 		SyncStats syncStats = new SyncStats();
-		this.dbChangeConsumer = new DbChangeConsumer(this.count, "", syncStats,
+		this.dbChangeConsumer = new DbChangeConsumer("", syncStats,
 				this.dbWrapper, (gson, wrapper, tableName, initialSchema) -> this.converter);
 	}
 

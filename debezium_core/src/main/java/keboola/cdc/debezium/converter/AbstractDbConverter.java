@@ -76,7 +76,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 			this.appender.beginRow();
 			for (var entry : this.schema.entrySet()) {
 				String column = entry.getKey();
-				log.debug("Appending column: {}", column);
+				log.trace("Appending column: {}", column);
 				appendValue(jsonValue.get(column), entry.getValue(), this.appender);
 			}
 			this.appender.endRow();

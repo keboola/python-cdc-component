@@ -16,7 +16,6 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class AbstractDebeziumTask {
@@ -79,13 +78,12 @@ public class AbstractDebeziumTask {
 	public void run() throws Exception {
 		ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-		AtomicInteger count = new AtomicInteger();
-		ZonedDateTime started = ZonedDateTime.now();
 		SyncStats syncStats = new SyncStats();
 
 		// callback
-		CompletionCallback completionCallback = new CompletionCallback(executorService);
-		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats,
+		var completionCallback = new CompletionCallback(executorService);
+		var connectorCallback = new ConnectorCallback(syncStats);
+		var changeConsumer = new DbChangeConsumer(this.resultFolder.toString(), syncStats,
 				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
 
 		// start
@@ -93,11 +91,11 @@ public class AbstractDebeziumTask {
 				.using(this.getClass().getClassLoader())
 				.using(this.debeziumProperties)
 				.notifying(changeConsumer)
+				.using(connectorCallback)
 				.using(completionCallback)
 				.build()) {
 			executorService.execute(engine);
-
-			Await.until(() -> this.ended(executorService, started, syncStats), Duration.ofSeconds(10));
+			Await.until(() -> this.ended(executorService, syncStats), Duration.ofMillis(500));
 		} finally {
 			changeConsumer.closeWriterStreams();
 			changeConsumer.storeSchemaMap();
@@ -149,21 +147,16 @@ public class AbstractDebeziumTask {
 		}
 	}
 
-	private boolean ended(ExecutorService executorService, ZonedDateTime start, SyncStats syncStats) {
+	private boolean ended(ExecutorService executorService, SyncStats syncStats) {
 		if (executorService.isShutdown()) {
 			return true;
 		}
-		if (this.maxDuration != null && ZonedDateTime.now().toEpochSecond() > start.plus(this.maxDuration).toEpochSecond()) {
-			log.info("Ended after max duration: {}", this.maxDuration);
-			return true;
-		}
 
-//		this.log.info("Time elapsed: {}, Last record before: {}", lastRecord.plus(this.maxWait).toEpochSecond(),
-//				ZonedDateTime.now().toEpochSecond());
-
-		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
-			log.info("Ended after max wait: {}. Last record before: {}", this.maxWait,
-					syncStats.getLastRecord().plus(this.maxWait).toEpochSecond());
+		if (syncStats.isTaskStarted()
+				&& this.maxWait != null
+				&& syncStats.getLastRecord() != null
+				&& ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
+			log.info("Ended after max wait: {}. Last record: {}", this.maxWait, syncStats.getLastRecord());
 			return true;
 		}
 

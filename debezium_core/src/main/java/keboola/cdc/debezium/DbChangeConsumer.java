@@ -33,10 +33,10 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	private final JsonConverter.ConverterProvider converterProvider;
 
 
-	public DbChangeConsumer(AtomicInteger count, String resultFolder,
+	public DbChangeConsumer(String resultFolder,
 							SyncStats syncStats, DuckDbWrapper dbWrapper,
 							JsonConverter.ConverterProvider converterProvider) {
-		this.count = count;
+		this.count = new AtomicInteger(0);
 		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json").toString();
 		this.converters = new ConcurrentHashMap<>();
 		this.dbWrapper = dbWrapper;
