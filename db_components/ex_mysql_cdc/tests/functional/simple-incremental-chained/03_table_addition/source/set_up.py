@@ -16,9 +16,6 @@ def run(context: TestDataDir):
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
     sql_client.connection.connect()
 
-    schema = 'inventory'
-    sql_client.perform_query(f'SET search_path TO {schema}')
-
     queries = get_transactions_queries()
     for q in queries:
         if q.strip():

@@ -53,7 +53,7 @@ class Component(ComponentBase):
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
-        # ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")
+        ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")
     ]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",

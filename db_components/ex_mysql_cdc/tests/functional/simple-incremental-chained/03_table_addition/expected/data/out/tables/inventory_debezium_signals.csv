@@ -1,1 +1,1 @@
-execute-snapshot,"{""type"": ""BLOCKING"", ""data-collections"": [""inventory.products""]}",c,false
+execute-snapshot,"{""type"": ""BLOCKING"", ""data-collections"": [""inventory.products""]}",c,false,0
