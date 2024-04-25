@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
+import io.debezium.engine.StopEngineException;
 import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -69,11 +70,15 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
-		this.syncStats.setLastRecord(ZonedDateTime.now());
+		ZonedDateTime now = ZonedDateTime.now();
+		if(this.count.get() == 0){
+			this.syncStats.setStarted(now.toInstant().toEpochMilli());
+		}
+		this.syncStats.setLastRecord(now);
 		for (final var r : records) {
-			this.count.incrementAndGet();
 			handle(r.key(), r.value());
 			committer.markProcessed(r);
+			this.count.incrementAndGet();
 		}
 		committer.markBatchFinished();
 		this.syncStats.setRecordCount(this.count.intValue());
@@ -88,7 +93,9 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		final var payload = pair.getValue();
 		log.trace("Payload: {}", payload);
 		final JsonConverter converter;
-
+		if(shouldStop(payload)){
+			throw new StopEngineException("Stop processing, records out of scope.");
+		}
 		if (this.converters.containsKey(tableIdentifier)) {
 			log.trace("Converter for {} already exists.", tableIdentifier);
 			converter = this.converters.get(tableIdentifier);
@@ -106,11 +113,22 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		converter.processJson(payload);
 	}
 
+	private boolean shouldStop(final JsonObject payload) {
+		long kbc__eventTimestamp = payload.getAsJsonPrimitive("kbc__event_timestamp")
+				.getAsLong();
+		boolean result = kbc__eventTimestamp > this.syncStats.getStarted();
+		if(result){
+			log.info("Stop processing out of scope records, kbc__event_timestamp: {} and started: {}",
+					kbc__eventTimestamp, this.syncStats.getStarted());
+		}
+		return result;
+	}
+
 	private static Pair<String, JsonObject> extractTableNameAndPayload(String value) {
 		JsonObject payload = null;
 		String tableName = null;
 		try {
-			JsonReader reader = new JsonReader(new StringReader(value));
+			var reader = new JsonReader(new StringReader(value));
 			reader.beginObject();
 			while (reader.hasNext()) {
 				var nextName = reader.nextName();

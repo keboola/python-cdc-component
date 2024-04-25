@@ -107,10 +107,7 @@ public class AbstractDebeziumTask {
 			throw new Exception(completionCallback.getErrorMessage());
 		}
 
-		log.info(
-				"Ended after receiving records: {}",
-				changeConsumer.getRecordsCount()
-		);
+		log.info("Ended after receiving records: {}", changeConsumer.getRecordsCount());
 
 	}
 

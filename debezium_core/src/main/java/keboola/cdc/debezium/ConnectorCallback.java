@@ -14,7 +14,8 @@ public record ConnectorCallback(SyncStats syncStats)
 	public void taskStarted() {
 		log.info("Task started");
 		this.syncStats.setTaskStarted(true);
-		this.syncStats.setLastRecord(ZonedDateTime.now());
+		ZonedDateTime now = ZonedDateTime.now();
+		this.syncStats.setLastRecord(now);
 	}
 
 	@Override
