@@ -127,7 +127,7 @@ class Component(ComponentBase):
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=8000,
+                                                      max_duration_s=27000,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
