@@ -184,7 +184,7 @@ class JDBCConnection(DbConnection):
         """
 
         for row in self._call_jdbc_metadata_system_function('getCatalogs'):
-            yield row
+            yield row['TABLE_CAT']
 
     def get_schemas(self) -> Iterable[str]:
         """

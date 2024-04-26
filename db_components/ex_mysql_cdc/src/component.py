@@ -546,7 +546,7 @@ class Component(ComponentBase):
             tables = []
             for s in self._configuration.source_settings.schemas:
                 tables.extend(self._client.metadata_provider.get_tables(database=s))
-            return [SelectElement(f"{table[0]}.{table[1]}") for table in tables]
+            return [SelectElement(f"{table[0]}.{table[2]}") for table in tables]
 
     @sync_action("generate_ssh_key")
     def generate_ssh_key(self):
