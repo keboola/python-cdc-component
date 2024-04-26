@@ -139,7 +139,10 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "table.include.list": table_include,
         "errors.max.retries": 3,
         "signal.enabled.channels": "source",
-        "signal.data.collection": signal_table}
+        "signal.data.collection": signal_table,
+        "max.batch.size": 5000,
+        "max.queue.size": 20000
+    }
 
     properties |= additional_properties
 
