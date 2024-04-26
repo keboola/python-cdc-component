@@ -6,7 +6,7 @@ from jaydebeapi import DatabaseError
 
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
-from db_components.db_common.table_schema import BaseTypeConverter
+from db_components.db_common.table_schema import BaseTypeConverter, ColumnSchema
 from db_components.ex_mysql_cdc.src.configuration import DbOptions
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
@@ -195,3 +195,6 @@ class MySQLDebeziumExtractor:
     def close_connection(self):
         logging.debug("Closing the outer connection.")
         self.connection.connection.close()
+
+
+

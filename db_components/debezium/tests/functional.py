@@ -103,6 +103,10 @@ class DebeziumCDCDatadirTest(TestDataDir):
             if 'debezium_signals' in in_table:
                 # in case of debezium signal we need to remove id column
                 columns_to_remove.append('id')
+
+            if 'io_debezium_connector' in in_table and 'schema_changes' in in_table:
+                columns_to_remove = ['source', 'ts_ms']
+
             if not os.path.isdir(in_table):
                 self._remove_column_slice(f'{in_table}.manifest',
                                           in_table, columns_to_remove, order_by_column)

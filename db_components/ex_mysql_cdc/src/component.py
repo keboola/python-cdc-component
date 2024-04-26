@@ -9,8 +9,11 @@ import shutil
 from pathlib import Path
 
 from db_components.db_common import artefacts
+from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
+
+SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
 
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
@@ -278,6 +281,11 @@ class Component(ComponentBase):
                                                                    table_name=table)
             # TODO: change the topic name (testcdc)
             table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table}"] = ts
+
+        # schema changes table
+        table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
+            schema_name='io_debezium_connector_mysql')
+
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
@@ -326,7 +334,8 @@ class Component(ComponentBase):
 
         incremental_load = self._configuration.destination.is_incremental_load
         # remove primary key when using append mode
-        if self._configuration.destination.load_type in ('append_incremental', 'append_full'):
+        if (self._configuration.destination.load_type in ('append_incremental', 'append_full')
+                and table_key != SCHEMA_CHANGE_TABLE_NAME):
             schema.primary_keys = []
 
         self._convert_to_snowflake_column_definitions(schema.fields)
@@ -335,6 +344,10 @@ class Component(ComponentBase):
         logging.info(f"Creating table {table_key} in stage")
         self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
                                     list(result_schema.keys()))
+
+        if table_key == SCHEMA_CHANGE_TABLE_NAME:
+            # always incrementally load schema changes
+            incremental_load = True
 
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
 
@@ -372,6 +385,10 @@ class Component(ComponentBase):
         """
         schema = self._source_schema_metadata[table_key]
         last_schema = self.previous_storage_schema.get(table_key)
+
+        # do not modify if schemachange table
+        if table_key == SCHEMA_CHANGE_TABLE_NAME:
+            return schema
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
@@ -592,7 +609,6 @@ class Component(ComponentBase):
         #         # default type in case the schema is not present
         #         col_schema = ColumnSchema(name=c, source_type='STRING', nullable=True)
         #     result_fields.append(table_schema.get_column_by_name(c))
-
 
         # sort columns based on the result schema
         table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
