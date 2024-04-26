@@ -10,7 +10,7 @@ from pathlib import Path
 
 from db_components.db_common import artefacts
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
-    build_debezium_property_file
+    build_debezium_property_file, MySQLBaseTypeConverter
 
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
@@ -44,6 +44,8 @@ KEY_LAST_SYNCED_TABLED = 'last_synced_tables'
 KEY_LAST_SCHEMA = "last_schema"
 
 KEY_LAST_OFFSET = 'last_offset'
+
+DEFAULT_TOPIC_NAME = 'testcdc'
 
 REQUIRED_IMAGE_PARS = []
 
@@ -275,7 +277,7 @@ class Component(ComponentBase):
             ts = self._client.metadata_provider.get_table_metadata(database=schema,
                                                                    table_name=table)
             # TODO: change the topic name (testcdc)
-            table_schemas[f"testcdc_{schema}_{table}"] = ts
+            table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table}"] = ts
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
@@ -376,6 +378,7 @@ class Component(ComponentBase):
             # Expand current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
+                    c.base_type_converter = MySQLBaseTypeConverter()
                     schema.fields.append(c)
 
         # add system fields
@@ -445,9 +448,13 @@ class Component(ComponentBase):
                  KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
 
         for schema in table_schemas:
-            schema_key = f"{schema.schema_name}.{schema.name}"
+            schema_key = self.generate_table_key(schema)
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
         self.write_state_file(state)
+
+    def generate_table_key(self, schema):
+        schema_key = f"{DEFAULT_TOPIC_NAME}_{schema.database_name}_{schema.name}"
+        return schema_key
 
     def _store_schema_history_file(self):
         """
@@ -578,6 +585,15 @@ class Component(ComponentBase):
         """
         # rename column names of result schema
         result_order = self._normalize_columns([c for c in result_schema])
+        # result_fields = []
+        # for c in result_order:
+        #     col_schema = table_schema.get_column_by_name(c)
+        #     if not col_schema:
+        #         # default type in case the schema is not present
+        #         col_schema = ColumnSchema(name=c, source_type='STRING', nullable=True)
+        #     result_fields.append(table_schema.get_column_by_name(c))
+
+
         # sort columns based on the result schema
         table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
 

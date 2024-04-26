@@ -95,6 +95,20 @@ class TableSchema:
             dict_schema['fields'].append(c.as_dict())
         return dict_schema
 
+    def get_column_by_name(self, c: str) -> ColumnSchema:
+        """
+        Get a column by name.
+        Args:
+            c:
+
+        Returns:
+
+        """
+        for column in self.fields:
+            if column.name == c:
+                return column
+        return None
+
 
 def init_table_schema_from_dict(json_table_schema: Dict,
                                 base_type_converter: Callable[[str | None], str] = field(
