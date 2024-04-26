@@ -58,17 +58,17 @@ SUPPORTED_TYPES = ["smallint",
                    "text"]
 
 
-def build_oracle_property_file(user: str, password: str, hostname: str, port: str, database: str, p_database: str,
-                               offset_file_path: str,
-                               schema_whitelist: list[str],
-                               table_whitelist: list[str],
-                               schema_history_filepath: str,
-                               snapshot_mode: str = 'initial',
-                               signal_table: str = None,
-                               snapshot_fetch_size: int = 10240,
-                               snapshot_max_threads: int = 1,
-                               additional_properties: dict = None,
-                               repl_suffix: str = 'dbz') -> str:
+def build_debezium_property_file(user: str, password: str, hostname: str, port: str, database: str, p_database: str,
+                                 offset_file_path: str,
+                                 schema_whitelist: list[str],
+                                 table_whitelist: list[str],
+                                 schema_history_filepath: str,
+                                 snapshot_mode: str = 'initial',
+                                 signal_table: str = None,
+                                 snapshot_fetch_size: int = 10240,
+                                 snapshot_max_threads: int = 1,
+                                 additional_properties: dict = None,
+                                 repl_suffix: str = 'dbz') -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:

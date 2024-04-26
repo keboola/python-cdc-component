@@ -75,7 +75,8 @@ class DebeziumExecutor:
                 db_configs_dict[key] = value.data
             return db_configs_dict
 
-    def build_keboola_properties(self, duckdb_config: DuckDBParameters):
+    @staticmethod
+    def build_keboola_properties(duckdb_config: DuckDBParameters):
         """
         Append DuckDB configuration to the properties file.
         Args:

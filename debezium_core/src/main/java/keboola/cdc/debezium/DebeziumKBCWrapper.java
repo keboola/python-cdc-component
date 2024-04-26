@@ -16,6 +16,15 @@ import java.time.Duration;
 @Slf4j
 public class DebeziumKBCWrapper implements Runnable {
 
+    static {
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
 	@Parameters(index = "0", description = "The debezium properties path")
 	private String debeziumPropertiesPath;
 

@@ -3,9 +3,12 @@ Template Component main class.
 
 """
 import base64
+from functools import cached_property
 import glob
 import logging
+from pathlib import Path
 import os
+import shutil
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -14,26 +17,31 @@ from contextlib import contextmanager
 from configuration import Configuration, DbOptions, SnapshotMode
 from extractor.oracle_extractor import OracleDebeziumExtractor
 from extractor.oracle_extractor import SUPPORTED_TYPES
-from extractor.oracle_extractor import build_oracle_property_file
+from extractor.oracle_extractor import build_debezium_property_file
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 
-
+from db_components.db_common import artefacts
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters
 
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
 from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
+DEBEZIUM_CORE_PATH = os.environ.get(
+    'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
-DEBEZIUM_CORE_PATH = "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
+SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
+KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 KEY_STAGING_TYPE = 'staging_type'
 KEY_LAST_SYNCED_TABLES = 'last_synced_tables'
 KEY_LAST_SCHEMA = "last_schema"
 KEY_LAST_OFFSET = 'last_offset'
+DEFAULT_TOPIC_NAME = 'testcdc'
 
 REQUIRED_IMAGE_PARS = []
 
@@ -56,6 +64,7 @@ class Component(ComponentBase):
         self._configuration: Configuration
 
         self._temp_offset_file = tempfile.NamedTemporaryFile(suffix='.dat', delete=False)
+        self._temp_schema_history_file = Path(tempfile.gettempdir()).joinpath(SCHEMA_HISTORY_FILENAME).as_posix()
         self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
@@ -72,29 +81,33 @@ class Component(ComponentBase):
             self._init_workspace_client()
 
             self._reconstruct_offset_from_state()
+            self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
-            snapshot_mode = sync_options.snapshot_mode.name
 
-            prev_schema_history_file = self.get_in_artifact_full_in_path("dbhistory.dat")
+            prev_schema_history_file = self.get_artifact_full_in_path("dbhistory.dat")
             schema_history_file = self.get_artifact_full_out_path("dbhistory.dat")
             if os.path.exists(prev_schema_history_file):
                 os.rename(prev_schema_history_file, schema_history_file)
 
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
-            debezium_properties = build_oracle_property_file(db_config.user, db_config.pswd_password,
-                                                             db_config.host,
-                                                             str(db_config.port), db_config.database,
-                                                             db_config.p_database,
-                                                             self._temp_offset_file.name,
-                                                             self._configuration.source_settings.schemas,
-                                                             self._configuration.source_settings.tables,
-                                                             schema_history_file,
-                                                             snapshot_mode=snapshot_mode,
-                                                             signal_table=sync_options.source_signal_table,
-                                                             snapshot_fetch_size=sync_options.snapshot_fetch_size,
-                                                             snapshot_max_threads=sync_options.snapshot_threads,
-                                                             repl_suffix=self._build_unique_replication_suffix())
+            debezium_properties = build_debezium_property_file(
+                user=db_config.user,
+                password=db_config.pswd_password,
+                hostname=db_config.host,
+                port=str(db_config.port),
+                database=db_config.database,
+                p_database=db_config.p_database,
+                offset_file_path=self._temp_offset_file.name,
+                schema_whitelist=self._configuration.source_settings.schemas,
+                table_whitelist=self._configuration.source_settings.tables,
+                schema_history_filepath=self._temp_schema_history_file,
+                snapshot_mode=self.get_snapshot_mode(),
+                signal_table=sync_options.source_signal_table,
+                snapshot_fetch_size=sync_options.snapshot_fetch_size,
+                snapshot_max_threads=sync_options.snapshot_threads,
+                repl_suffix=self._build_unique_replication_suffix()
+            )
 
             self._collect_source_metadata()
 
@@ -103,26 +116,52 @@ class Component(ComponentBase):
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
 
-            debezium_executor = DebeziumExecutor(debezium_properties, DEBEZIUM_CORE_PATH,
+            debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
+                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection,
                                                  result_log_path=log_artefact_path)
+
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='file')
 
             logging.info("Running Debezium Engine")
-            debezium_executor.execute(self.tables_out_path,
-                                      max_duration_s=8000,
-                                      max_wait_s=self._configuration.sync_options.max_wait_s)
+            result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      mode='DEDUPE' if self.dedupe_required() else 'APPEND',
+                                                      max_duration_s=8000,
+                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
+                                                      previous_schema=self.last_debezium_schema)
+
             start = time.time()
             result_tables = self._load_tables_to_stage()
             end = time.time()
             logging.info(f"Load to stage finished in {end - start}")
-
             self.write_manifests([res[0] for res in result_tables])
 
-            self._write_result_state(self._get_offset_string(), [res[1] for res in result_tables])
+            self._write_result_state(self._get_offset_string(), [res[1] for res in result_tables], result_schema)
+            self._store_schema_history_file()
+
+            self.cleanup_duckdb()
+
+    @staticmethod
+    def cleanup_duckdb():
+        # cleanup duckdb (useful for local dev,to clean resources)
+        if os.path.exists(DUCK_DB_DIR):
+            shutil.rmtree(DUCK_DB_DIR)
+
+    @cached_property
+    def duck_db_path(self):
+        duckdb_dir = DUCK_DB_DIR
+        os.makedirs(duckdb_dir, exist_ok=True)
+        tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
+        os.remove(tmpdb.name)
+        return tmpdb.name
+
+    @cached_property
+    def last_debezium_schema(self) -> dict:
+        return self.get_state_file().get(KEY_DEBEZIUM_SCHEMA, {})
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -187,7 +226,7 @@ class Component(ComponentBase):
         if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
             logging.info("Using DuckDB staging")
             self._staging = DuckDBStagingExporter(self._convert_to_snowflake_column_definitions,
-                                          self._normalize_columns)
+                                                  self._normalize_columns)
         else:
             raise UserException(
                 f"Staging type not supported: {self.configuration.image_parameters.get(KEY_STAGING_TYPE)}")
@@ -209,6 +248,24 @@ class Component(ComponentBase):
                 outp.write(last_state)
         elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
             logging.warning("No State found, running full sync.")
+
+    def _reconstruct_schema_history_file(self):
+        """
+        Reconstructs the Debezium schema history file from the artefacts
+        Returns:
+
+        """
+        # TODO: support all stacks
+        existing_file, tags = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
+
+        if existing_file and not self.is_initial_run:
+            shutil.move(existing_file, self._temp_schema_history_file)
+        elif self.is_initial_run:
+            logging.warning("No schema history file found, running initial load.")
+        else:
+            raise UserException("No schema history file found. This can happen when the file expires, "
+                                "the configuration wasn't run for more then 14 days. Initial run is required "
+                                "(reset the component state).")
 
     def _get_offset_string(self) -> str:
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
@@ -392,7 +449,7 @@ class Component(ComponentBase):
         logging.debug(f'Dedupping table {table_name}: {query}')
         self._staging.execute_query(query)
 
-    def _write_result_state(self, offset: str, table_schemas: list[TableSchema]):
+    def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema: dict):
         """
         Writes state file with last offset and last schema and last synced tables
         Args:
@@ -402,22 +459,29 @@ class Component(ComponentBase):
         Returns:
 
         """
-        # load schema.json from data folder and include it's content in the state file
-        debezium_schema = {}
-        if os.path.exists(f"{self.tables_out_path}/schema.json"):
-            with open(f"{self.tables_out_path}/schema.json", 'r') as f:
-                debezium_schema = f.read()
-            os.remove(f"{self.tables_out_path}/schema.json")
 
         state = {KEY_LAST_OFFSET: offset,
                  KEY_LAST_SCHEMA: {},
-                 KEY_LAST_SYNCED_TABLES: self._configuration.source_settings.tables,
-                 "debezium_schema": debezium_schema}
+                 KEY_DEBEZIUM_SCHEMA: debezium_schema,
+                 KEY_LAST_SYNCED_TABLES: self._configuration.source_settings.tables}
 
         for schema in table_schemas:
-            schema_key = f"{schema.schema_name}.{schema.name}"
+            schema_key = self.generate_table_key(schema)
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
         self.write_state_file(state)
+
+    @staticmethod
+    def generate_table_key(schema):
+        schema_key = f"{DEFAULT_TOPIC_NAME}_{schema.database_name}_{schema.name}"
+        return schema_key
+
+    def _store_schema_history_file(self):
+        """
+        Stores the schema history file as an artefact
+        Returns:
+
+        """
+        artefacts.store_artefact(self._temp_schema_history_file, self, ['debezium'])
 
     def dedupe_required(self) -> bool:
         """
@@ -526,7 +590,7 @@ class Component(ComponentBase):
         full_path = os.path.join(artifact_out_dir, file_name)
         return full_path
 
-    def get_in_artifact_full_in_path(self, file_name: str) -> str:
+    def get_artifact_full_in_path(self, file_name: str) -> str:
         """
         Args:
             file_name: Name of the file to get from the artifact folder
