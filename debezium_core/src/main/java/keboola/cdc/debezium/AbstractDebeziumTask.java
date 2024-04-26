@@ -19,23 +19,24 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class AbstractDebeziumTask {
+	public static final String KBC_FIELDS_PREFIX = "kbc__";
+	public static final String EVENT_TIMESTAMP_FIELD = "event_timestamp";
+	public static final String KBC_EVENT_TIMESTAMP_FIELD = KBC_FIELDS_PREFIX + EVENT_TIMESTAMP_FIELD;
+
 	public static int MAX_CHUNK_SIZE = 1000;
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;
-	private final Duration maxDuration;
 	private final Path resultFolder;
 	private final JsonConverter.ConverterProvider converterProvider;
 	private final Duration maxWait;
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
-								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
 								JsonConverter.ConverterProvider provider) {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
-				maxDuration,
 				resultFolder,
 				provider,
 				maxWait);
@@ -43,14 +44,12 @@ public class AbstractDebeziumTask {
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Path keboolaPropertiesPath,
-								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
 								JsonConverter.ConverterProvider provider) {
 
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
-				maxDuration,
 				resultFolder,
 				provider,
 				maxWait);
@@ -58,13 +57,11 @@ public class AbstractDebeziumTask {
 
 	private AbstractDebeziumTask(Properties debeziumProperties,
 								 Properties keboolaProperties,
-								 Duration maxDuration,
 								 Path resultFolder,
 								 JsonConverter.ConverterProvider converterProvider,
 								 Duration maxWait) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
-		this.maxDuration = maxDuration;
 		this.resultFolder = resultFolder;
 		this.converterProvider = converterProvider;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
@@ -119,8 +116,8 @@ public class AbstractDebeziumTask {
 		props.setProperty("transforms.unwrap.type", "keboola.cdc.debezium.transforms.ExtractNewRecordStateSchemaChanges");
 		props.setProperty("transforms.unwrap.drop.tombstones", "true");
 		props.setProperty("transforms.unwrap.delete.handling.mode", "rewrite");
-		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:event_timestamp");
-		props.setProperty("transforms.unwrap.add.fields.prefix", "kbc__");
+		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:" + EVENT_TIMESTAMP_FIELD);
+		props.setProperty("transforms.unwrap.add.fields.prefix", KBC_FIELDS_PREFIX);
 		return props;
 	}
 
@@ -150,8 +147,8 @@ public class AbstractDebeziumTask {
 		}
 
 		if (syncStats.isTaskStarted()
+				&& !syncStats.isProcessing()
 				&& this.maxWait != null
-				&& syncStats.getLastRecord() != null
 				&& ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
 			log.info("Ended after max wait: {}. Last record: {}", this.maxWait, syncStats.getLastRecord());
 			return true;

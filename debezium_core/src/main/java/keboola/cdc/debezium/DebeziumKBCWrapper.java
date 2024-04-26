@@ -22,11 +22,8 @@ public class DebeziumKBCWrapper implements Runnable {
 	@Parameters(index = "1", description = "The result folder path")
 	private String resultFolderPath;
 
-	@Option(names = {"-pf", "--properties-file"}, description = "The keboola properties path, if not specified, the default value is used")
+	@Option(names = {"-pf", "--properties-file"}, description = "The keboola properties file path, if not specified, the default value is used")
 	private String keboolaPropertiesPath;
-
-	@Option(names = {"-md", "--max-duration"}, description = "The maximum duration (s) before engine stops")
-	private int maxDuration;
 
 	@Option(names = {"-mw", "--max-wait"}, description = "The maximum wait duration(s) for next event before engine stops")
 	private int maxWait;
@@ -40,13 +37,11 @@ public class DebeziumKBCWrapper implements Runnable {
 
 		var debeziumTask = this.keboolaPropertiesPath == null
 				? new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
-						Duration.ofSeconds(this.maxDuration),
-						Duration.ofSeconds(this.maxWait),
+				Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
 						this.mode.getConverterProvider())
 				: new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Path.of(this.keboolaPropertiesPath),
-						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
 						this.mode.getConverterProvider());

@@ -45,14 +45,11 @@ class AppendDbConverterTest {
 	@Test
 	public void appendMoreData() throws SQLException {
 		final var initSchema = readResource("initialSchema.json").getAsJsonArray();
-		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4, "4G", "2G"));
 		final var appendDbConverter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		final var dataArray = readResource("dataArray.json").getAsJsonArray();
-		dataArray.forEach(data ->
-				appendDbConverter.processJson(data.getAsJsonObject())
-		);
+		dataArray.forEach(data -> appendDbConverter.processJson(data.getAsJsonObject()));
 		appendDbConverter.close();
 
 		final var stmt = dbWrapper.getConn().createStatement();

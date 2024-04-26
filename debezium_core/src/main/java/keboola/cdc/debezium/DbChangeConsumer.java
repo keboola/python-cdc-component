@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static keboola.cdc.debezium.AbstractDebeziumTask.KBC_EVENT_TIMESTAMP_FIELD;
+
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
 	private static final Gson GSON = new Gson();
@@ -70,18 +72,22 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
-		ZonedDateTime now = ZonedDateTime.now();
-		if(this.count.get() == 0){
-			this.syncStats.setStarted(now.toInstant().toEpochMilli());
+		this.syncStats.setProcessing(true);
+		if (this.count.get() == 0) {
+			this.syncStats.setStarted(System.currentTimeMillis());
 		}
-		this.syncStats.setLastRecord(now);
-		for (final var r : records) {
-			handle(r.key(), r.value());
-			committer.markProcessed(r);
-			this.count.incrementAndGet();
+		try {
+			for (final var r : records) {
+				handle(r.key(), r.value());
+				committer.markProcessed(r);
+				this.count.incrementAndGet();
+			}
+			committer.markBatchFinished();
+		} finally {
+			this.syncStats.setRecordCount(this.count.intValue());
+			this.syncStats.setProcessing(false);
+			this.syncStats.setLastRecord(ZonedDateTime.now());
 		}
-		committer.markBatchFinished();
-		this.syncStats.setRecordCount(this.count.intValue());
 	}
 
 	private void handle(String key, String value) {
@@ -93,7 +99,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		final var payload = pair.getValue();
 		log.trace("Payload: {}", payload);
 		final JsonConverter converter;
-		if(shouldStop(payload)){
+		if (shouldStop(payload)) {
 			throw new StopEngineException("Stop processing, records out of scope.");
 		}
 		if (this.converters.containsKey(tableIdentifier)) {
@@ -114,14 +120,14 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private boolean shouldStop(final JsonObject payload) {
-		long kbc__eventTimestamp = payload.getAsJsonPrimitive("kbc__event_timestamp")
+		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
 				.getAsLong();
-		boolean result = kbc__eventTimestamp > this.syncStats.getStarted();
-		if(result){
-			log.info("Stop processing out of scope records, kbc__event_timestamp: {} and started: {}",
-					kbc__eventTimestamp, this.syncStats.getStarted());
+		if (timestampField > this.syncStats.getStarted()) {
+			log.info("Stop processing out of scope records, {}: {} and started: {}",
+					KBC_EVENT_TIMESTAMP_FIELD, timestampField, this.syncStats.getStarted());
+			return true;
 		}
-		return result;
+		return false;
 	}
 
 	private static Pair<String, JsonObject> extractTableNameAndPayload(String value) {
