@@ -40,6 +40,18 @@ def store_artefact(source_file_path: str, context: CommonInterface,
     client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
 
 
+def build_tags_query_filter(tags: list[str]) -> str:
+    """
+    Builds the tags query filter.
+    Args:
+        tags: List of tags
+
+    Returns: Tags query filter
+    """
+    quoted_tags = [f'"{t}"' for t in tags]
+    return f"tags:({'AND'.join(quoted_tags)})"
+
+
 def get_artefact(artefact_file_name: str, context: CommonInterface,
                  additional_tags: list[str] = None) -> tuple[str, list[str]]:
     """
@@ -54,7 +66,8 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
     """
     tags = _build_unique_tags(context, additional_tags)
     client = Client(f'https://{context.environment_variables.stack_id}', context.environment_variables.token)
-    files = client.files.list(tags=tags)
+
+    files = client.files.list(q=build_tags_query_filter(tags))
     result_files = [f for f in files if f['name'] == artefact_file_name]
     temp_file_path = None
     tags = []
