@@ -27,16 +27,19 @@ public class AbstractDebeziumTask {
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;
+	private final Duration maxDuration;
 	private final Path resultFolder;
 	private final JsonConverter.ConverterProvider converterProvider;
 	private final Duration maxWait;
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
+								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
 								JsonConverter.ConverterProvider provider) {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
+				maxDuration,
 				resultFolder,
 				provider,
 				maxWait);
@@ -44,24 +47,28 @@ public class AbstractDebeziumTask {
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Path keboolaPropertiesPath,
+								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
 								JsonConverter.ConverterProvider provider) {
 
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
+				maxDuration,
 				resultFolder,
 				provider,
 				maxWait);
 	}
 
-	private AbstractDebeziumTask(Properties debeziumProperties,
-								 Properties keboolaProperties,
-								 Path resultFolder,
-								 JsonConverter.ConverterProvider converterProvider,
-								 Duration maxWait) {
+	public AbstractDebeziumTask(Properties debeziumProperties,
+								Properties keboolaProperties,
+								Duration maxDuration,
+								Path resultFolder,
+								JsonConverter.ConverterProvider converterProvider,
+								Duration maxWait) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
+		this.maxDuration = maxDuration;
 		this.resultFolder = resultFolder;
 		this.converterProvider = converterProvider;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
@@ -73,14 +80,13 @@ public class AbstractDebeziumTask {
 	}
 
 	public void run() throws Exception {
-		ExecutorService executorService = Executors.newSingleThreadExecutor();
-
-		SyncStats syncStats = new SyncStats();
+		var executorService = Executors.newSingleThreadExecutor();
+		var started = ZonedDateTime.now();
 
 		// callback
 		var completionCallback = new CompletionCallback(executorService);
-		var connectorCallback = new ConnectorCallback(syncStats);
-		var changeConsumer = new DbChangeConsumer(this.resultFolder.toString(), syncStats,
+		var connectorCallback = new ConnectorCallback();
+		var changeConsumer = new DbChangeConsumer(this.resultFolder.toString(),
 				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
 
 		// start
@@ -92,7 +98,7 @@ public class AbstractDebeziumTask {
 				.using(completionCallback)
 				.build()) {
 			executorService.execute(engine);
-			Await.until(() -> this.ended(executorService, syncStats), Duration.ofMillis(500));
+			Await.until(() -> this.ended(executorService, started), Duration.ofMillis(500));
 		} finally {
 			changeConsumer.closeWriterStreams();
 			changeConsumer.storeSchemaMap();
@@ -118,6 +124,7 @@ public class AbstractDebeziumTask {
 		props.setProperty("transforms.unwrap.delete.handling.mode", "rewrite");
 		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:" + EVENT_TIMESTAMP_FIELD);
 		props.setProperty("transforms.unwrap.add.fields.prefix", KBC_FIELDS_PREFIX);
+		props.setProperty("notification.enabled.channels", KeboolaNotification.KEBOOLA_NOTIFICATION_CHANNEL);
 		return props;
 	}
 
@@ -141,16 +148,25 @@ public class AbstractDebeziumTask {
 		}
 	}
 
-	private boolean ended(ExecutorService executorService, SyncStats syncStats) {
+	private boolean ended(ExecutorService executorService, ZonedDateTime start) {
 		if (executorService.isShutdown()) {
 			return true;
 		}
+		if (this.maxDuration != null
+				&& ZonedDateTime.now().toEpochSecond() > start.plus(this.maxDuration).toEpochSecond()) {
+			log.info("Ended after max duration: {}", this.maxDuration);
+			return true;
+		}
 
-		if (syncStats.isTaskStarted()
-				&& !syncStats.isProcessing()
+		if (SyncStats.isSnapshotInProgress()) {
+			return false;
+		}
+
+		if (SyncStats.taskStarted()
+				&& !SyncStats.isProcessing()
 				&& this.maxWait != null
-				&& ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
-			log.info("Ended after max wait: {}. Last record: {}", this.maxWait, syncStats.getLastRecord());
+				&& ZonedDateTime.now().toEpochSecond() > SyncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
+			log.info("Ended after max wait: {}. Last record: {}", this.maxWait, SyncStats.getLastRecord());
 			return true;
 		}
 

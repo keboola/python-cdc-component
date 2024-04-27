@@ -29,27 +29,23 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 
 	private final AtomicInteger count;
 	private final ConcurrentMap<String, JsonConverter> converters;
-	private final String jsonSchemaFilePath;
+	private final Path jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
-	@SuppressWarnings("unused")
-	private final SyncStats syncStats;
 	private final JsonConverter.ConverterProvider converterProvider;
 
 
-	public DbChangeConsumer(String resultFolder,
-							SyncStats syncStats, DuckDbWrapper dbWrapper,
+	public DbChangeConsumer(String resultFolder, DuckDbWrapper dbWrapper,
 							JsonConverter.ConverterProvider converterProvider) {
 		this.count = new AtomicInteger(0);
-		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json").toString();
+		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json");
 		this.converters = new ConcurrentHashMap<>();
 		this.dbWrapper = dbWrapper;
-		this.syncStats = syncStats;
 		this.converterProvider = converterProvider;
 		init();
 	}
 
 	private void init() {
-		var schemaFile = new File(this.jsonSchemaFilePath);
+		var schemaFile = this.jsonSchemaFilePath.toFile();
 		if (schemaFile.exists()) {
 			try {
 				var jsonElement = JsonParser.parseReader(new FileReader(schemaFile));
@@ -72,10 +68,12 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
-		this.syncStats.setProcessing(true);
+		SyncStats.setProcessing(true);
 		if (this.count.get() == 0) {
-			this.syncStats.setStarted(System.currentTimeMillis());
+			SyncStats.started(System.currentTimeMillis());
+			log.info("Starting to process records, set started: {} [millis].", SyncStats.started());
 		}
+		log.debug("Starting to process new batch of records: {}.", records.size());
 		try {
 			for (final var r : records) {
 				handle(r.key(), r.value());
@@ -84,9 +82,10 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			}
 			committer.markBatchFinished();
 		} finally {
-			this.syncStats.setRecordCount(this.count.intValue());
-			this.syncStats.setProcessing(false);
-			this.syncStats.setLastRecord(ZonedDateTime.now());
+			SyncStats.recordCount(this.count.intValue());
+			SyncStats.setProcessing(false);
+			SyncStats.setLastRecord(ZonedDateTime.now());
+			log.debug("Batch processing done, total records: {}.", this.count.get());
 		}
 	}
 
@@ -120,11 +119,15 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private boolean shouldStop(final JsonObject payload) {
+		if (SyncStats.isSnapshotInProgress()) {
+			log.trace("Snapshot phase, do not stop processing.");
+			return false;
+		}
 		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
 				.getAsLong();
-		if (timestampField > this.syncStats.getStarted()) {
+		if (timestampField > SyncStats.started()) {
 			log.info("Stop processing out of scope records, {}: {} and started: {}",
-					KBC_EVENT_TIMESTAMP_FIELD, timestampField, this.syncStats.getStarted());
+					KBC_EVENT_TIMESTAMP_FIELD, timestampField, SyncStats.started());
 			return true;
 		}
 		return false;
@@ -212,8 +215,12 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		for (var e : this.converters.entrySet()) {
 			obj.add(e.getKey(), e.getValue().getJsonSchema());
 		}
+		var parent = this.jsonSchemaFilePath.getParent().toFile();
+		if (!parent.exists() && !parent.mkdirs()) {
+			return;
+		}
 		// Convert the list to JSON and write it to a file
-		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath)) {
+		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath.toFile())) {
 			GSON.toJson(obj, writer);
 		}
 	}

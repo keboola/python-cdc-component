@@ -25,11 +25,14 @@ public class DebeziumKBCWrapper implements Runnable {
 	@Option(names = {"-pf", "--properties-file"}, description = "The keboola properties file path, if not specified, the default value is used")
 	private String keboolaPropertiesPath;
 
+	@Option(names = {"-md", "--max-duration"}, description = "The maximum duration (s) before engine stops")
+	private int maxDuration;
+
 	@Option(names = {"-mw", "--max-wait"}, description = "The maximum wait duration(s) for next event before engine stops")
 	private int maxWait;
+
 	@Option(names = {"-m", "--mode"}, description = "Mode in which values will be stored in DB", defaultValue = "APPEND")
 	private Mode mode;
-
 
 	@Override
 	public void run() {
@@ -37,11 +40,13 @@ public class DebeziumKBCWrapper implements Runnable {
 
 		var debeziumTask = this.keboolaPropertiesPath == null
 				? new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
-				Duration.ofSeconds(this.maxWait),
+						Duration.ofSeconds(this.maxDuration),
+						Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
 						this.mode.getConverterProvider())
 				: new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
 						Path.of(this.keboolaPropertiesPath),
+						Duration.ofSeconds(this.maxDuration),
 						Duration.ofSeconds(this.maxWait),
 						Path.of(this.resultFolderPath),
 						this.mode.getConverterProvider());
@@ -53,7 +58,6 @@ public class DebeziumKBCWrapper implements Runnable {
 		}
 		log.info("Engine terminated");
 	}
-
 
 	public static void main(String[] args) {
 		new CommandLine(new DebeziumKBCWrapper()).execute(args);

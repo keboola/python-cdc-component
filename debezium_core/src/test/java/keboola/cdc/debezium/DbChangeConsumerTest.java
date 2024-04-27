@@ -31,13 +31,12 @@ class DbChangeConsumerTest {
 
 	@BeforeEach
 	void setUp() {
-		this.dbChangeConsumer = new DbChangeConsumer("", new SyncStats(),
+		this.dbChangeConsumer = new DbChangeConsumer("",
 				this.dbWrapper, (gson, wrapper, tableName, initialSchema) -> this.converter);
 	}
 
 	@Test
-	void shouldHandleBatchSuccessfully() throws InterruptedException {
-		ChangeEvent<String, String> event = mock(ChangeEvent.class);
+	void shouldHandleBatchSuccessfully(@Mock ChangeEvent<String, String> event) throws InterruptedException {
 		when(event.key()).thenReturn("key");
 		when(event.value()).thenReturn(
 				"""
@@ -53,8 +52,7 @@ class DbChangeConsumerTest {
 	}
 
 	@Test
-	void doNotProcessEventsFromFutureOnlyMessage() throws InterruptedException {
-		ChangeEvent<String, String> event = mock(ChangeEvent.class);
+	void doNotProcessEventsFromFutureOnlyMessage(@Mock ChangeEvent<String, String> event) throws InterruptedException {
 		when(event.key()).thenReturn("key");
 		when(event.value()).thenReturn(
 				"""
