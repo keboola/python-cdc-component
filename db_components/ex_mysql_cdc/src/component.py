@@ -101,7 +101,7 @@ class Component(ComponentBase):
                                                                self._configuration.source_settings.schemas,
                                                                self._configuration.source_settings.tables,
                                                                self._build_unique_server_id(),
-                                                               snapshot_mode=snapshot_mode,
+                                                               snapshot_mode=self.get_snapshot_mode(),
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
@@ -512,13 +512,16 @@ class Component(ComponentBase):
 
     def get_snapshot_mode(self) -> str:
         """
-        Returns snapshot mode based on configuration and initial run.
-        Note that initial run is always in initial_only mode to avoid the necessity for deduping.
+        Returns snapshot mode to handle specific behaviour of the connector
         Returns:
 
         """
-        if self.is_initial_run and self._configuration.sync_options.snapshot_mode != SnapshotMode.never:
-            snapshot_mode = 'initial_only'
+        if self.is_initial_run and self._configuration.sync_options.snapshot_mode == SnapshotMode.never:
+            # if initial run and never is set, schema needs to be downloaded first
+            snapshot_mode = 'schema_only'
+            logging.warning("Initial run with snapshot mode 'Changes Only'."
+                            " Running schema only recovery to record table schema. "
+                            "The actual sync will start next execution")
         else:
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
         return snapshot_mode

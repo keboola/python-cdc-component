@@ -107,8 +107,11 @@ class SourceSettings(ConfigurationBase):
 
 class SnapshotMode(str, Enum):
     snapshot_only = "snapshot_only"
+    when_needed = "when_needed"
     initial = "initial"
     never = "never"
+    schema_only_recovery = "schema_only_recovery"
+    schema_only = "schema_only"
 
 
 class BinaryHandler(str, Enum):
