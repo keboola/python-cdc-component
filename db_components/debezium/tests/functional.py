@@ -76,6 +76,10 @@ class DebeziumCDCDatadirTest(TestDataDir):
         # Remove the specified columns
         select_columns = ','.join([f'"{column}"' for column in columns if column not in drop_columns])
 
+        # if empty do nothing
+        if not duckdb.execute(f"SELECT * FROM {table_name}").fetchall():
+            return
+
         # Write the DataFrame back to a CSV file
         duckdb.execute(f"COPY (SELECT {select_columns} FROM {table_name} ORDER BY {order_by_column}::INT ASC) "
                        f"TO '{tmp_path}' (FORMAT CSV, HEADER false, DELIMITER \',\')")

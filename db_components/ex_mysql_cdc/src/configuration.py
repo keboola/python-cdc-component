@@ -108,6 +108,7 @@ class SourceSettings(ConfigurationBase):
 class SnapshotMode(str, Enum):
     snapshot_only = "snapshot_only"
     initial = "initial"
+    never = "never"
 
 
 class BinaryHandler(str, Enum):
