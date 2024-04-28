@@ -82,6 +82,36 @@ class DbChangeConsumerTest {
 		assertEquals(3, this.dbChangeConsumer.getRecordsCount().get());
 	}
 
+	@Test
+	void processAllDuringSnapshot() throws InterruptedException {
+		SyncStats.setSnapshotInProgress(true);
+		var events = prepareEvents(1714135955123L, 1714135955123L, 1714135955123L, 2714135955123L);
+
+		Assertions.assertDoesNotThrow(() -> this.dbChangeConsumer.handleBatch(events, this.committer));
+
+		verify(this.committer, Mockito.times(4)).markProcessed(any());
+		verify(this.committer, Mockito.times(1)).markBatchFinished();
+		verify(this.converter, Mockito.times(4)).processJson(any());
+		assertEquals(4, this.dbChangeConsumer.getRecordsCount().get());
+	}
+
+	@Test
+	void processWhenNoTimestampPresent(@Mock ChangeEvent<String, String> event) throws InterruptedException {
+		when(event.key()).thenReturn("key");
+		when(event.value()).thenReturn(
+				"""
+						{"schema":{"name":"table.Value","fields":[]},"payload":{"some_value":2714135955123}}
+						"""
+		);
+
+		Assertions.assertDoesNotThrow(() -> this.dbChangeConsumer.handleBatch(List.of(event), this.committer));
+
+		verify(this.committer, Mockito.times(1)).markProcessed(any());
+		verify(this.committer, Mockito.times(1)).markBatchFinished();
+		verify(this.converter, Mockito.times(1)).processJson(any());
+		assertEquals(1, this.dbChangeConsumer.getRecordsCount().get());
+	}
+
 	private static List<ChangeEvent<String, String>> prepareEvents(Long... timestamps) {
 		return Stream.of(timestamps)
 				.map(timestamp -> {

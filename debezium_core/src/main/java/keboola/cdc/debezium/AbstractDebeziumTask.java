@@ -40,9 +40,9 @@ public class AbstractDebeziumTask {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
 				maxDuration,
-				resultFolder,
-				provider,
-				maxWait);
+				maxWait, resultFolder,
+				provider
+		);
 	}
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
@@ -55,17 +55,18 @@ public class AbstractDebeziumTask {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
 				maxDuration,
+				maxWait,
 				resultFolder,
-				provider,
-				maxWait);
+				provider
+		);
 	}
 
 	public AbstractDebeziumTask(Properties debeziumProperties,
 								Properties keboolaProperties,
 								Duration maxDuration,
+								Duration maxWait,
 								Path resultFolder,
-								JsonConverter.ConverterProvider converterProvider,
-								Duration maxWait) {
+								JsonConverter.ConverterProvider converterProvider) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
 		this.maxDuration = maxDuration;

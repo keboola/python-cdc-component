@@ -123,6 +123,10 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			log.trace("Snapshot phase, do not stop processing.");
 			return false;
 		}
+		if (!payload.has(KBC_EVENT_TIMESTAMP_FIELD)) {
+			log.trace("No timestamp field in payload, do not stop processing.");
+			return false;
+		}
 		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
 				.getAsLong();
 		if (timestampField > SyncStats.started()) {
