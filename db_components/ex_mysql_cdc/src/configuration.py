@@ -124,7 +124,7 @@ class BinaryHandler(str, Enum):
 class SyncOptions(ConfigurationBase):
     source_signal_table: str
     snapshot_mode: SnapshotMode = SnapshotMode.initial
-    max_wait_s: int = 40
+    max_wait_s: int = 5
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     handle_binary: BinaryHandler = BinaryHandler.hex
