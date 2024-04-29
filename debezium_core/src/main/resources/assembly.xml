@@ -9,9 +9,6 @@
     <dependencySets>
         <dependencySet>
             <outputDirectory>/</outputDirectory>
-<!--            <includes>-->
-<!--                <include>io.debezium:debezium-core</include>-->
-<!--            </includes>-->
             <unpack>true</unpack>
             <unpackOptions>
                 <excludes>
