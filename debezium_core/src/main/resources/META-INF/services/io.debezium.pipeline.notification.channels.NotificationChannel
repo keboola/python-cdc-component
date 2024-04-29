@@ -1,1 +1,4 @@
+io.debezium.pipeline.notification.channels.SinkNotificationChannel
+io.debezium.pipeline.notification.channels.LogNotificationChannel
+io.debezium.pipeline.notification.channels.jmx.JmxNotificationChannel
 keboola.cdc.debezium.KeboolaNotification
