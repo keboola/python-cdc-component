@@ -284,7 +284,7 @@ class Component(ComponentBase):
 
         # schema changes table
         table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
-            schema_name='io_debezium_connector_mysql')
+            database_name='io_debezium_connector_mysql')
 
         self._source_schema_metadata = table_schemas
 
@@ -396,6 +396,8 @@ class Component(ComponentBase):
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
                     c.base_type_converter = MySQLBaseTypeConverter()
+                    # set nullable to false because it's a missing column
+                    c.nullable = False
                     schema.fields.append(c)
 
         # add system fields
