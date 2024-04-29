@@ -92,19 +92,20 @@ Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>] [-m=<mode>]
       <debeziumPropertiesPath>
                            The debezium properties path
       <resultFolderPath>   The result folder path
-      -md, --max-duration=<maxDuration>
-                           The maximum duration (s) before engine stops
       -mw, --max-wait=<maxWait>
                            The maximum wait duration(s) for next event before
                              engine stops
       -m, --mode           The mode in which values will be stored in DB, 
                              possible options: [APPEND (default), DEDUPE]
+      -pf, --properties-file=<propertiesFile>
+                           The keboola properties file path, if not specified,
+                             the default values are used
 ```
 
 **Example**:
 
 ```shell
-java -jar /path_to_jar.jar /path/to/config/application.properties /result/folder -md=3600 -mw=10
+java -jar /path_to_jar.jar /path/to/config/application.properties /result/folder -mw=10
 ```
 
 ## Output

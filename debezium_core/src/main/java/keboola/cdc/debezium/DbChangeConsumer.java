@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
+import io.debezium.engine.StopEngineException;
 import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -20,33 +21,31 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static keboola.cdc.debezium.AbstractDebeziumTask.KBC_EVENT_TIMESTAMP_FIELD;
+
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
 	private static final Gson GSON = new Gson();
 
 	private final AtomicInteger count;
 	private final ConcurrentMap<String, JsonConverter> converters;
-	private final String jsonSchemaFilePath;
+	private final Path jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
-	@SuppressWarnings("unused")
-	private final SyncStats syncStats;
 	private final JsonConverter.ConverterProvider converterProvider;
 
 
-	public DbChangeConsumer(AtomicInteger count, String resultFolder,
-							SyncStats syncStats, DuckDbWrapper dbWrapper,
+	public DbChangeConsumer(String resultFolder, DuckDbWrapper dbWrapper,
 							JsonConverter.ConverterProvider converterProvider) {
-		this.count = count;
-		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json").toString();
+		this.count = new AtomicInteger(0);
+		this.jsonSchemaFilePath = Path.of(resultFolder, "schema.json");
 		this.converters = new ConcurrentHashMap<>();
 		this.dbWrapper = dbWrapper;
-		this.syncStats = syncStats;
 		this.converterProvider = converterProvider;
 		init();
 	}
 
 	private void init() {
-		var schemaFile = new File(this.jsonSchemaFilePath);
+		var schemaFile = this.jsonSchemaFilePath.toFile();
 		if (schemaFile.exists()) {
 			try {
 				var jsonElement = JsonParser.parseReader(new FileReader(schemaFile));
@@ -69,14 +68,25 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	public void handleBatch(List<ChangeEvent<String, String>> records,
 							DebeziumEngine.RecordCommitter<ChangeEvent<String, String>> committer)
 			throws InterruptedException {
-		this.syncStats.setLastRecord(ZonedDateTime.now());
-		for (final var r : records) {
-			this.count.incrementAndGet();
-			handle(r.key(), r.value());
-			committer.markProcessed(r);
+		SyncStats.setProcessing(true);
+		if (this.count.get() == 0) {
+			SyncStats.started(System.currentTimeMillis());
+			log.info("Starting to process records, set started: {} [millis].", SyncStats.started());
 		}
-		committer.markBatchFinished();
-		this.syncStats.setRecordCount(this.count.intValue());
+		log.debug("Starting to process new batch of records: {}.", records.size());
+		try {
+			for (final var r : records) {
+				handle(r.key(), r.value());
+				committer.markProcessed(r);
+				this.count.incrementAndGet();
+			}
+			committer.markBatchFinished();
+		} finally {
+			SyncStats.recordCount(this.count.intValue());
+			SyncStats.setProcessing(false);
+			SyncStats.setLastRecord(ZonedDateTime.now());
+			log.debug("Batch processing done, total records: {}.", this.count.get());
+		}
 	}
 
 	private void handle(String key, String value) {
@@ -88,7 +98,9 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		final var payload = pair.getValue();
 		log.trace("Payload: {}", payload);
 		final JsonConverter converter;
-
+		if (shouldStop(payload)) {
+			throw new StopEngineException("Stop processing, records out of scope.");
+		}
 		if (this.converters.containsKey(tableIdentifier)) {
 			log.trace("Converter for {} already exists.", tableIdentifier);
 			converter = this.converters.get(tableIdentifier);
@@ -106,11 +118,30 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		converter.processJson(payload);
 	}
 
+	private boolean shouldStop(final JsonObject payload) {
+		if (SyncStats.isSnapshotInProgress()) {
+			log.trace("Snapshot phase, do not stop processing.");
+			return false;
+		}
+		if (!payload.has(KBC_EVENT_TIMESTAMP_FIELD)) {
+			log.trace("No timestamp field in payload, do not stop processing.");
+			return false;
+		}
+		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
+				.getAsLong();
+		if (timestampField > SyncStats.started()) {
+			log.info("Stop processing out of scope records, {}: {} and started: {}",
+					KBC_EVENT_TIMESTAMP_FIELD, timestampField, SyncStats.started());
+			return true;
+		}
+		return false;
+	}
+
 	private static Pair<String, JsonObject> extractTableNameAndPayload(String value) {
 		JsonObject payload = null;
 		String tableName = null;
 		try {
-			JsonReader reader = new JsonReader(new StringReader(value));
+			var reader = new JsonReader(new StringReader(value));
 			reader.beginObject();
 			while (reader.hasNext()) {
 				var nextName = reader.nextName();
@@ -188,8 +219,12 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		for (var e : this.converters.entrySet()) {
 			obj.add(e.getKey(), e.getValue().getJsonSchema());
 		}
+		var parent = this.jsonSchemaFilePath.getParent().toFile();
+		if (!parent.exists() && !parent.mkdirs()) {
+			return;
+		}
 		// Convert the list to JSON and write it to a file
-		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath)) {
+		try (FileWriter writer = new FileWriter(this.jsonSchemaFilePath.toFile())) {
 			GSON.toJson(obj, writer);
 		}
 	}
