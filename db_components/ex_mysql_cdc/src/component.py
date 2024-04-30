@@ -8,6 +8,8 @@ import os
 import shutil
 from pathlib import Path
 
+from keboola.component import CommonInterface
+
 from db_components.db_common import artefacts
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
@@ -32,7 +34,7 @@ from keboola.component.sync_actions import SelectElement, ValidationResult
 from configuration import Configuration, DbOptions, SnapshotMode
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
 from extractor.mysql_extractor import SUPPORTED_TYPES
 from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 
@@ -113,11 +115,16 @@ class Component(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
+            logging_properties = LoggerOptions(result_log_path=log_artefact_path)
+            if self.logging_type == 'gelf':
+                logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
+                logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection,
-                                                 result_log_path=log_artefact_path)
+                                                 source_connection=self._client.connection,)
 
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
@@ -617,6 +624,11 @@ class Component(ComponentBase):
 
         # sort columns based on the result schema
         table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
+
+    @property
+    def logging_type(self) -> str:
+        return CommonInterface.LOGGING_TYPE_GELF if os.getenv('KBC_LOGGER_ADDR',
+                                                              None) else CommonInterface.LOGGING_TYPE_STD
 
 
 """

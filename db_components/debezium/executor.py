@@ -43,19 +43,38 @@ class DuckDBParameters:
     dedupe_max_chunk_size: int = 5_000_000
 
 
+@dataclass
+class LoggerOptions:
+    """
+    Configuration for the GELF logger.
+
+    Attributes:
+        result_log_path: The path where the full log will be stored
+        gelf_host: The host of the GELF server.
+        gelf_port: The port of the GELF server.
+    """
+    result_log_path: str
+    log4j_additional_properties: dict = None
+    gelf_host: str = None
+    gelf_port: int = None
+
+    @property
+    def gelf_enabled(self) -> bool:
+        return bool(self.gelf_host)
+
+
 class DebeziumExecutor:
 
-    def __init__(self, properties_path: str, duckdb_config: DuckDBParameters, jar_path='cdc.jar',
-                 source_connection: Optional[JDBCConnection] = None,
-                 result_log_path: str = None):
+    def __init__(self, properties_path: str, duckdb_config: DuckDBParameters, logger_options: LoggerOptions,
+                 jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None):
         """
         Initialize the Debezium CDC engine with the given properties file and jar path.
         Args:
             properties_path:
             jar_path:
             source_connection: Optional JDBCConnection to the source database used for signaling
-            result_log_path: Optional path to the log file
             duckdb_config: `DuckDBParameters` object with the configuration for the DuckDB instance
+            logger_options: Optional GelfLoggerOptions object with the configuration for the GELF logger
         """
         self._jar_path = jar_path
         self._properties_path = properties_path
@@ -63,7 +82,8 @@ class DebeziumExecutor:
 
         self._source_connection = source_connection
         self.parsed_properties = self._parse_properties()
-        self.result_log_path = result_log_path
+        self._log4j_properties = self.build_logger_properties(logger_options)
+        self.logger_options = logger_options
 
     def _parse_properties(self) -> dict:
         with open(self._properties_path, 'rb') as config_file:
@@ -91,6 +111,45 @@ class DebeziumExecutor:
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
             config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
+        return temp_file.name
+
+    def build_logger_properties(self, logger_options: LoggerOptions) -> str:
+        """
+        Append GELF logger configuration to the properties file.
+        Args:
+            logger_options: Configuration for the log4j logger
+
+        Returns: Properties file path
+
+        """
+        temp_file = tempfile.NamedTemporaryFile(suffix='_log4j.properties', delete=False)
+
+        log4j_config = Properties()
+        with open(os.path.join(os.path.dirname(__file__), 'default_log4j.properties'), 'rb') as config_file:
+            log4j_config.load(config_file)
+
+        if logger_options.gelf_enabled:
+            log4j_config['packages'] = 'biz.paluch.logging.gelf.log4j2'
+            log4j_config['appender.gelf.type'] = 'Gelf'
+            log4j_config['appender.gelf.name'] = 'gelf'
+            log4j_config['appender.gelf.host'] = logger_options.gelf_host
+            log4j_config['appender.gelf.port'] = str(logger_options.gelf_port)
+            log4j_config['appender.gelf.version'] = '1.1'
+            log4j_config['appender.gelf.extractStackTrace'] = 'true'
+            log4j_config['appender.gelf.filterStackTrace'] = 'true'
+            log4j_config['appender.gelf.mdcProfiling'] = 'true'
+            log4j_config['appender.gelf.includeFullMdc'] = 'true'
+            log4j_config['appender.gelf.maximumMessageSize'] = '32000'
+            log4j_config['appender.gelf.originHost'] = '%host{fqdn}'
+            log4j_config['rootLogger.appenderRef.gelf.ref'] = 'gelf'
+
+        if logger_options.log4j_additional_properties:
+            for key, value in logger_options.log4j_additional_properties.items():
+                log4j_config[key] = value
+
+        with open(temp_file.name, 'wb') as config_file:
+            log4j_config.store(config_file, encoding='utf-8')
+
         return temp_file.name
 
     def signal_snapshot(self, table_names: list[str], snapshot_type: Literal['blocking', 'incremental'] = 'blocking',
@@ -182,39 +241,40 @@ class DebeziumExecutor:
 
         additional_args = DebeziumExecutor._build_args_from_dict({"pf": self._keboola_properties_path,
                                                                   "md": max_duration_s, "mw": max_wait_s, "m": mode})
-        args = ['java', '-jar', self._jar_path] + [self._properties_path, result_folder_path] + additional_args
+        args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', '-jar', self._jar_path] + [
+            self._properties_path, result_folder_path] + additional_args
         process = subprocess.Popen(args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
         logging.info(f'Running CDC Debezium Engine: {args}')
+        if not self.logger_options.gelf_enabled:
+            Path(self.logger_options.result_log_path).parent.mkdir(parents=True, exist_ok=True)
 
-        Path(self.result_log_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(self.logger_options.result_log_path, 'w+') as log_out:
+                # Stream stdout
+                for line in iter(process.stdout.readline, b''):
+                    line_str = line.decode('utf-8').rstrip('\n')
+                    logging.info(line_str)
+                    if self.logger_options.result_log_path:
+                        log_out.write(line_str)
 
-        with open(self.result_log_path, 'w+') as log_out:
-            # Stream stdout
-            for line in iter(process.stdout.readline, b''):
-                line_str = line.decode('utf-8').rstrip('\n')
-                logging.info(line_str)
-                if self.result_log_path:
-                    log_out.write(line_str)
-
-            process.stdout.close()
-            process.wait()
-            logging.info('Debezium CDC run finished, processing stderr...')
-            err_string = process.stderr.read().decode('utf-8')
-            if process.returncode != 0:
-                message, stack_trace = self.process_java_log_message(err_string)
-                log_out.write(err_string)
-                log_out.close()
-                raise DebeziumException(
-                    f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
-                    extra={'additional_detail': err_string})
-
-            logging.info('Debezium CDC run finished', extra={'additional_detail': err_string})
+        process.stdout.close()
+        process.wait()
+        logging.info('Debezium CDC run finished, processing stderr...')
+        err_string = process.stderr.read().decode('utf-8')
+        if process.returncode != 0:
+            message, stack_trace = self.process_java_log_message(err_string)
+            log_out.write(err_string)
             log_out.close()
-            logging.debug(err_string)
-            return self._get_result_schema(result_folder_path)
+            raise DebeziumException(
+                f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
+                extra={'additional_detail': err_string})
+
+        logging.info('Debezium CDC run finished', extra={'additional_detail': err_string})
+        if not self.logger_options.gelf_enabled:
+            log_out.close()
+        return self._get_result_schema(result_folder_path)
 
     def _get_result_schema(self, result_folder_path: str):
         schema_path = f'{result_folder_path}/schema.json'
