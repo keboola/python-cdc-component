@@ -578,7 +578,8 @@ class Component(ComponentBase):
         project_id = self.environment_variables.project_id or 3
 
         # make sure it's not exceeding the max Long value
-        server_id = int(f"{project_id}{config_id}{branch_id}") % (2 ** 63 - 1)
+        unique_string = f"{project_id}{config_id}{branch_id}"
+        server_id = hash(unique_string) % (2 ** 30)
         logging.info(f"Unique server id: {server_id}")
         return server_id
 

@@ -14,8 +14,7 @@
         "#password",
         "host",
         "port",
-        "user",
-        "database"
+        "user"
       ],
       "properties": {
         "host": {
@@ -52,14 +51,6 @@
             "grid_columns": 12
           }
         },
-        "database": {
-          "type": "string",
-          "title": "Database",
-          "propertyOrder": 50,
-          "options": {
-            "grid_columns": 12
-          }
-        },
         "ssh_options": {
           "type": "object",
           "format": "ssh-editor",
@@ -88,6 +79,7 @@
           "format": "select",
           "uniqueItems": true,
           "options": {
+            "tags": true,
             "async": {
               "label": "Re-load schemas",
               "action": "get_schemas",
@@ -111,6 +103,7 @@
           "format": "select",
           "uniqueItems": true,
           "options": {
+            "tags": true,
             "async": {
               "label": "Re-load tables",
               "action": "get_tables",
@@ -217,7 +210,11 @@
           "type": "string",
           "title": "Output Bucket",
           "default": "",
-          "description": "(Optional) The name of bucket in Keboola storage where the data. Keboola will create a bucket for you if not specified",
+          "options": {
+            "tooltip": "Specify the bucket name **without the stage prefix**. The default bucket name will be used if empty. The result bucket path will be `in.c-<bucket_name>`",
+            "placeholder": "my-bucket"
+          },
+          "description": "(Optional) The name of bucket in Keboola (without the stage prefix) storage where the data. Keboola will create a bucket for you if not specified. The result bucket path will be `in.c-<bucket_name>",
           "propertyOrder": 200
         }
       }
