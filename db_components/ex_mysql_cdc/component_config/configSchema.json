@@ -136,6 +136,7 @@
           "title": "Signalling Table",
           "propertyOrder": 1,
           "type": "string",
+          "default": "",
           "description": "A system signal table that will be used by to connector to store various signal events and incremental snapshot watermarks.",
           "enum": [],
           "format": "select",
@@ -177,7 +178,7 @@
           "type": "integer",
           "title": "Snapshot parallelism",
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
-          "default": 1,
+          "default": 4,
           "propertyOrder": 30
         }
       }

@@ -46,7 +46,7 @@ public class DuckDbWrapper {
 			// Create a Statement object for sending SQL statements to the DB
 
 			// Set the temporary directory for DuckDB
-			stmt.execute("PRAGMA temp_directory='./tmp/dbtmp'");
+			stmt.execute("PRAGMA temp_directory='/tmp/dbtmp'");
 
 			// Set the number of threads that DuckDB can use for parallel execution
 			stmt.execute("PRAGMA threads=" + this.properties.maxThreads());
