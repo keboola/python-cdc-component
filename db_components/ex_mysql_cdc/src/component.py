@@ -124,7 +124,7 @@ class Component(ComponentBase):
                                                  duckdb_config=DuckDBParameters(self.duck_db_path),
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection,)
+                                                 source_connection=self._client.connection, )
 
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
@@ -356,7 +356,9 @@ class Component(ComponentBase):
             # always incrementally load schema changes
             incremental_load = True
 
-        return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
+        output_bucket = self.generate_output_bucket_name()
+        return self.create_out_table_definition_from_schema(schema, incremental=incremental_load,
+                                                            destination=f"{output_bucket}.{schema.name}"), schema
 
     def _convert_to_snowflake_column_definitions(self, columns: list[ColumnSchema]) -> list[dict[str, str]]:
         column_types = []
@@ -411,52 +413,6 @@ class Component(ComponentBase):
         schema.fields.extend(self.SYSTEM_COLUMNS)
         return schema
 
-    def _drop_helper_columns(self, table_name: str, schema: TableSchema):
-        # drop helper column
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]} '
-                      f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"'
-        self._staging.execute_query(query)
-
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
-                      f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
-        self._staging.execute_query(query)
-
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order'])
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
-
-    def _dedupe_stage_table(self, table_name: str, id_columns: list[str]):
-        """
-        Dedupe staging table and keep only latest records.
-        Based on the internal column kbc__batch_event_order produced by CDC engine
-        Args:
-            table_name:
-            id_columns:
-
-        Returns:
-
-        """
-        id_cols = self._staging.wrap_columns_in_quotes(id_columns)
-        id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
-        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order']}\")")
-
-        query = f"""DELETE FROM
-                                    "{table_name}" USING (
-                                    SELECT
-                                        {unique_id_concat} AS "__CONCAT_ID"
-                                    FROM
-                                        "{table_name}"
-                                        QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str} ORDER BY
-                          "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"::INT DESC) != 1) TO_DELETE
-                                WHERE
-                                    TO_DELETE.__CONCAT_ID = {unique_id_concat}
-                    """
-
-        logging.debug(f'Dedupping table {table_name}: {query}')
-        self._staging.execute_query(query)
-
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema: dict):
         """
         Writes state file with last offset and last schema and last synced tables
@@ -500,6 +456,30 @@ class Component(ComponentBase):
         # TODO: Dedupe only when not init sync with no additional events.
         return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
+
+    def generate_output_bucket_name(self):
+        """
+        Creates output bucket name based on the configuration or environment variables
+        Args:
+            bucket_name:
+
+        Returns:
+
+        """
+        bucket_name = self._configuration.destination.outputBucket
+        if bucket_name and bucket_name.strip() != '':
+            return f'in.c-{bucket_name.strip()}'
+
+        else:
+            _component_id = self.environment_variables.component_id
+            _configuration_id = self.environment_variables.config_id
+            logging.debug(f"Env {_component_id} - {_configuration_id}")
+
+            if _component_id is not None and _component_id is not None:
+                return f"in.c-{_component_id.replace('.', '-')}-{_configuration_id}"
+
+            else:
+                return None
 
     @cached_property
     def is_initial_run(self):

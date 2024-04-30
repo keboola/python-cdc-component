@@ -212,6 +212,13 @@
           },
           "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table based on the primary key. Append modes do not contain any primary keys and are not deduplicated.",
           "propertyOrder": 30
+        },
+        "outputBucket": {
+          "type": "string",
+          "title": "Output Bucket",
+          "default": "",
+          "description": "(Optional) The name of bucket in Keboola storage where the data. Keboola will create a bucket for you if not specified",
+          "propertyOrder": 200
         }
       }
     }
