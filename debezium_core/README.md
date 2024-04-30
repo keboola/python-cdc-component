@@ -81,6 +81,28 @@ To force blocking snapshot for table `public.example_table` add following row:
 {"id":"d139b9b7-7777-4547-917d-111111111111", "type":"execute-snapshot", "data":{"type":"BLOCKING", "data-collections": ["public.example_table"]}}
 ```
 
+## Logger
+
+To use module with different logger options use following java option `-Dlog4j.configurationFile` to define path to log4j2.properties file.
+Module supports also gelf logging, to use it add following config to properties file (adjust values as needed):
+
+```properties
+packages=biz.paluch.logging.gelf.log4j2
+
+appender.gelf.type=Gelf
+appender.gelf.name=gelf
+appender.gelf.host=udp:localhost
+appender.gelf.port=12202
+appender.gelf.version = 1.1
+appender.gelf.extractStackTrace=true
+appender.gelf.filterStackTrace=true
+appender.gelf.mdcProfiling=true
+appender.gelf.includeFullMdc=true
+appender.gelf.maximumMessageSize=32000
+appender.gelf.originHost=%host{fqdn}
+
+rootLogger.appenderRef.gelf.ref = gelf
+```
 
 ## Usage
 
@@ -92,6 +114,8 @@ Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>] [-m=<mode>]
       <debeziumPropertiesPath>
                            The debezium properties path
       <resultFolderPath>   The result folder path
+      -md, --max-duration=<maxDuration>
+                           The maximum duration (s) before engine stops
       -mw, --max-wait=<maxWait>
                            The maximum wait duration(s) for next event before
                              engine stops
@@ -105,7 +129,7 @@ Usage: <main class> [-md=<maxDuration>] [-mw=<maxWait>] [-m=<mode>]
 **Example**:
 
 ```shell
-java -jar /path_to_jar.jar /path/to/config/application.properties /result/folder -mw=10
+java -Dlog4j.configurationFile=/parh/to/log4j2.properties -jar /path_to_jar.jar /path/to/config/application.properties /result/folder -mw=10
 ```
 
 ## Output
