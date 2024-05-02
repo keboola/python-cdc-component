@@ -357,8 +357,9 @@ class Component(ComponentBase):
             incremental_load = True
 
         output_bucket = self.generate_output_bucket_name()
+        result_table_name = table_definition.name.replace('.csv','')
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load,
-                                                            destination=f"{output_bucket}.{schema.name}"), schema
+                                                            destination=f"{output_bucket}.{result_table_name}"), schema
 
     def _convert_to_snowflake_column_definitions(self, columns: list[ColumnSchema]) -> list[dict[str, str]]:
         column_types = []

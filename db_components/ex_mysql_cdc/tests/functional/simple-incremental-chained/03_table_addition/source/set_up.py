@@ -25,3 +25,9 @@ def run(context: TestDataDir):
     traits.set_order_by_columns('inventory_products', ['id', 'KBC__EVENT_TIMESTAMP_MS'])
     traits.set_order_by_columns('inventory_debezium_signals', ['KBC__EVENT_TIMESTAMP_MS'])
     print("Running before script")
+    os.environ['KBC_COMPONENTID'] = 'kds-team-ex-mysql-cdc-local'
+    os.environ['KBC_STACKID'] = 'connection.keboola.com'
+    os.environ['KBC_CONFIGID'] = '123'
+    os.environ['KBC_CONFIGROWID'] = '456'
+    os.environ['KBC_BRANCHID'] = '789'
+    os.environ['KBC_PROJECTID'] = '10'

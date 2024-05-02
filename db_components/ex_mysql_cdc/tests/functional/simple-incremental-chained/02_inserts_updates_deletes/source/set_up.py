@@ -22,3 +22,9 @@ def run(context: TestDataDir):
     sql_client.perform_query('commit')
     sql_client.connection.close()
     print("Running before script")
+    os.environ['KBC_COMPONENTID'] = 'kds-team-ex-mysql-cdc-local'
+    os.environ['KBC_STACKID'] = 'connection.keboola.com'
+    os.environ['KBC_CONFIGID'] = '123'
+    os.environ['KBC_CONFIGROWID'] = '456'
+    os.environ['KBC_BRANCHID'] = '789'
+    os.environ['KBC_PROJECTID'] = '10'
