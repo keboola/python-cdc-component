@@ -23,9 +23,9 @@ jobs:
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
       MYSQL_HOST: ${{ steps.step1.outputs.MYSQL_HOST }}
-      MYSQL_PASSWORD: ${{ steps.step1.outputs.MYSQL_HOST }}
-      MYSQL_USER: ${{ steps.step1.outputs.MYSQL_HOST }}
-      DEBEZIUM_CORE_PATH: ${{ steps.step1.outputs.MYSQL_HOST }}
+      MYSQL_PASSWORD: ${{ steps.step1.outputs.MYSQL_PASSWORD }}
+      MYSQL_USER: ${{ steps.step1.outputs.MYSQL_USER }}
+      DEBEZIUM_CORE_PATH: ${{ steps.step1.outputs.DEBEZIUM_CORE_PATH }}
     steps:
     - name: Assigns inputs passed to the reusable workflow
       id: step1
@@ -37,7 +37,7 @@ jobs:
         echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
         echo "MYSQL_HOST=$MYSQL_HOST" >> $GITHUB_OUTPUT
         echo "MYSQL_USER=$MYSQL_USER" >> $GITHUB_OUTPUT
-        echo "DEBEZIUM_CORE_PATH=DEBEZIUM_CORE_PATH" >> $GITHUB_OUTPUT
+        echo "DEBEZIUM_CORE_PATH=$DEBEZIUM_CORE_PATH" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
@@ -69,6 +69,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Echo Environment Variables
+        run: |
+          echo "MYSQL_HOST: $MYSQL_HOST"
+          echo "MYSQL_USER: $MYSQL_USER"
+          echo "DEBEZIUM_CORE_PATH: $DEBEZIUM_CORE_PATH"
 
       - name: Download JAR Artifact
         uses: actions/download-artifact@v4
