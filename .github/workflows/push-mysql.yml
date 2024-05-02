@@ -8,6 +8,7 @@ env:
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
   KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
   DOCKERHUB_USER: "keboolabot"
+  # For tests:
   MYSQL_HOST: "mysql"
   MYSQL_PASSWORD: "rootpassword"
   MYSQL_USER: "root"
@@ -22,10 +23,6 @@ jobs:
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
-      MYSQL_HOST: ${{ steps.step1.outputs.MYSQL_HOST }}
-      MYSQL_PASSWORD: ${{ steps.step1.outputs.MYSQL_PASSWORD }}
-      MYSQL_USER: ${{ steps.step1.outputs.MYSQL_USER }}
-      DEBEZIUM_CORE_PATH: ${{ steps.step1.outputs.DEBEZIUM_CORE_PATH }}
     steps:
     - name: Assigns inputs passed to the reusable workflow
       id: step1
@@ -35,9 +32,6 @@ jobs:
         echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
         echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
         echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
-        echo "MYSQL_HOST=$MYSQL_HOST" >> $GITHUB_OUTPUT
-        echo "MYSQL_USER=$MYSQL_USER" >> $GITHUB_OUTPUT
-        echo "DEBEZIUM_CORE_PATH=$DEBEZIUM_CORE_PATH" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
@@ -61,11 +55,6 @@ jobs:
     needs:
       - build-python
       - variables
-    env:
-      MYSQL_HOST: "mysql"
-      MYSQL_PASSWORD: "rootpassword"
-      MYSQL_USER: "root"
-      DEBEZIUM_CORE_PATH: "/code/debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
