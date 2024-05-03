@@ -41,7 +41,7 @@ jobs:
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@feature/mysql-cdc
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
@@ -105,7 +105,7 @@ jobs:
       - mysql-tests
 #      - tests-kbc
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@feature/mysql-cdc # change to main before deploy!
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main # change to main before deploy!
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
