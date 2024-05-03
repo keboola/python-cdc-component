@@ -1,0 +1,56 @@
+version: "3.2"
+services:
+  # for development purposes
+  dev: &app
+    links:
+      - mysql
+    build:
+      context: ../../
+      dockerfile: db_components/ex_mysql_cdc/Dockerfile
+    volumes:
+      - ./:/code/db_components/ex_mysql_cdc/
+      - ./data:/data
+    environment:
+      - KBC_DATADIR=/data
+  mysql:
+    image: mysql:5.7.12
+    command: --local-infile --datadir=/var/lib/mysql --server-id=1 --log-bin=/var/lib/mysql/mysql-bin.log --binlog_do_db=inventory
+#    ports:
+#      - 3306:3306
+    environment:
+      MYSQL_DATABASE: inventory
+      MYSQL_ROOT_PASSWORD: rootpassword
+  wait:
+    image: waisbrot/wait
+    depends_on:
+      - mysql
+    environment:
+      - TARGETS=mysql:3306
+      - TIMEOUT=200
+  tests:
+    # Use to run flake8 and unittests checks
+    <<: *app
+    links:
+      - mysql
+    volumes:
+      - ./:/code/db_components/ex_mysql_cdc/
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      DEBEZIUM_CORE_PATH: ${DEBEZIUM_CORE_PATH}
+      KBC_TOKEN: ${KBC_TOKEN}
+      MYSQL_DB_SSL_HOST: mysql-ssl
+      MYSQL_DB_SSL_BAD_CN_HOST: mysql-different-cn
+      MYSQL_DB_DATABASE: cdc
+      MYSQL_DB_PORT: 3306
+      KBC_COMPONENTID: kds-team.ex-mysql-cdc-local
+      KBC_CONFIGID: 12345
+      KBC_STACKID: connection.keboola.com
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        cd /code/db_components/ex_mysql_cdc
+        python -m unittest discover

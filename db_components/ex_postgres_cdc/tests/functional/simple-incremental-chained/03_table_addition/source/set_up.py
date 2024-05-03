@@ -2,7 +2,8 @@ import os
 
 from datadirtest import TestDataDir
 
-from tests.test_functional import TestDatabaseEnvironment
+from db_components.debezium.tests.db_test_traits import traits
+from db_components.debezium.tests.functional import TestDatabaseEnvironment
 
 
 def get_transactions_queries():
@@ -24,4 +25,6 @@ def run(context: TestDataDir):
             sql_client.perform_query(q)
     sql_client.perform_query('commit')
     sql_client.connection.close()
+    traits.set_order_by_columns('inventory_products', ['id', 'KBC__EVENT_TIMESTAMP_MS'])
+    traits.set_order_by_columns('inventory_debezium_signals', ['KBC__EVENT_TIMESTAMP_MS'])
     print("Running before script")

@@ -11,7 +11,7 @@ class BaseTypeConverter(ABC, Callable):
     """
 
     @abstractmethod
-    def __call__(self, source_type: str):
+    def __call__(self, source_type: str, length: Optional[str] = None) -> str:
         return source_type
 
 
@@ -23,7 +23,7 @@ class ColumnSchema:
     name: str
     source_type: Optional[str] = None
     source_type_signature: Optional[str] = None
-    base_type_converter: BaseTypeConverter = field(default=lambda t: t)
+    base_type_converter: BaseTypeConverter = field(default=lambda t, ln: t)
     description: Optional[str] = ""
     nullable: bool = False
     length: Optional[str] = None
@@ -33,7 +33,7 @@ class ColumnSchema:
 
     @property
     def base_type(self):
-        return self.base_type_converter(self.source_type)
+        return self.base_type_converter(self.source_type, self.length)
 
     def as_dict(self) -> dict:
         col_dict = asdict(self)
@@ -48,6 +48,7 @@ class TableSchema:
     """
     name: str
     schema_name: str
+    database_name: str = None
     fields: List[ColumnSchema] = field(default_factory=list)
     primary_keys: Optional[List[str]] = None
     parent_tables: Optional[List[str]] = None
@@ -60,7 +61,13 @@ class TableSchema:
 
     @property
     def csv_name(self) -> str:
-        return f"{self.schema_name}_{self.name}"
+        name_prefixes = []
+        if self.database_name:
+            name_prefixes.append(self.database_name)
+        if self.schema_name:
+            name_prefixes.append(self.schema_name)
+        name_prefix = '_'.join(name_prefixes)
+        return f"{name_prefix}_{self.name}.csv"
 
     def add_column(self, column: ColumnSchema) -> None:
         """
@@ -87,6 +94,20 @@ class TableSchema:
         for c in self.fields:
             dict_schema['fields'].append(c.as_dict())
         return dict_schema
+
+    def get_column_by_name(self, c: str) -> ColumnSchema:
+        """
+        Get a column by name.
+        Args:
+            c:
+
+        Returns:
+
+        """
+        for column in self.fields:
+            if column.name == c:
+                return column
+        return None
 
 
 def init_table_schema_from_dict(json_table_schema: Dict,
