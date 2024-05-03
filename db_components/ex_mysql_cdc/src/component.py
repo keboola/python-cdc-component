@@ -55,7 +55,7 @@ DEFAULT_TOPIC_NAME = 'testcdc'
 REQUIRED_IMAGE_PARS = []
 
 
-class Component(ComponentBase):
+class MySqlCDCComponent(ComponentBase):
     SYSTEM_COLUMNS = [
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
@@ -619,7 +619,7 @@ if __name__ == "__main__":
     if work_dir := os.environ.get('WORKING_DIR'):
         os.chdir(work_dir)
     try:
-        comp = Component()
+        comp = MySqlCDCComponent()
         # this triggers the run method by default and is controlled by the configuration.action parameter
         comp.execute_action()
     except UserException as exc:
