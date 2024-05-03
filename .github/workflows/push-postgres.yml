@@ -114,7 +114,21 @@ jobs:
 
   deploy-ex-postgres-cdc:
     name: Deploy ex-postgres-cdc
-    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
+    if: |
+       (
+         startsWith(github.ref, 'refs/tags/') &&
+         (
+           (needs.build-python.outputs.is_semantic_tag == 'true') &&
+           (
+             contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
+             contains(needs.build-python.outputs.app_image_tag, 'General') ||
+             contains(needs.build-python.outputs.app_image_tag, 'general') ||
+             contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+           )
+         )
+       )
     needs:
       - build-python
       - tests
@@ -132,7 +146,21 @@ jobs:
 
   deploy-ex-postgres-cdc-duck:
     name: Deploy ex-postgres-cdc-duck
-    if : startsWith(github.ref, 'refs/tags/') && needs.build-python.outputs.is_semantic_tag == 'true'
+    if: |
+       (
+         startsWith(github.ref, 'refs/tags/') &&
+         (
+           (needs.build-python.outputs.is_semantic_tag == 'true') &&
+           (
+             contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
+             contains(needs.build-python.outputs.app_image_tag, 'General') ||
+             contains(needs.build-python.outputs.app_image_tag, 'general') ||
+             contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+           )
+         )
+       )
     needs:
       - build-python
       - tests
