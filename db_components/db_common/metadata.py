@@ -49,7 +49,7 @@ class JDBCMetadataProvider(ABC):
         column.source_type_signature = f'{column.source_type}{signature}'
 
     def get_tables(self, database: str = None, schema_pattern: str = None,
-                   additional_types: list[str] = None) -> Iterable[tuple[str, str]]:
+                   additional_types: list[str] = None) -> Iterable[tuple[str, str, str]]:
         """
         Get all available tables. Returns tuple (schema, table)
         Args:
@@ -58,7 +58,7 @@ class JDBCMetadataProvider(ABC):
             additional_types: By default include only TABLE types, additionally VIEW, SYSTEM TABLE
                               or SYSTEM VIEW can be included.
 
-        Returns: tuple schema_name, script_name
+        Returns: tuple database_name, schema_name, table_name
 
         """
         table_types = ['TABLE']
@@ -68,7 +68,7 @@ class JDBCMetadataProvider(ABC):
                                               types=table_types)
 
         for table in tables:
-            yield table["TABLE_SCHEM"], table["TABLE_NAME"]
+            yield table['TABLE_CAT'], table["TABLE_SCHEM"], table["TABLE_NAME"]
 
     def get_schemas(self):
         yield from self.__connection.get_schemas()

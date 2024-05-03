@@ -16,10 +16,13 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class AbstractDebeziumTask {
+	public static final String KBC_FIELDS_PREFIX = "kbc__";
+	public static final String EVENT_TIMESTAMP_FIELD = "event_timestamp";
+	public static final String KBC_EVENT_TIMESTAMP_FIELD = KBC_FIELDS_PREFIX + EVENT_TIMESTAMP_FIELD;
+
 	public static int MAX_CHUNK_SIZE = 1000;
 
 	private final Properties debeziumProperties;
@@ -37,9 +40,9 @@ public class AbstractDebeziumTask {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
 				maxDuration,
-				resultFolder,
-				provider,
-				maxWait);
+				maxWait, resultFolder,
+				provider
+		);
 	}
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
@@ -52,17 +55,18 @@ public class AbstractDebeziumTask {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
 				maxDuration,
+				maxWait,
 				resultFolder,
-				provider,
-				maxWait);
+				provider
+		);
 	}
 
-	private AbstractDebeziumTask(Properties debeziumProperties,
-								 Properties keboolaProperties,
-								 Duration maxDuration,
-								 Path resultFolder,
-								 JsonConverter.ConverterProvider converterProvider,
-								 Duration maxWait) {
+	public AbstractDebeziumTask(Properties debeziumProperties,
+								Properties keboolaProperties,
+								Duration maxDuration,
+								Duration maxWait,
+								Path resultFolder,
+								JsonConverter.ConverterProvider converterProvider) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
 		this.maxDuration = maxDuration;
@@ -77,15 +81,13 @@ public class AbstractDebeziumTask {
 	}
 
 	public void run() throws Exception {
-		ExecutorService executorService = Executors.newSingleThreadExecutor();
-
-		AtomicInteger count = new AtomicInteger();
-		ZonedDateTime started = ZonedDateTime.now();
-		SyncStats syncStats = new SyncStats();
+		var executorService = Executors.newSingleThreadExecutor();
+		var started = ZonedDateTime.now();
 
 		// callback
-		CompletionCallback completionCallback = new CompletionCallback(executorService);
-		var changeConsumer = new DbChangeConsumer(count, this.resultFolder.toString(), syncStats,
+		var completionCallback = new CompletionCallback(executorService);
+		var connectorCallback = new ConnectorCallback();
+		var changeConsumer = new DbChangeConsumer(this.resultFolder.toString(),
 				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
 
 		// start
@@ -93,11 +95,11 @@ public class AbstractDebeziumTask {
 				.using(this.getClass().getClassLoader())
 				.using(this.debeziumProperties)
 				.notifying(changeConsumer)
+				.using(connectorCallback)
 				.using(completionCallback)
 				.build()) {
 			executorService.execute(engine);
-
-			Await.until(() -> this.ended(executorService, started, syncStats), Duration.ofSeconds(10));
+			Await.until(() -> this.ended(executorService, started), Duration.ofMillis(500));
 		} finally {
 			changeConsumer.closeWriterStreams();
 			changeConsumer.storeSchemaMap();
@@ -109,10 +111,7 @@ public class AbstractDebeziumTask {
 			throw new Exception(completionCallback.getErrorMessage());
 		}
 
-		log.info(
-				"Ended after receiving records: {}",
-				changeConsumer.getRecordsCount()
-		);
+		log.info("Ended after receiving records: {}", changeConsumer.getRecordsCount());
 
 	}
 
@@ -124,8 +123,9 @@ public class AbstractDebeziumTask {
 		props.setProperty("transforms.unwrap.type", "keboola.cdc.debezium.transforms.ExtractNewRecordStateSchemaChanges");
 		props.setProperty("transforms.unwrap.drop.tombstones", "true");
 		props.setProperty("transforms.unwrap.delete.handling.mode", "rewrite");
-		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:event_timestamp");
-		props.setProperty("transforms.unwrap.add.fields.prefix", "kbc__");
+		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:" + EVENT_TIMESTAMP_FIELD);
+		props.setProperty("transforms.unwrap.add.fields.prefix", KBC_FIELDS_PREFIX);
+		props.setProperty("notification.enabled.channels", KeboolaNotification.KEBOOLA_NOTIFICATION_CHANNEL);
 		return props;
 	}
 
@@ -149,21 +149,25 @@ public class AbstractDebeziumTask {
 		}
 	}
 
-	private boolean ended(ExecutorService executorService, ZonedDateTime start, SyncStats syncStats) {
+	private boolean ended(ExecutorService executorService, ZonedDateTime start) {
 		if (executorService.isShutdown()) {
 			return true;
 		}
-		if (this.maxDuration != null && ZonedDateTime.now().toEpochSecond() > start.plus(this.maxDuration).toEpochSecond()) {
+		if (this.maxDuration != null
+				&& ZonedDateTime.now().toEpochSecond() > start.plus(this.maxDuration).toEpochSecond()) {
 			log.info("Ended after max duration: {}", this.maxDuration);
 			return true;
 		}
 
-//		this.log.info("Time elapsed: {}, Last record before: {}", lastRecord.plus(this.maxWait).toEpochSecond(),
-//				ZonedDateTime.now().toEpochSecond());
+		if (SyncStats.isSnapshotInProgress()) {
+			return false;
+		}
 
-		if (this.maxWait != null && ZonedDateTime.now().toEpochSecond() > syncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
-			log.info("Ended after max wait: {}. Last record before: {}", this.maxWait,
-					syncStats.getLastRecord().plus(this.maxWait).toEpochSecond());
+		if (SyncStats.taskStarted()
+				&& !SyncStats.isProcessing()
+				&& this.maxWait != null
+				&& ZonedDateTime.now().toEpochSecond() > SyncStats.getLastRecord().plus(this.maxWait).toEpochSecond()) {
+			log.info("Ended after max wait: {}. Last record: {}", this.maxWait, SyncStats.getLastRecord());
 			return true;
 		}
 

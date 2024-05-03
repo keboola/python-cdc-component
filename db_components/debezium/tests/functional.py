@@ -35,6 +35,7 @@ class TestDatabaseEnvironment:
 
 
 class DebeziumCDCDatadirTest(TestDataDir):
+
     def setUp(self):
 
         try:
@@ -75,6 +76,10 @@ class DebeziumCDCDatadirTest(TestDataDir):
         # Remove the specified columns
         select_columns = ','.join([f'"{column}"' for column in columns if column not in drop_columns])
 
+        # if empty do nothing
+        if not duckdb.execute(f"SELECT * FROM {table_name}").fetchall():
+            return
+
         # Write the DataFrame back to a CSV file
         duckdb.execute(f"COPY (SELECT {select_columns} FROM {table_name} ORDER BY {order_by_column}::INT ASC) "
                        f"TO '{tmp_path}' (FORMAT CSV, HEADER false, DELIMITER \',\')")
@@ -102,6 +107,10 @@ class DebeziumCDCDatadirTest(TestDataDir):
             if 'debezium_signals' in in_table:
                 # in case of debezium signal we need to remove id column
                 columns_to_remove.append('id')
+
+            if 'io_debezium_connector' in in_table and 'schema_changes' in in_table:
+                columns_to_remove = ['source', 'ts_ms']
+
             if not os.path.isdir(in_table):
                 self._remove_column_slice(f'{in_table}.manifest',
                                           in_table, columns_to_remove, order_by_column)

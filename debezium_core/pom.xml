@@ -43,6 +43,11 @@
             <artifactId>log4j-slf4j-impl</artifactId>
             <version>${log4j2-version}</version>
         </dependency>
+        <dependency>
+            <groupId>biz.paluch.logging</groupId>
+            <artifactId>logstash-gelf</artifactId>
+            <version>1.15.1</version>
+        </dependency>
 
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -162,9 +167,9 @@
                             <mainClass>keboola.cdc.debezium.DebeziumKBCWrapper</mainClass>
                         </manifest>
                     </archive>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
+                    <descriptors>
+                        <descriptor>/src/main/resources/assembly.xml</descriptor>
+                    </descriptors>
                 </configuration>
                 <executions>
                     <execution>

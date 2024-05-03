@@ -1,0 +1,130 @@
+name: MySQL CDC Build & Deploy
+on: [ push ]
+concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
+env:
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  APP_NAME1: "ex-mysql-cdc"
+  KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
+  KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
+  KBC_TEST_PROJECT_CONFIGS: "995161343" # space separated list of config ids
+  DOCKERHUB_USER: "keboolabot"
+  # For tests:
+  MYSQL_HOST: "mysql"
+  MYSQL_PASSWORD: "rootpassword"
+  MYSQL_USER: "root"
+  DEBEZIUM_CORE_PATH: "/code/debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
+
+jobs:
+  variables:
+    runs-on: ubuntu-latest
+    outputs:
+      APP_NAME1: ${{ steps.step1.outputs.APP_NAME1 }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
+      DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
+    steps:
+    - name: Assigns inputs passed to the reusable workflow
+      id: step1
+      run: |
+        echo "APP_NAME1=$APP_NAME1" >> $GITHUB_OUTPUT
+        echo "KBC_DEVELOPERPORTAL_VENDOR=$KBC_DEVELOPERPORTAL_VENDOR" >> $GITHUB_OUTPUT
+        echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
+        echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
+        echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
+
+  build-java:
+    uses: keboola/python-cdc-component/.github/workflows/java.yml@main
+
+  build-python:
+    name: Build and Push Mysql CDC image
+    needs:
+      - build-java
+      - variables
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
+    with:
+      APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
+    secrets: inherit
+
+  mysql-tests:
+    runs-on: ubuntu-latest
+    env:
+      KBC_TOKEN: ${{ secrets.KBC_TOKEN }}
+      KBC_COMPONENTID: "kds-team.ex-mysql-cdc-local"
+      KBC_CONFIGID: "12345"
+      KBC_STACKID: "connection.keboola.com"
+    needs:
+      - build-python
+      - variables
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Echo Environment Variables
+        run: |
+          echo "MYSQL_HOST: $MYSQL_HOST"
+          echo "MYSQL_USER: $MYSQL_USER"
+          echo "DEBEZIUM_CORE_PATH: $DEBEZIUM_CORE_PATH"
+
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: java-artifact
+
+      - name: Move JAR Artifact
+        run: mv kbcDebeziumEngine-jar-with-dependencies.jar debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar
+
+      - name: Run Tests
+        run: |
+          cd db_components/ex_mysql_cdc
+          docker-compose build tests
+          docker-compose run wait
+          docker-compose run tests
+
+#  tests-kbc:
+#    needs:
+#      - build-python
+#      - variables
+#    uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@main
+#    with:
+#      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+#      TAG: ${{ needs.build-python.outputs.app_image_tag }}
+#      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+#      KBC_TEST_PROJECT_CONFIGS: ${{ needs.variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
+#    secrets: inherit
+
+  deploy-ex-mysql-cdc:
+    name: Deploy ex-mysql-cdc
+    if: |
+       (
+         startsWith(github.ref, 'refs/tags/') &&
+         (
+           (needs.build-python.outputs.is_semantic_tag == 'true') &&
+           (
+             contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
+             contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
+             contains(needs.build-python.outputs.app_image_tag, 'General') ||
+             contains(needs.build-python.outputs.app_image_tag, 'general') ||
+             contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+           )
+         )
+       )
+    needs:
+      - build-python
+      - mysql-tests
+#      - tests-kbc
+      - variables
+    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main # change to main before deploy!
+    with:
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
+      APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
+    secrets: inherit
