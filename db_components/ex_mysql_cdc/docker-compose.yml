@@ -35,11 +35,12 @@ services:
     volumes:
       - ./:/code/db_components/ex_mysql_cdc/
     environment:
-      MYSQL_DB_HOST: mysql
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      DEBEZIUM_CORE_PATH: ${DEBEZIUM_CORE_PATH}
       MYSQL_DB_SSL_HOST: mysql-ssl
       MYSQL_DB_SSL_BAD_CN_HOST: mysql-different-cn
-      MYSQL_DB_USER: root
-      MYSQL_DB_PASSWORD: rootpassword
       MYSQL_DB_DATABASE: cdc
       MYSQL_DB_PORT: 3306
     command:

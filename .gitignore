@@ -9,6 +9,7 @@ __pycache__/
 # kbc datafolders
 /db_components/ex_postgres_cdc/data
 /db_components/ex_mysql_cdc/data
+/db_components/ex_oracle_cdc/data
 */venv
 testing_config/
 
