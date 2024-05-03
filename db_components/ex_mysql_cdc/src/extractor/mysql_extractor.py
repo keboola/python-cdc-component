@@ -1,12 +1,13 @@
 import logging
 import logging.handlers
 import tempfile
+from typing import Optional
 
 from jaydebeapi import DatabaseError
 
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
-from db_components.db_common.table_schema import BaseTypeConverter, ColumnSchema
+from db_components.db_common.table_schema import BaseTypeConverter
 from db_components.ex_mysql_cdc.src.configuration import DbOptions
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
@@ -30,7 +31,7 @@ class MySQLBaseTypeConverter(BaseTypeConverter):
                "datetime": "TIMESTAMP",
                "timestamp": "TIMESTAMP",
                "time": "TIMESTAMP",
-               "year": "DATE",
+               "year": "INTEGER",
                "char": "STRING",
                "varchar": "STRING",
                "binary": "STRING",
@@ -46,8 +47,15 @@ class MySQLBaseTypeConverter(BaseTypeConverter):
                "enum": "STRING",
                "set": "STRING"}
 
-    def __call__(self, source_type: str):
-        return self.MAPPING.get(source_type.lower(), 'STRING')
+    def __call__(self, source_type: str, length: Optional[str] = None) -> str:
+        source_type_lower = source_type.lower()
+        match source_type_lower:
+            case 'bit' if str(length) == '1':
+                return 'BOOLEAN'
+            case 'boolean':
+                return 'BOOLEAN'
+            case _:
+                return self.MAPPING.get(source_type_lower, 'STRING')
 
 
 SUPPORTED_TYPES = ["smallint",
@@ -195,6 +203,3 @@ class MySQLDebeziumExtractor:
     def close_connection(self):
         logging.debug("Closing the outer connection.")
         self.connection.connection.close()
-
-
-

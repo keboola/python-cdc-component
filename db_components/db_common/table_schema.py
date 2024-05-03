@@ -11,7 +11,7 @@ class BaseTypeConverter(ABC, Callable):
     """
 
     @abstractmethod
-    def __call__(self, source_type: str):
+    def __call__(self, source_type: str, length: Optional[str] = None) -> str:
         return source_type
 
 
@@ -23,7 +23,7 @@ class ColumnSchema:
     name: str
     source_type: Optional[str] = None
     source_type_signature: Optional[str] = None
-    base_type_converter: BaseTypeConverter = field(default=lambda t: t)
+    base_type_converter: BaseTypeConverter = field(default=lambda t, ln: t)
     description: Optional[str] = ""
     nullable: bool = False
     length: Optional[str] = None
@@ -33,7 +33,7 @@ class ColumnSchema:
 
     @property
     def base_type(self):
-        return self.base_type_converter(self.source_type)
+        return self.base_type_converter(self.source_type, self.length)
 
     def as_dict(self) -> dict:
         col_dict = asdict(self)
