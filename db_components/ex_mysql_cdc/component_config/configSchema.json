@@ -173,6 +173,19 @@
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
           "default": 4,
           "propertyOrder": 30
+        },
+        "handle_binary": {
+          "propertyOrder": 2,
+          "type": "string",
+          "title": "Binary data handler",
+          "default": "hex",
+          "enum": [
+            "bytes",
+            "hex",
+            "base64",
+            "base64-url-safe"
+          ],
+          "description": "Marks how to handle binary data:<ul><li><strong>plain</strong> - data in decoded from binary to string using Python's <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.decode' target='_blank'>bytes.decode()</a></i> method,</li><li><strong>hex</strong> - data is converted to hex representation of binary string using <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.hex' target='_blank'>bytes.hex()</a></i> method,</li><li><strong>base64</strong> - data is converted to a base64 string, using <i><a href='https://docs.python.org/3/library/base64.html#base64.b64encode' target='_blank'>base64.b64encode()</a></i> method.</li></ul>All trailing or leading null bytes are replaced."
         }
       }
     },

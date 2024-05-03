@@ -115,9 +115,10 @@ class SnapshotMode(str, Enum):
 
 
 class BinaryHandler(str, Enum):
-    plain = "plain"
-    hex = "hex"
+    base64_url_safe = "base64-url-safe"
+    hex = "base64"
     base64 = "base64"
+    bytes = "bytes"
 
 
 @dataclass
