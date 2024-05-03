@@ -1,11 +1,13 @@
 """
-Template Component main class.
+Template PostgresCDCComponent main class.
 
 """
 import base64
 import logging
 import os
 import shutil
+
+from keboola.component import CommonInterface
 
 DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 import tempfile
@@ -19,14 +21,14 @@ from keboola.component.exceptions import UserException
 # configuration variables
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
-from configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters
-from extractor.postgres_extractor import PostgresDebeziumExtractor
-from extractor.postgres_extractor import SUPPORTED_TYPES
-from extractor.postgres_extractor import build_postgres_property_file
-from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor
+from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import SUPPORTED_TYPES
+from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import build_postgres_property_file
+from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
@@ -43,7 +45,7 @@ KEY_LAST_OFFSET = 'last_offset'
 REQUIRED_IMAGE_PARS = []
 
 
-class Component(ComponentBase):
+class PostgresCDCComponent(ComponentBase):
     SYSTEM_COLUMNS = [
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
@@ -98,15 +100,21 @@ class Component(ComponentBase):
             if not os.path.exists(DEBEZIUM_CORE_PATH):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
-            log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
-
             duckdb_config = DuckDBParameters(self.duck_db_path,
                                              dedupe_max_chunk_size=sync_options.dedupe_max_chunk_size)
+
+            log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
+            logging_properties = LoggerOptions(result_log_path=log_artefact_path)
+
+            if self.logging_type == 'gelf':
+                logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
+                logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=duckdb_config,
+                                                 logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection,
-                                                 result_log_path=log_artefact_path)
+                                                 source_connection=self._client.connection)
 
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
@@ -142,6 +150,11 @@ class Component(ComponentBase):
         tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
         os.remove(tmpdb.name)
         return tmpdb.name
+
+    @property
+    def logging_type(self) -> str:
+        return CommonInterface.LOGGING_TYPE_GELF if os.getenv('KBC_LOGGER_ADDR',
+                                                              None) else CommonInterface.LOGGING_TYPE_STD
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -551,7 +564,7 @@ if __name__ == "__main__":
     if work_dir := os.environ.get('WORKING_DIR'):
         os.chdir(work_dir)
     try:
-        comp = Component()
+        comp = PostgresCDCComponent()
         # this triggers the run method by default and is controlled by the configuration.action parameter
         comp.execute_action()
     except UserException as exc:

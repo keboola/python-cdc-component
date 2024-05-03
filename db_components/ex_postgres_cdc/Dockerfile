@@ -33,4 +33,4 @@ RUN pip install -r /code/db_components/ex_postgres_cdc/requirements.txt
 
 WORKDIR /code/db_components/ex_postgres_cdc/src
 
-CMD ["python", "-u", "component.py"]
+CMD ["python", "-u", "-m", "component.py"]

@@ -31,12 +31,12 @@ from keboola.component.exceptions import UserException
 # configuration variables
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
-from configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
-from extractor.mysql_extractor import SUPPORTED_TYPES
-from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
+from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
@@ -92,7 +92,6 @@ class Component(ComponentBase):
             self._reconstruct_offsset_from_state()
             self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
-            snapshot_mode = self._configuration.sync_options.snapshot_mode.name
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_debezium_property_file(db_config.user, db_config.pswd_password,
@@ -357,7 +356,7 @@ class Component(ComponentBase):
             incremental_load = True
 
         output_bucket = self.generate_output_bucket_name()
-        result_table_name = table_definition.name.replace('.csv','')
+        result_table_name = table_definition.name.replace('.csv', '')
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load,
                                                             destination=f"{output_bucket}.{result_table_name}"), schema
 
