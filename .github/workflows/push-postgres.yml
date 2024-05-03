@@ -82,7 +82,6 @@ jobs:
     secrets: inherit
 
   tests:
-    runs-on: ubuntu-latest
     needs:
       - build-python
       - variables
