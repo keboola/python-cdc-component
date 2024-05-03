@@ -116,7 +116,7 @@ class SnapshotMode(str, Enum):
 
 class BinaryHandler(str, Enum):
     base64_url_safe = "base64-url-safe"
-    hex = "base64"
+    hex = "hex"
     base64 = "base64"
     bytes = "bytes"
 
