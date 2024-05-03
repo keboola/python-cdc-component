@@ -124,12 +124,12 @@ jobs:
         (
           (needs.build-python.outputs.is_semantic_tag == 'true') &&
           (
-            startsWith(needs.build-python.outputs.app_image_tag, 'Postgres') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'postgres') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'General') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'general') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'GENERAL')
+            contains(needs.build-python.outputs.app_image_tag, 'Postgres') ||
+            contains(needs.build-python.outputs.app_image_tag, 'postgres') ||
+            contains(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
+            contains(needs.build-python.outputs.app_image_tag, 'General') ||
+            contains(needs.build-python.outputs.app_image_tag, 'general') ||
+            contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
           )
         )
       )
@@ -156,12 +156,12 @@ jobs:
         (
           (needs.build-python.outputs.is_semantic_tag == 'true') &&
           (
-            startsWith(needs.build-python.outputs.app_image_tag, 'Postgres') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'postgres') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'General') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'general') ||
-            startsWith(needs.build-python.outputs.app_image_tag, 'GENERAL')
+            contains(needs.build-python.outputs.app_image_tag, 'Postgres') ||
+            contains(needs.build-python.outputs.app_image_tag, 'postgres') ||
+            contains(needs.build-python.outputs.app_image_tag, 'POSTGRES') ||
+            contains(needs.build-python.outputs.app_image_tag, 'General') ||
+            contains(needs.build-python.outputs.app_image_tag, 'general') ||
+            contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
           )
         )
       )
