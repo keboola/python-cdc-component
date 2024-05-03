@@ -39,10 +39,14 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       DEBEZIUM_CORE_PATH: ${DEBEZIUM_CORE_PATH}
+      KBC_TOKEN: ${KBC_TOKEN}
       MYSQL_DB_SSL_HOST: mysql-ssl
       MYSQL_DB_SSL_BAD_CN_HOST: mysql-different-cn
       MYSQL_DB_DATABASE: cdc
       MYSQL_DB_PORT: 3306
+      KBC_COMPONENTID: kds-team.ex-mysql-cdc-local
+      KBC_CONFIGID: 12345
+      KBC_STACKID: connection.keboola.com
     command:
       - /bin/sh
       - -c

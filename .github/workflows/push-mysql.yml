@@ -52,6 +52,11 @@ jobs:
 
   mysql-tests:
     runs-on: ubuntu-latest
+    env:
+      KBC_TOKEN: ${{ secrets.KBC_TOKEN }}
+      KBC_COMPONENTID: "kds-team.ex-mysql-cdc-local"
+      KBC_CONFIGID: "12345"
+      KBC_STACKID: "connection.keboola.com"
     needs:
       - build-python
       - variables
