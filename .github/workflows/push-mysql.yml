@@ -121,7 +121,7 @@ jobs:
       - variables
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@main # change to main before deploy!
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_  NAME1 }}
+      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
