@@ -249,16 +249,17 @@ class DebeziumExecutor:
                                    stderr=subprocess.PIPE)
 
         logging.info(f'Running CDC Debezium Engine: {args}')
+        log_out = None
         if not self.logger_options.gelf_enabled:
             Path(self.logger_options.result_log_path).parent.mkdir(parents=True, exist_ok=True)
 
-            with open(self.logger_options.result_log_path, 'w+') as log_out:
-                # Stream stdout
-                for line in iter(process.stdout.readline, b''):
-                    line_str = line.decode('utf-8').rstrip('\n')
-                    logging.info(line_str)
-                    if self.logger_options.result_log_path:
-                        log_out.write(line_str)
+            log_out = open(self.logger_options.result_log_path, 'w+')
+            # Stream stdout
+            for line in iter(process.stdout.readline, b''):
+                line_str = line.decode('utf-8').rstrip('\n')
+                logging.info(line_str)
+                if self.logger_options.result_log_path:
+                    log_out.write(line_str)
 
         process.stdout.close()
         process.wait()
@@ -267,7 +268,9 @@ class DebeziumExecutor:
         if process.returncode != 0:
             message, stack_trace = self.process_java_log_message(err_string)
             log_out.write(err_string)
-            log_out.close()
+
+            if not self.logger_options.gelf_enabled:
+                log_out.close()
             raise DebeziumException(
                 f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
                 extra={'additional_detail': err_string})

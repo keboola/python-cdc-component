@@ -35,7 +35,7 @@ class PostgresBaseTypeConverter(BaseTypeConverter):
                "char": "STRING",
                "text": "STRING"}
 
-    def __call__(self, source_type: str):
+    def __call__(self, source_type: str, length: str = None) -> str:
         return self.MAPPING.get(source_type, 'STRING')
 
 
