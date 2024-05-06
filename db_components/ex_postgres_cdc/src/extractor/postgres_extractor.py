@@ -7,7 +7,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_postgres_cdc.src.configuration import DbOptions
+from db_components.ex_postgres_cdc.src.configuration import DbOptions, HeartBeatConfig
 
 JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
 
@@ -67,7 +67,8 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
-                                 repl_suffix: str = 'dbz') -> str:
+                                 repl_suffix: str = 'dbz',
+                                 hearbeat_config: HeartBeatConfig = None) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -89,6 +90,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_mode: 'initial' or 'never'
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
+        hearbeat_config: Configuration for the heartbeat signal.
 
     Returns:
 
@@ -127,6 +129,10 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "plugin.name": "pgoutput",
         "signal.enabled.channels": "source",
         "signal.data.collection": signal_table}
+
+    if hearbeat_config:
+        properties["heartbeat.interval.ms"] = hearbeat_config.interval_ms
+        properties["heartbeat.action.query"] = hearbeat_config.action_query
 
     properties |= additional_properties
 

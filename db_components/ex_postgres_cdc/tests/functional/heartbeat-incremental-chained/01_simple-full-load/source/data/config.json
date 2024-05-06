@@ -10,21 +10,26 @@
       "use_ssh": false
     },
     "destination": {
-      "load_type": "full_load"
+      "load_type": "append_full"
     },
     "sync_options": {
       "source_signal_table": "inventory.debezium_signals",
       "max_wait_s": 5,
       "snapshot_mode": "initial",
       "snapshot_threads": 1,
-      "snapshot_fetch_size": 10240
+      "snapshot_fetch_size": 10240,
+      "enable_heartbeat": true,
+      "heartbeat_config": {
+        "interval_ms": 3000,
+        "action_query": "UPDATE kbc.heartbeat SET last_heartbeat = NOW()"
+      }
     },
     "source_settings": {
       "tables": [
-        "inventory.sales"
+        "inventory.sales", "kbc.heartbeat"
       ],
       "schemas": [
-        "inventory"
+        "inventory", "kbc"
       ]
     },
     "debug": true

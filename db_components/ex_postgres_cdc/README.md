@@ -51,6 +51,49 @@ other replication mechanisms, which can increase the load on the database server
 if different publications have different performance requirements or if they need to be replicated to different types of
 subscribers with different capabilities.
 
+
+## WAL disk space consumption
+In certain cases, it is possible for PostgreSQL disk space consumed by WAL files to spike or increase out of usual proportions. There are several possible reasons for this situation:
+
+- The LSN up to which the connector has received data is available in the `confirmed_flush_lsn` column of the server’s `pg_replication_slots` view. Data that is older than this LSN is no longer available, and the database is responsible for reclaiming the disk space.
+  
+  - Also in the `pg_replication_slots` view, the `restart_lsn` column contains the LSN of the oldest WAL that the connector might require. If the value for confirmed_flush_lsn is regularly increasing and the value of restart_lsn lags then the database needs to reclaim the space. 
+  - The database typically reclaims disk space in batch blocks. This is expected behavior and no action by a user is necessary.
+
+- There are many updates in a database that is being tracked but only a tiny number of updates are related to the table(s) and schema(s) for which the connector is capturing changes. This situation can be easily solved with periodic heartbeat events. Set the heartbeat.interval.ms connector configuration property.
+
+**NOTE:** For the connector to detect and process events from a heartbeat table, you must add the table to the PostgreSQL publication created by the connector. **You can do that by selecting the heartbeat table in the `Datasource > Tables to sync` configuration property.**
+
+- The PostgreSQL instance contains multiple databases and one of them is a high-traffic database. Debezium captures changes in another database that is low-traffic in comparison to the other database. Debezium then cannot confirm the LSN as replication slots work per-database and Debezium is not invoked. As WAL is shared by all databases, the amount used tends to grow until an event is emitted by the database for which Debezium is capturing changes. To overcome this, it is necessary to:
+  - Enable periodic heartbeat record generation with the `heartbeat > interval.ms` connector configuration property.
+  - Regularly emit change events from the database for which Debezium is capturing changes.
+
+A separate process would then periodically update the table by either inserting a new row or repeatedly updating the same row. PostgreSQL then invokes Debezium, which confirms the latest LSN and allows the database to reclaim the WAL space. This task can be automated by means of the`heart beat > action query` connector configuration property.
+
+**TIP:** For users on AWS RDS with PostgreSQL, a situation similar to the high traffic/low traffic scenario can occur in an idle environment. AWS RDS causes writes to its own system tables to be invisible to clients on a frequent basis (5 minutes). Again, regularly emitting events solves the problem.
+
+### Enabling the Heartbeat queries
+
+**Prerequisites**
+
+Before enabling the Heartbeat signals, the Heartbeat table must be created in the source database. Recommended heartbeat table schema:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS kbc;
+CREATE TABLE kbc.heartbeat (id SERIAL PRIMARY KEY, last_heartbeat TIMESTAMP NOT NULL DEFAULT NOW());
+INSERT INTO kbc.heartbeat (last_heartbeat) VALUES (NOW());
+```
+
+The connector will then perform UPDATE query on that table in the selected interval. It is recommended to use UPDATE query to avoid table bloat.
+
+**Enable the heartbeat signals:**
+
+- Set the `heartbeat > Heartbeat interval [ms]` connector configuration property to the desired interval in milliseconds. 
+- Set the `heartbeat > Action query` connector configuration property to the desired query that will be executed on the heartbeat table.
+  - It is recommended to use the default UPDATE query: `UPDATE kbc.heartbeat SET last_heartbeat = NOW()`
+- Select the heartbeat table in the `Datasource > Tables to sync` configuration property to track the heartbeat table and make sure it is contained in the publication.
+
+
 # Prerequisites
 
 This connector uses [Debezium connector](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)

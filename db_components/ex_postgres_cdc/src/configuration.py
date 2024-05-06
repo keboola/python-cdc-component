@@ -86,6 +86,12 @@ class SnapshotMode(str, Enum):
     initial = "initial"
     never = "never"
 
+@dataclass
+class HeartBeatConfig(ConfigurationBase):
+    interval_ms: int = 3000
+    action_query: str = 'UPDATE kbc.heartbeat SET last_heartbeat = NOW()'
+
+
 
 @dataclass
 class SyncOptions(ConfigurationBase):
@@ -95,6 +101,8 @@ class SyncOptions(ConfigurationBase):
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     dedupe_max_chunk_size: int = 5000000
+    enable_heartbeat: bool = False
+    heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
 
 
 class LoadType(str, Enum):
