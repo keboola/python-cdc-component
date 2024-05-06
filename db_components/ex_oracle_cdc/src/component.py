@@ -23,7 +23,7 @@ from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_
 from db_components.db_common import artefacts
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
 
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
@@ -115,12 +115,13 @@ class Component(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
+            logging_properties = LoggerOptions(result_log_path=log_artefact_path)
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection,
-                                                 result_log_path=log_artefact_path)
+                                                 source_connection=self._client.connection)
 
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
@@ -222,14 +223,8 @@ class Component(ComponentBase):
                 pass
 
     def _init_workspace_client(self):
-
-        if self.configuration.image_parameters.get(KEY_STAGING_TYPE, '') == 'duckdb':
-            logging.info("Using DuckDB staging")
-            self._staging = DuckDBStagingExporter(self._convert_to_snowflake_column_definitions,
-                                                  self._normalize_columns)
-        else:
-            raise UserException(
-                f"Staging type not supported: {self.configuration.image_parameters.get(KEY_STAGING_TYPE)}")
+        logging.info("Using DuckDB staging")
+        self._staging = DuckDBStagingExporter(self.duck_db_path)
 
     def _init_configuration(self):
         self.validate_configuration_parameters(Configuration.get_dataclass_required_parameters())
