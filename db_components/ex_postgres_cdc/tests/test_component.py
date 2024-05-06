@@ -3,12 +3,13 @@ Created on 12. 11. 2018
 
 @author: esner
 '''
-import unittest
-import mock
 import os
+import unittest
+
+import mock
 from freezegun import freeze_time
 
-from component import Component
+from db_components.ex_postgres_cdc.src.component import PostgresCDCComponent
 
 
 class TestComponent(unittest.TestCase):
@@ -19,7 +20,7 @@ class TestComponent(unittest.TestCase):
     @mock.patch.dict(os.environ, {'KBC_DATADIR': './non-existing-dir'})
     def test_run_no_cfg_fails(self):
         with self.assertRaises(ValueError):
-            comp = Component()
+            comp = PostgresCDCComponent()
             comp.run()
 
 

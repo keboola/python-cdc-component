@@ -4,12 +4,12 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Type
 
 import duckdb
 from datadirtest import TestDataDir
-from keboola.component import CommonInterface
+from keboola.component import CommonInterface, ComponentBase
 
-from component import Component
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.debezium.tests.db_test_traits.traits import DbTestTable
 
@@ -36,12 +36,23 @@ class TestDatabaseEnvironment:
 
 class DebeziumCDCDatadirTest(TestDataDir):
 
+    # TODO: Create shared DebeziumComponent class type
+    component_class: Type['ComponentBase'] = None
+
+    @classmethod
+    def set_component_class(cls, component_class: Type['ComponentBase']):
+        cls.component_class = component_class
+
     def setUp(self):
 
         try:
             if Path.cwd().name != 'src':
                 os.chdir('./src')
-            comp = Component(data_path_override=self.source_data_dir)
+            if not self.component_class:
+                raise ValueError("Component class not set. "
+                                 "Set it via DebeziumCDCDatadirTest.set_component_class class method first")
+
+            comp = self.component_class(data_path_override=self.source_data_dir)
             with comp._init_client() as config:
                 connection = comp._client.connection
                 db_client = TestDatabaseEnvironment(connection)
