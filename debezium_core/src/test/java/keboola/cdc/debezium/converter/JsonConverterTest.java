@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 class JsonConverterTest {
 
 	@Test
-	@Disabled("Disabled until fixed")
 	public void updateSchema() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var payload = readResource("singleData_extended.json").getAsJsonObject();
