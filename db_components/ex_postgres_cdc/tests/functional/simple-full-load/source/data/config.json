@@ -14,7 +14,7 @@
     },
     "sync_options": {
       "source_signal_table": "inventory.debezium_signals",
-      "max_wait_s": 1,
+      "max_wait_s": 5,
       "snapshot_mode": "initial",
       "snapshot_threads": 1,
       "snapshot_fetch_size": 10240
