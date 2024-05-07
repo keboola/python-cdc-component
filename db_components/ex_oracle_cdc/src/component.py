@@ -3,36 +3,36 @@ Template Component main class.
 
 """
 import base64
-from functools import cached_property
-import glob
 import logging
-from pathlib import Path
 import os
 import shutil
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from functools import cached_property
+from pathlib import Path
 
-from configuration import Configuration, DbOptions, SnapshotMode
-from extractor.oracle_extractor import OracleDebeziumExtractor
-from extractor.oracle_extractor import SUPPORTED_TYPES
-from extractor.oracle_extractor import build_debezium_property_file
-from ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
-
-from db_components.db_common import artefacts
-from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.db_common.staging import Staging, DuckDBStagingExporter
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
-
+from keboola.component import CommonInterface
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
 from keboola.component.exceptions import UserException
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
+from db_components.db_common import artefacts
+from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+from db_components.db_common.staging import Staging, DuckDBStagingExporter
+from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
+from db_components.debezium.common import get_schema_change_table_metadata
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.ex_oracle_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import OracleDebeziumExtractor
+from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import SUPPORTED_TYPES
+from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import build_debezium_property_file
+
 DEBEZIUM_CORE_PATH = os.environ.get(
     'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
 
+SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_oracle_SchemaChangeValue'
 DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
@@ -46,7 +46,7 @@ DEFAULT_TOPIC_NAME = 'testcdc'
 REQUIRED_IMAGE_PARS = []
 
 
-class Component(ComponentBase):
+class OracleComponent(ComponentBase):
     SYSTEM_COLUMNS = [
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
@@ -84,11 +84,6 @@ class Component(ComponentBase):
             self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
 
-            prev_schema_history_file = self.get_artifact_full_in_path("dbhistory.dat")
-            schema_history_file = self.get_artifact_full_out_path("dbhistory.dat")
-            if os.path.exists(prev_schema_history_file):
-                os.rename(prev_schema_history_file, schema_history_file)
-
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_debezium_property_file(
@@ -116,6 +111,9 @@ class Component(ComponentBase):
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
             logging_properties = LoggerOptions(result_log_path=log_artefact_path)
+            if self.logging_type == 'gelf':
+                logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
+                logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=DuckDBParameters(self.duck_db_path),
@@ -126,12 +124,12 @@ class Component(ComponentBase):
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
-                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='file')
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=8000,
+                                                      max_duration_s=27000,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
@@ -195,7 +193,7 @@ class Component(ComponentBase):
         tunnel = None
         self._client: OracleDebeziumExtractor = None
         try:
-            if config.ssh_options.enabled:
+            if config.ssh_options.host:
                 tunnel = create_ssh_tunnel(config.ssh_options, config.host, config.port)
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
@@ -266,14 +264,6 @@ class Component(ComponentBase):
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
         return (base64.b64encode(image_data_binary)).decode('ascii')
 
-    def _get_schemas_from_state(self) -> dict[str, TableSchema]:
-        schemas_dict: dict = self.get_state_file().get(KEY_LAST_SCHEMA, dict())
-        schema_map = dict()
-        if schemas_dict:
-            for key, value in schemas_dict.items():
-                schema_map[key] = init_table_schema_from_dict(value)
-        return schema_map
-
     def _collect_source_metadata(self):
         """
         Collects metadata such as table and columns schema for the monitored tables from the source database.
@@ -282,61 +272,89 @@ class Component(ComponentBase):
         """
         table_schemas = dict()
         tables_to_collect = self._configuration.source_settings.tables
-        # in case the signalling table is not in the synced tables list
-
+        # in cae the signalling table is not in the synced tables list
         if self._configuration.sync_options.source_signal_table not in tables_to_collect:
             tables_to_collect.append(self._configuration.sync_options.source_signal_table)
 
-        logging.info(f"Collecting metadata for tables: {tables_to_collect}")
         for table in tables_to_collect:
             schema, table = table.split('.')
-            ts = self._client.metadata_provider.get_table_metadata(schema=schema,
+            ts = self._client.metadata_provider.get_table_metadata(database=schema,
                                                                    table_name=table)
+            # TODO: change the topic name (testcdc)
+            table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table}"] = ts
 
-            table_schemas[f"{schema}.{table}"] = ts
+        # schema changes table
+        # TODO: review name
+        table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
+            database_name='io_debezium_connector_oracle')
+
         self._source_schema_metadata = table_schemas
 
     def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
-        result_tables = glob.glob(os.path.join(self.tables_out_path, '*.csv'))
-        filtered_tables = [table for table in result_tables if not table.endswith('io.debezium.connector.oracle'
-                                                                                  '.SchemaChangeValue.csv')]
-        result_table_defs = []
-
-        if self._staging.multi_threading_support:
-            with self._staging.connect():
-                with ThreadPoolExecutor(max_workers=self._configuration.max_workers) as executor:
-                    futures = {
-                        executor.submit(self._create_table_in_stage, table): table for
-                        table in filtered_tables
-                    }
-                    for future in as_completed(futures):
-                        if future.exception():
-                            raise UserException(
-                                f"Could not create table: {futures[future]}, reason: {future.exception()}")
-
-                        result_table_defs.append(future.result())
-        else:
-            for table in filtered_tables:
-                result_table_defs.append(self._create_table_in_stage(table))
+        with self._staging.connect():
+            result_table_defs = []
+            for table, nr_chunks in self.get_extracted_tables().items():
+                if table not in self._source_schema_metadata:
+                    logging.warning(f"Table {table} not found in source metadata. Skipping.")
+                    continue
+                result_table_defs.append(self._process_table_in_stage(table, nr_chunks))
 
         return result_table_defs
 
-    def _create_table_in_stage(self, table_path: str) -> tuple[TableDefinition, TableSchema]:
-        table_key = os.path.basename(table_path).split('.csv')[0].split('.', 1)[1]
+    def get_extracted_tables(self) -> dict[str, int]:
+        """
+        Get all tables extracted from the staging and number of chunks (0 if not chunked)
+        Returns: Dict of tables and chunked flag
 
-        result_table_name = table_key.replace('.', '_')
-        schema = self._get_table_schema(table_key)
+        """
+        tables = dict()
+        for table in self._staging.get_extracted_tables():
+            if '_chunk_' in table:
+                tables[table.split('_chunk_')[0]] = tables.get(table.split('_chunk_')[0], 0) + 1
+            else:
+                tables[table] = 0
+        return tables
 
-        logging.info(f"Creating table {result_table_name} in stage")
+    def _process_table_in_stage(self, table_key: str, nr_chunks: int) -> tuple[TableDefinition, TableSchema]:
+        """
+        Processes table in stage. Creates table definition and schema based on the result schema.
+        Args:
+            table_key:
+            nr_chunks: Number of chunks
 
-        self._staging.process_table(table_path, result_table_name, schema, self.dedupe_required())
+        Returns:
+
+        """
+        staging_key = table_key
+        if nr_chunks > 0:
+            # get latest schema
+            staging_key = table_key + f'_chunk_{nr_chunks - 1}'
+        result_schema = self._staging.get_table_schema(staging_key)
+        schema = self._get_source_table_schema(table_key)
+
+        self.sort_columns_by_result(schema, result_schema)
 
         incremental_load = self._configuration.destination.is_incremental_load
         # remove primary key when using append mode
-        if self._configuration.destination.load_type in ('append_incremental', 'append_full'):
+        if (self._configuration.destination.load_type in ('append_incremental', 'append_full')
+                and table_key != SCHEMA_CHANGE_TABLE_NAME):
             schema.primary_keys = []
 
-        return self.create_out_table_definition_from_schema(schema, incremental=incremental_load), schema
+        self._convert_to_snowflake_column_definitions(schema.fields)
+        table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
+
+        logging.info(f"Creating table {table_key} in stage")
+        self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
+                                    list(result_schema.keys()))
+
+        if table_key == SCHEMA_CHANGE_TABLE_NAME:
+            # always incrementally load schema changes
+            incremental_load = True
+
+        output_bucket = self.generate_output_bucket_name()
+        result_table_name = table_definition.name.replace('.csv', '')
+        return self.create_out_table_definition_from_schema(schema, incremental=incremental_load,
+                                                            destination=f"{output_bucket}.{result_table_name}"), schema
 
     def _convert_to_snowflake_column_definitions(self, columns: list[ColumnSchema]) -> list[dict[str, str]]:
         column_types = []
@@ -360,24 +378,31 @@ class Component(ComponentBase):
             column_types.append({"name": c.name, "type": dtype})
         return column_types
 
-    def _get_table_schema(self, table_key: str) -> TableSchema:
+    def _get_source_table_schema(self, table_key: str) -> TableSchema:
         """
-        Returns complete table schema including metadata fields and fields already existing in Storage
+        Returns complete table schema from the source database
+        including metadata fields and fields already existing in Storage
         Args:
             table_key:
 
         Returns:
-        """
-        _table_key = self.handle_pluggable_prefix(table_key)
-        schema = self._source_schema_metadata[_table_key]
 
-        last_schema = self._last_schema.get(table_key)
+        """
+        schema = self._source_schema_metadata[table_key]
+        last_schema = self.previous_storage_schema.get(table_key)
+
+        # do not modify if schemachange table
+        if table_key == SCHEMA_CHANGE_TABLE_NAME:
+            return schema
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
             # Expand current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
+                    c.base_type_converter = MySQLBaseTypeConverter()
+                    # set nullable to false because it's a missing column
+                    c.nullable = False
                     schema.fields.append(c)
 
         # add system fields
@@ -397,52 +422,6 @@ class Component(ComponentBase):
             logging.info(f"Pluggable prefix detected, replacing {name} with {new_name}")
             return new_name
         return name
-
-    def _drop_helper_columns(self, table_name: str, schema: TableSchema):
-        # drop helper column
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]} '
-                      f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"'
-        self._staging.execute_query(query)
-
-        logging.debug(f'Dropping temp column {self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]} '
-                      f'from table {table_name}')
-        query = f'ALTER TABLE "{table_name}" DROP "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__operation"]}"'
-        self._staging.execute_query(query)
-
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order'])
-        schema.remove_column(self.SYSTEM_COLUMN_NAME_MAPPING['kbc__operation'])
-
-    def _dedupe_stage_table(self, table_name: str, id_columns: list[str]):
-        """
-        Dedupe staging table and keep only latest records.
-        Based on the internal column kbc__batch_event_order produced by CDC engine
-        Args:
-            table_name:
-            id_columns:
-
-        Returns:
-
-        """
-        id_cols = self._staging.wrap_columns_in_quotes(id_columns)
-        id_cols_str = ','.join([f'"{table_name}".{col}' for col in id_cols])
-        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{self.SYSTEM_COLUMN_NAME_MAPPING['kbc__batch_event_order']}\")")
-
-        query = f"""DELETE FROM
-                                    "{table_name}" USING (
-                                    SELECT
-                                        {unique_id_concat} AS "__CONCAT_ID"
-                                    FROM
-                                        "{table_name}"
-                                        QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str} ORDER BY
-                          "{self.SYSTEM_COLUMN_NAME_MAPPING["kbc__batch_event_order"]}"::INT DESC) != 1) TO_DELETE
-                                WHERE
-                                    TO_DELETE.__CONCAT_ID = {unique_id_concat}
-                    """
-
-        logging.debug(f'Dedupping table {table_name}: {query}')
-        self._staging.execute_query(query)
 
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema: dict):
         """
@@ -489,9 +468,47 @@ class Component(ComponentBase):
         return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
-    @property
+    def generate_output_bucket_name(self):
+        """
+        Creates output bucket name based on the configuration or environment variables
+        Args:
+            bucket_name:
+
+        Returns:
+
+        """
+        bucket_name = self._configuration.destination.outputBucket
+        if bucket_name and bucket_name.strip() != '':
+            return f'in.c-{bucket_name.strip()}'
+
+        else:
+            _component_id = self.environment_variables.component_id
+            _configuration_id = self.environment_variables.config_id
+            logging.debug(f"Env {_component_id} - {_configuration_id}")
+
+            if _component_id is not None and _component_id is not None:
+                return f"in.c-{_component_id.replace('.', '-')}-{_configuration_id}"
+
+            else:
+                return None
+
+    @cached_property
     def is_initial_run(self):
         return self.get_state_file().get(KEY_LAST_OFFSET) is None
+
+    @cached_property
+    def last_debezium_schema(self) -> dict:
+        return self.get_state_file().get(KEY_DEBEZIUM_SCHEMA, {})
+
+    @cached_property
+    def previous_storage_schema(self) -> dict[str, TableSchema]:
+        schemas_dict: dict = self.get_state_file().get(KEY_LAST_SCHEMA, dict())
+        schema_map = dict()
+        if schemas_dict:
+            for key, value in schemas_dict.items():
+                schema_map[key] = init_table_schema_from_dict(value)
+
+        return schema_map
 
     def get_snapshot_mode(self) -> str:
         """
@@ -500,6 +517,7 @@ class Component(ComponentBase):
         Returns:
 
         """
+        # TODO: mozna bude potreba ohandlovat `never` mode jako v mysql
         if self.is_initial_run and self._configuration.sync_options.snapshot_mode != SnapshotMode.never:
             snapshot_mode = 'initial_only'
         else:
@@ -573,30 +591,33 @@ class Component(ComponentBase):
 
         return f"kbc_{config_id}_{suffix}"
 
-    def get_artifact_full_out_path(self, file_name: str) -> str:
+    def sort_columns_by_result(self, table_schema: TableSchema, result_schema: dict):
         """
+        Sorts columns based on the result schema
         Args:
-            file_name: Name of the file to get from the artifact folder
-        Returns: Full path to the artifact file
-        """
-        artifact_out_dir = os.path.join(self.data_folder_path, "artifacts", "out", "current")
-        os.makedirs(artifact_out_dir, exist_ok=True)
+            table_schema:
+            result_schema:
 
-        full_path = os.path.join(artifact_out_dir, file_name)
-        return full_path
+        Returns:
 
-    def get_artifact_full_in_path(self, file_name: str) -> str:
         """
-        Args:
-            file_name: Name of the file to get from the artifact folder
-        Returns: Full path to the artifact file
-        """
-        artifact_in_dir = os.path.join(self.data_folder_path, "artifacts", "in", "current")
+        # rename column names of result schema
+        result_order = self._normalize_columns([c for c in result_schema])
+        # result_fields = []
+        # for c in result_order:
+        #     col_schema = table_schema.get_column_by_name(c)
+        #     if not col_schema:
+        #         # default type in case the schema is not present
+        #         col_schema = ColumnSchema(name=c, source_type='STRING', nullable=True)
+        #     result_fields.append(table_schema.get_column_by_name(c))
 
-        if os.path.exists(artifact_in_dir):
-            full_path = os.path.join(artifact_in_dir, file_name)
-            return full_path
-        return ""
+        # sort columns based on the result schema
+        table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
+
+    @property
+    def logging_type(self) -> str:
+        return CommonInterface.LOGGING_TYPE_GELF if os.getenv('KBC_LOGGER_ADDR',
+                                                              None) else CommonInterface.LOGGING_TYPE_STD
 
 
 """
@@ -606,7 +627,7 @@ if __name__ == "__main__":
     if work_dir := os.environ.get('WORKING_DIR'):
         os.chdir(work_dir)
     try:
-        comp = Component()
+        comp = OracleComponent()
         # this triggers the run method by default and is controlled by the configuration.action parameter
         comp.execute_action()
     except UserException as exc:
