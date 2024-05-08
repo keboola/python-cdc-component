@@ -92,6 +92,7 @@ class MySqlCDCComponent(ComponentBase):
             self._reconstruct_offsset_from_state()
             self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
+            source_settings = self._configuration.source_settings
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
             debezium_properties = build_debezium_property_file(db_config.user, db_config.pswd_password,
@@ -99,9 +100,11 @@ class MySqlCDCComponent(ComponentBase):
                                                                str(db_config.port),
                                                                self._temp_offset_file.name,
                                                                self._temp_schema_history_file,
-                                                               self._configuration.source_settings.schemas,
-                                                               self._configuration.source_settings.tables,
-                                                               self._build_unique_server_id(),
+                                                               source_settings.schemas,
+                                                               source_settings.tables,
+                                                               column_filter_type=source_settings.column_filter_type,
+                                                               column_filter=source_settings.column_filter,
+                                                               server_id_unique=self._build_unique_server_id(),
                                                                snapshot_mode=self.get_snapshot_mode(),
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
@@ -138,7 +141,7 @@ class MySqlCDCComponent(ComponentBase):
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()
-            result_tables = self._load_tables_to_stage()
+            result_tables = self._load_tables_to_stage(result_schema)
             end = time.time()
             logging.info(f"Load to stage finished in {end - start}")
             self.write_manifests([res[0] for res in result_tables])
@@ -294,14 +297,14 @@ class MySqlCDCComponent(ComponentBase):
 
         self._source_schema_metadata = table_schemas
 
-    def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
+    def _load_tables_to_stage(self, debezium_result_schema: dict) -> list[tuple[TableDefinition, TableSchema]]:
         with self._staging.connect():
             result_table_defs = []
             for table, nr_chunks in self.get_extracted_tables().items():
                 if table not in self._source_schema_metadata:
                     logging.warning(f"Table {table} not found in source metadata. Skipping.")
                     continue
-                result_table_defs.append(self._process_table_in_stage(table, nr_chunks))
+                result_table_defs.append(self._process_table_in_stage(table, nr_chunks, debezium_result_schema))
 
         return result_table_defs
 
@@ -319,12 +322,14 @@ class MySqlCDCComponent(ComponentBase):
                 tables[table] = 0
         return tables
 
-    def _process_table_in_stage(self, table_key: str, nr_chunks: int) -> tuple[TableDefinition, TableSchema]:
+    def _process_table_in_stage(self, table_key: str, nr_chunks: int,
+                                debezium_result_schema: dict) -> tuple[TableDefinition, TableSchema]:
         """
         Processes table in stage. Creates table definition and schema based on the result schema.
         Args:
             table_key:
             nr_chunks: Number of chunks
+            debezium_result_schema: Result schema from Debezium run
 
         Returns:
 
@@ -334,7 +339,7 @@ class MySqlCDCComponent(ComponentBase):
             # get latest schema
             staging_key = table_key + f'_chunk_{nr_chunks - 1}'
         result_schema = self._staging.get_table_schema(staging_key)
-        schema = self._get_source_table_schema(table_key)
+        schema = self._get_source_table_schema(table_key, debezium_result_schema)
 
         self.sort_columns_by_result(schema, result_schema)
 
@@ -382,22 +387,26 @@ class MySqlCDCComponent(ComponentBase):
             column_types.append({"name": c.name, "type": dtype})
         return column_types
 
-    def _get_source_table_schema(self, table_key: str) -> TableSchema:
+    def _get_source_table_schema(self, table_key: str, debezium_result_schema: dict) -> TableSchema:
         """
         Returns complete table schema from the source database
         including metadata fields and fields already existing in Storage
         Args:
             table_key:
+            debezium_result_schema: result total schema in debezium
 
         Returns:
 
         """
         schema = self._source_schema_metadata[table_key]
-        last_schema = self.previous_storage_schema.get(table_key)
-
         # do not modify if schemachange table
         if table_key == SCHEMA_CHANGE_TABLE_NAME:
             return schema
+        
+        last_schema = self.previous_storage_schema.get(table_key)
+        debezium_key = f'{DEFAULT_TOPIC_NAME}.{schema.database_name}.{schema.name}'
+
+        current_result_fields = [c['field'] for c in debezium_result_schema[debezium_key]]
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
@@ -408,6 +417,13 @@ class MySqlCDCComponent(ComponentBase):
                     # set nullable to false because it's a missing column
                     c.nullable = False
                     schema.fields.append(c)
+
+                if not c.name.startswith('KBC__') and c.name not in current_result_fields:
+                    # in case the current filter excluded existing columns in Storage, add them
+                    current_result_fields.append(c.name)
+
+        # remove all columns that are not in the result schema
+        schema.fields = [c for c in schema.fields if c.name in current_result_fields]
 
         # add system fields
         schema.fields.extend(self.SYSTEM_COLUMNS)

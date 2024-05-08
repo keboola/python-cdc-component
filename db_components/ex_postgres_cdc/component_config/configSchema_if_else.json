@@ -14,7 +14,8 @@
         "#password",
         "host",
         "port",
-        "user"
+        "user",
+        "database"
       ],
       "properties": {
         "host": {
@@ -51,6 +52,14 @@
             "grid_columns": 12
           }
         },
+        "database": {
+          "type": "string",
+          "title": "Database",
+          "propertyOrder": 50,
+          "options": {
+            "grid_columns": 12
+          }
+        },
         "ssh_options": {
           "type": "object",
           "format": "ssh-editor",
@@ -79,7 +88,6 @@
           "format": "select",
           "uniqueItems": true,
           "options": {
-            "tags": true,
             "async": {
               "label": "Re-load schemas",
               "action": "get_schemas",
@@ -103,7 +111,6 @@
           "format": "select",
           "uniqueItems": true,
           "options": {
-            "tags": true,
             "async": {
               "label": "Re-load tables",
               "action": "get_tables",
@@ -127,7 +134,7 @@
           "propertyOrder": 103
         },
         "column_filter": {
-          "title": "Column List",
+          "title": "Column  List",
           "type": "array",
           "format": "select",
           "uniqueItems": true,
@@ -139,7 +146,7 @@
               ]
             },
             "tags": true,
-            "tooltip": "(comma separated list) of fully-qualified names for columns are of the form `schemaName.tableName.columnName`.\n\nTo match the name of a column, connector applies the regular expression that you specify as an **anchored regular expression**. That is, the expression is used to match the entire name string of the column; it does not match substrings that might be present in a column name.",
+            "tooltip": " Fully-qualified names for columns are of the form `schemaName.tableName.columnName`.\n\nTo match the name of a column, connector applies the regular expression that you specify as an **anchored regular expression**. That is, the expression is used to match the entire name string of the column; it does not match substrings that might be present in a column name.",
             "inputAttributes": {
               "placeholder": "schemaName.tableName.columnName"
             }
@@ -149,6 +156,29 @@
             "type": "string"
           },
           "propertyOrder": 105
+        }
+      },
+      "if": {
+        "properties": {
+          "column_filter_type": {
+            "const": "exclude"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "column_filter": {
+            "title": "Exclude Column List",
+            "description": "Define filters as list of regular expressions that match the fully-qualified names of columns that should be excluded from change event record values."
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "column_filter": {
+            "title": "Include Column List",
+            "description": "Define filters as list of regular expressions that match the fully-qualified names of columns that should be included in change event record values."
+          }
         }
       }
     },
@@ -165,7 +195,6 @@
           "title": "Signalling Table",
           "propertyOrder": 1,
           "type": "string",
-          "default": "",
           "description": "A system signal table that will be used by to connector to store various signal events and incremental snapshot watermarks.",
           "enum": [],
           "format": "select",
@@ -207,21 +236,45 @@
           "type": "integer",
           "title": "Snapshot parallelism",
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
-          "default": 4,
+          "default": 1,
           "propertyOrder": 30
         },
-        "handle_binary": {
-          "propertyOrder": 2,
-          "type": "string",
-          "title": "Binary data handler",
-          "default": "hex",
-          "enum": [
-            "bytes",
-            "hex",
-            "base64",
-            "base64-url-safe"
-          ],
-          "description": "Marks how to handle binary data:<ul><li><strong>plain</strong> - data in decoded from binary to string using Python's <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.decode' target='_blank'>bytes.decode()</a></i> method,</li><li><strong>hex</strong> - data is converted to hex representation of binary string using <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.hex' target='_blank'>bytes.hex()</a></i> method,</li><li><strong>base64</strong> - data is converted to a base64 string, using <i><a href='https://docs.python.org/3/library/base64.html#base64.b64encode' target='_blank'>base64.b64encode()</a></i> method.</li></ul>All trailing or leading null bytes are replaced."
+        "enable_heartbeat": {
+          "type": "boolean",
+          "title": "Enable Heartbeat",
+          "description": "Enables the heartbeat signal that is used to prevent WAL disk space overflow when tracking low transaction tables.",
+          "default": false,
+          "propertyOrder": 40
+        },
+        "heartbeat_config": {
+          "type": "object",
+          "title": "Heartbeat Configuration",
+          "options": {
+            "dependencies": {
+              "enable_heartbeat": true
+            },
+            "tooltip": "This configuration avoids PostgreSQL disk space consumed by WAL files to spike or increase out of usual proportions that can happen in following scenarios:\n\n- There are many updates in a database that is being tracked but only a tiny number of updates are related to the table(s) and schema(s) for which the connector is capturing changes. This situation can be easily solved with periodic heartbeat events.\n- The PostgreSQL instance contains multiple databases and one of them is a high-traffic database. Debezium captures changes in another database that is low-traffic in comparison to the other database. Debezium then cannot confirm the LSN as replication slots work per-database and Debezium is not invoked. As WAL is shared by all databases, the amount used tends to grow until an event is emitted by the database for which Debezium is capturing changes. \n"
+          },
+          "propertyOrder": 50,
+          "properties": {
+            "interval_ms": {
+              "type": "integer",
+              "title": "Heartbeat Interval [ms]",
+              "description": "The interval in milliseconds at which the connector performs the heartbeat action in the source database. If you observe that the heartbeat is not emitted during connector run, you can decrease the interval.",
+              "default": 3000,
+              "propertyOrder": 10
+            },
+            "action_query": {
+              "type": "string",
+              "title": "Action Query",
+              "options": {
+                "tooltip": "This query will be sent regularly by the connector in the specified Heartbeat interval. **Note that the table must exist** in the source database and be tracked by the connector. \n\n The recommended schema is:  \n\n ```sql\nCREATE SCHEMA IF NOT EXISTS kbc;\nCREATE TABLE kbc.heartbeat (id SERIAL PRIMARY KEY, last_heartbeat TIMESTAMP NOT NULL DEFAULT NOW());\nINSERT INTO kbc.heartbeat (last_heartbeat) VALUES (NOW());\n``` \n\n For more information please refer to the documentation."
+              },
+              "description": "The query that the connector uses to send heartbeat signals to the source database. The query must be a valid SQL statement that the source database can execute and the heartbeat table must be tracked in the Source settings.",
+              "default": "UPDATE kbc.heartbeat SET last_heartbeat = NOW()",
+              "propertyOrder": 20
+            }
+          }
         }
       }
     },
@@ -254,17 +307,6 @@
           },
           "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table based on the primary key. Append modes do not contain any primary keys and are not deduplicated.",
           "propertyOrder": 30
-        },
-        "outputBucket": {
-          "type": "string",
-          "title": "Output Bucket",
-          "default": "",
-          "options": {
-            "tooltip": "Specify the bucket name **without the stage prefix**. The default bucket name will be used if empty. The result bucket path will be `in.c-<bucket_name>`",
-            "placeholder": "my-bucket"
-          },
-          "description": "(Optional) The name of bucket in Keboola (without the stage prefix) storage where the data. Keboola will create a bucket for you if not specified. The result bucket path will be `in.c-<bucket_name>",
-          "propertyOrder": 200
         }
       }
     }

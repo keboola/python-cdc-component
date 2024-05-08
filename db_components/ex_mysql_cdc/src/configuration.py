@@ -99,11 +99,17 @@ class DbOptions(ReplicaDbOptions):
     replica_db_settings: Union[ReplicaDbOptions, NoneType] = None
 
 
+class ColumnFilterType(str, Enum):
+    none = "none"
+    exclude = "exclude"
+    include = "include"
 @dataclass
 class SourceSettings(ConfigurationBase):
     schemas: list[str] = dataclasses.field(default_factory=list)
     tables: list[str] = dataclasses.field(default_factory=list)
-
+    primary_key: list[str] = dataclasses.field(default_factory=list)
+    column_filter_type: ColumnFilterType = ColumnFilterType.none
+    column_filter: List[str] = dataclasses.field(default_factory=list)
 
 class SnapshotMode(str, Enum):
     snapshot_only = "snapshot_only"
