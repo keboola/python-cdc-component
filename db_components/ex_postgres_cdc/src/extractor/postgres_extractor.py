@@ -19,43 +19,39 @@ class ExtractorUserException(Exception):
 class PostgresBaseTypeConverter(BaseTypeConverter):
     MAPPING = {"smallint": "INTEGER",
                "integer": "INTEGER",
+               "int2": "INTEGER",
+               "int4": "INTEGER",
+               "int8": "INTEGER",
                "bigint": "INTEGER",
                "decimal": "NUMERIC",
                "numeric": "NUMERIC",
+               "float4": "NUMERIC",
                "real": "NUMERIC",
                "double": "NUMERIC",
+               "float8": "NUMERIC",
+               "money": "NUMERIC",
                "smallserial": "INTEGER",
                "serial": "INTEGER",
+               "serial4": "INTEGER",
                "bigserial": "INTEGER",
+               "serial8": "INTEGER",
                "timestamp": "TIMESTAMP",
+               "timestamptz": "TIMESTAMP",
                "date": "DATE",
                "time": "TIMESTAMP",
+               "timetz": "TIMESTAMP",
                "boolean": "BOOLEAN",
+               "bool": "BOOLEAN",
                "varchar": "STRING",
                "char": "STRING",
+               "bpchar": "STRING",
                "text": "STRING"}
 
     def __call__(self, source_type: str, length: str = None) -> str:
-        return self.MAPPING.get(source_type, 'STRING')
+        return self.MAPPING.get(source_type.lower(), 'STRING')
 
 
-SUPPORTED_TYPES = ["smallint",
-                   "integer",
-                   "bigint",
-                   "decimal",
-                   "numeric",
-                   "real",
-                   "double",
-                   "smallserial",
-                   "serial",
-                   "bigserial",
-                   "timestamp",
-                   "date",
-                   "time",
-                   "boolean",
-                   "varchar",
-                   "char",
-                   "text"]
+SUPPORTED_TYPES = list(PostgresBaseTypeConverter.MAPPING.keys())
 
 
 def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,

@@ -94,6 +94,70 @@ The connector will then perform UPDATE query on that table in the selected inter
 - Select the heartbeat table in the `Datasource > Tables to sync` configuration property to track the heartbeat table and make sure it is contained in the publication.
 
 
+ ## Data Type Mapping
+
+The MySQL datatypes are mapped to the [Keboola Connection Base Types](https://help.keboola.com/storage/tables/data-types/#base-types) as follows:
+
+Based on the JSON file you've selected, the `base_type` column in the table can be updated as follows:
+
+| source_type              | base_type | note                                                                                          |
+|--------------------------|-----------|-----------------------------------------------------------------------------------------------|
+| INTEGER                  | INTEGER   |                                                                                               |
+| SMALLINT                 | INTEGER   |                                                                                               |
+| INTEGER                  | INTEGER   |                                                                                               |
+| INTEGER                  | INTEGER   |                                                                                               |
+| BIGINT                   | INTEGER   |                                                                                               |
+| DECIMAL                  | NUMERIC   |                                                                                               |
+| NUMERIC                  | NUMERIC   |                                                                                               |
+| REAL                     | NUMERIC   |                                                                                               |
+| DOUBLE PRECISION         | STRING    |                                                                                               |
+| SMALLSERIAL              | INTEGER   |                                                                                               |
+| SERIAL                   | INTEGER   |                                                                                               |
+| BIGSERIAL                | INTEGER   |                                                                                               |
+| MONEY                    | NUMERIC   |                                                                                               |
+| CHARACTER                | STRING    |                                                                                               |
+| CHAR                     | STRING    |                                                                                               |
+| CHARACTER VARYING        | STRING    |                                                                                               |
+| VARCHAR                  | STRING    |                                                                                               |
+| TEXT                     | STRING    |                                                                                               |
+| BYTEA                    | STRING    |                                                                                               |
+| TIMESTAMP                | TIMESTAMP |                                                                                               |
+| TIMESTAMP WITH TIME ZONE | TIMESTAMP |                                                                                               |
+| DATE                     | DATE      |                                                                                               |
+| TIME                     | TIMESTAMP | A string representation of a timestamp with timezone information, where the timezone is GMT.  |
+| TIME WITH TIME ZONE      | TIMESTAMP | A string representation of a time value with timezone information, where the timezone is GMT. |
+| INTERVAL                 | STRING    |                                                                                               |
+| BOOLEAN                  | BOOLEAN   |                                                                                               |
+| POINT                    | STRING    |                                                                                               |
+| CIDR                     | STRING    |                                                                                               |
+| INET                     | STRING    |                                                                                               |
+| MACADDR                  | STRING    |                                                                                               |
+| MACADDR8                 | STRING    |                                                                                               |
+| BIT                      | STRING    |                                                                                               |
+| BIT VARYING              | STRING    |                                                                                               |
+| UUID                     | STRING    |                                                                                               |
+| XML                      | STRING    |                                                                                               |
+| JSON                     | STRING    |                                                                                               |
+| JSONB                    | STRING    |                                                                                               |
+| INTEGER[]                | STRING    |                                                                                               |
+| INT4RANGE                | STRING    |                                                                                               |
+| LTREE                    | STRING    | Contains the string representation of a PostgreSQL LTREE value.                               |
+| CITEXT                   | STRING    |                                                                                               |
+
+**Other types are not supported and such columns will be skipped from syncing.**
+
+## System columns
+
+Each result table will contain the following system columns:
+
+| Name                    | Base Type | Note                                                                                                                                                                   |
+|-------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KBC__OPERATION          | STRING    | Event type, e.g. r - read on init sync; c - INSERT; u - UPDATE; d - DELETE                                                                                             |
+| KBC__EVENT_TIMESTAMP_MS | TIMESTAMP | Source database transaction timestamp. MS since epoch if Native types are not enabled.                                                                                 |
+| KBC__DELETED            | BOOLEAN   | True when the event is a delete event (the record is deleted)                                                                                                          |
+| KBC__BATCH_EVENT_ORDER  | INTEGER   | Numerical order of the events in the current batch (extraction). You can use this in combination with KBC__EVENT_TIMESTAMP_MS to mark the latest event per record (ID) |
+
+
 # Prerequisites
 
 This connector uses [Debezium connector](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
