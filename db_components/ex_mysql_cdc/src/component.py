@@ -6,37 +6,35 @@ import base64
 import logging
 import os
 import shutil
-from pathlib import Path
-
-from keboola.component import CommonInterface
-
-from db_components.db_common import artefacts
-from db_components.debezium.common import get_schema_change_table_metadata
-from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
-    build_debezium_property_file, MySQLBaseTypeConverter
-
-SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
-
-SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
-
-DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 import tempfile
 import time
 from contextlib import contextmanager
 from functools import cached_property
+from pathlib import Path
 
+from keboola.component import CommonInterface
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
 from keboola.component.exceptions import UserException
 # configuration variables
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
-from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.db_common import artefacts
+from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
+from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
+    build_debezium_property_file, MySQLBaseTypeConverter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
-from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+
+SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
+
+SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
+
+DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
@@ -339,8 +337,8 @@ class MySqlCDCComponent(ComponentBase):
             # get latest schema
             staging_key = table_key + f'_chunk_{nr_chunks - 1}'
         result_schema = self._staging.get_table_schema(staging_key)
-        schema = self._get_source_table_schema(table_key, debezium_result_schema)
 
+        schema = self._get_source_table_schema(table_key, debezium_result_schema)
         self.sort_columns_by_result(schema, result_schema)
 
         incremental_load = self._configuration.destination.is_incremental_load
@@ -402,7 +400,7 @@ class MySqlCDCComponent(ComponentBase):
         # do not modify if schemachange table
         if table_key == SCHEMA_CHANGE_TABLE_NAME:
             return schema
-        
+
         last_schema = self.previous_storage_schema.get(table_key)
         debezium_key = f'{DEFAULT_TOPIC_NAME}.{schema.database_name}.{schema.name}'
 
@@ -413,9 +411,8 @@ class MySqlCDCComponent(ComponentBase):
             # Expand current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
-                    c.base_type_converter = MySQLBaseTypeConverter()
-                    # set nullable to false because it's a missing column
-                    c.nullable = False
+                    # set nullable to true because it's a missing column
+                    c.nullable = True
                     schema.fields.append(c)
 
                 if not c.name.startswith('KBC__') and c.name not in current_result_fields:
@@ -511,7 +508,7 @@ class MySqlCDCComponent(ComponentBase):
         schema_map = dict()
         if schemas_dict:
             for key, value in schemas_dict.items():
-                schema_map[key] = init_table_schema_from_dict(value)
+                schema_map[key] = init_table_schema_from_dict(value, MySQLBaseTypeConverter())
 
         return schema_map
 
@@ -611,15 +608,6 @@ class MySqlCDCComponent(ComponentBase):
         """
         # rename column names of result schema
         result_order = self._normalize_columns([c for c in result_schema])
-        # result_fields = []
-        # for c in result_order:
-        #     col_schema = table_schema.get_column_by_name(c)
-        #     if not col_schema:
-        #         # default type in case the schema is not present
-        #         col_schema = ColumnSchema(name=c, source_type='STRING', nullable=True)
-        #     result_fields.append(table_schema.get_column_by_name(c))
-
-        # sort columns based on the result schema
         table_schema.fields = sorted(table_schema.fields, key=lambda x: result_order.index(x.name))
 
     @property

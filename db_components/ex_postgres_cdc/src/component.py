@@ -25,7 +25,8 @@ from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOpt
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
-from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor
+from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor, \
+    PostgresBaseTypeConverter
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import SUPPORTED_TYPES
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import build_postgres_property_file
 from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
@@ -374,8 +375,8 @@ class PostgresCDCComponent(ComponentBase):
             # Expand of filter current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
-                    # set nullable to false because it's a missing column
-                    c.nullable = False
+                    # set nullable to true because it's a missing column
+                    c.nullable = True
                     schema.fields.append(c)
 
                 if not c.name.startswith('KBC__') and c.name not in current_result_fields:
@@ -452,9 +453,13 @@ class PostgresCDCComponent(ComponentBase):
                  KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
 
         for schema in table_schemas:
-            schema_key = f"{schema.schema_name}.{schema.name}"
+            schema_key = self.generate_table_key(schema)
             state[KEY_LAST_SCHEMA][schema_key] = schema.as_dict()
         self.write_state_file(state)
+
+    def generate_table_key(self, schema):
+        schema_key = f"{DEFAULT_TOPIC_NAME}_{schema.schema_name}_{schema.name}"
+        return schema_key
 
     def dedupe_required(self) -> bool:
         """
@@ -481,7 +486,7 @@ class PostgresCDCComponent(ComponentBase):
         schema_map = dict()
         if schemas_dict:
             for key, value in schemas_dict.items():
-                schema_map[key] = init_table_schema_from_dict(value)
+                schema_map[key] = init_table_schema_from_dict(value, PostgresBaseTypeConverter())
 
         return schema_map
 
