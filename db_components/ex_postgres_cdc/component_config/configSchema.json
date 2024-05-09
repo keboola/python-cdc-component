@@ -218,6 +218,7 @@
         },
         "enable_heartbeat": {
           "type": "boolean",
+          "format": "checkbox",
           "title": "Enable Heartbeat",
           "description": "Enables the heartbeat signal that is used to prevent WAL disk space overflow when tracking low transaction tables.",
           "default": false,
