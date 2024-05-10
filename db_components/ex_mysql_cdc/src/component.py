@@ -193,7 +193,7 @@ class MySqlCDCComponent(ComponentBase):
         tunnel = None
         self._client: MySQLDebeziumExtractor = None
         try:
-            if config.ssh_options.host:
+            if config.ssh_options.sshHost:
                 tunnel = create_ssh_tunnel(config.ssh_options, config.host, config.port)
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
