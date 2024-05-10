@@ -266,7 +266,8 @@ class DebeziumExecutor:
         err_string = process.stderr.read().decode('utf-8')
         if process.returncode != 0:
             message, stack_trace = self.process_java_log_message(err_string)
-            log_out.write(err_string)
+            if not self.logger_options.gelf_enabled:
+                log_out.write(err_string)
 
             if not self.logger_options.gelf_enabled:
                 log_out.close()

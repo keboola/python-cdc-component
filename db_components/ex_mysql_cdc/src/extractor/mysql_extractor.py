@@ -8,7 +8,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_mysql_cdc.src.configuration import DbOptions
+from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
 
@@ -82,6 +82,8 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  schema_history_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
+                                 column_filter_type: ColumnFilterType,
+                                 column_filter: list[str],
                                  server_id_unique: int,
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
@@ -102,6 +104,8 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         offset_file_path: Path to the file where the connector will store the offset.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
+        column_filter_type: Type of column filter, 'none', 'exclude' or 'include'
+        column_filter: List of columns to include or exclude.
         server_id_unique: Unique server id for the connector.
         additional_properties:
         snapshot_max_threads:
@@ -151,6 +155,11 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "max.batch.size": 5000,
         "max.queue.size": 10000
     }
+
+    if column_filter_type != ColumnFilterType.none:
+        filter_key = f"column.{column_filter_type.value}.list"
+        filter_value = ','.join(column_filter)
+        properties[filter_key] = filter_value
 
     properties |= additional_properties
 

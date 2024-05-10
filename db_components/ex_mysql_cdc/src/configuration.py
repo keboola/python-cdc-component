@@ -50,12 +50,18 @@ class ConfigurationBase:
 
 
 @dataclass
+class SSHKeys(ConfigurationBase):
+    public: Optional[str] = None
+    pswd_private: Optional[str] = None
+
+
+@dataclass
 class SSHConfiguration(ConfigurationBase):
-    host: Optional[str] = None
-    username: Optional[str] = None
-    pswd_private_key: Optional[str] = None
-    pswd_key_password: Optional[str] = None
-    port: int = 22
+    sshHost: Optional[str] = None
+    user: Optional[str] = None
+    sshPort: int = 22
+    keys: SSHKeys = dataclasses.field(default_factory=lambda: ConfigTree({}))
+    enabled: bool = False
 
     LOCAL_BIND_ADDRESS = "localhost"
     LOCAL_BIND_PORT = 9800
@@ -99,10 +105,19 @@ class DbOptions(ReplicaDbOptions):
     replica_db_settings: Union[ReplicaDbOptions, NoneType] = None
 
 
+class ColumnFilterType(str, Enum):
+    none = "none"
+    exclude = "exclude"
+    include = "include"
+
+
 @dataclass
 class SourceSettings(ConfigurationBase):
     schemas: list[str] = dataclasses.field(default_factory=list)
     tables: list[str] = dataclasses.field(default_factory=list)
+    primary_key: list[str] = dataclasses.field(default_factory=list)
+    column_filter_type: ColumnFilterType = ColumnFilterType.none
+    column_filter: List[str] = dataclasses.field(default_factory=list)
 
 
 class SnapshotMode(str, Enum):

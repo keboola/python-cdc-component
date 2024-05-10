@@ -113,6 +113,42 @@
             }
           },
           "propertyOrder": 102
+        },
+        "column_filter_type": {
+          "type": "string",
+          "title": "Column Filter Type",
+          "description": "If not specified all columns are synced. Define filters as list of regular expressions that match the fully-qualified names of columns that should be included or excluded from change event record values.",
+          "enum": [
+            "none",
+            "exclude",
+            "include"
+          ],
+          "default": "none",
+          "propertyOrder": 103
+        },
+        "column_filter": {
+          "title": "Column List",
+          "type": "array",
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "dependencies": {
+              "column_filter_type": [
+                "exclude",
+                "include"
+              ]
+            },
+            "tags": true,
+            "tooltip": "(comma separated list) of fully-qualified names for columns are of the form `schemaName.tableName.columnName`.\n\nTo match the name of a column, connector applies the regular expression that you specify as an **anchored regular expression**. That is, the expression is used to match the entire name string of the column; it does not match substrings that might be present in a column name.",
+            "inputAttributes": {
+              "placeholder": "schemaName.tableName.columnName"
+            }
+          },
+          "description": "Define filters as list of regular expressions that match the fully-qualified names of columns that should be filtered in change event record values.",
+          "items": {
+            "type": "string"
+          },
+          "propertyOrder": 105
         }
       }
     },
@@ -123,7 +159,7 @@
         "source_signal_table",
         "snapshot_mode"
       ],
-      "propertyOrder": 10,
+      "propertyOrder": 15,
       "properties": {
         "source_signal_table": {
           "title": "Signalling Table",

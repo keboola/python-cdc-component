@@ -32,7 +32,8 @@ class JDBCMetadataProvider(ABC):
                                          default=default_value,
                                          length=col['COLUMN_SIZE'],
                                          precision=col.get('DECIMAL_DIGITS'),
-                                         additional_properties=col
+                                         additional_properties=col,
+                                         nullable=bool(col['NULLABLE'])
                                          )
             self._build_source_type_signature(column_schema)
             table_schema.add_column(column_schema)
