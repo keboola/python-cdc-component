@@ -23,7 +23,7 @@ from db_components.db_common import artefacts
 from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.common import get_schema_change_table_metadata
+from db_components.debezium.common import get_schema_change_table_metadata, SignallingConfig
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
 from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
@@ -93,6 +93,10 @@ class MySqlCDCComponent(ComponentBase):
             source_settings = self._configuration.source_settings
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
+            signal_channel = 'file' if sync_options.read_only else 'source'
+            signal_config = SignallingConfig(signal_channel=signal_channel,
+                                             signal_table=sync_options.source_signal_table)
+
             debezium_properties = build_debezium_property_file(db_config.user, db_config.pswd_password,
                                                                db_config.host,
                                                                str(db_config.port),
@@ -104,10 +108,11 @@ class MySqlCDCComponent(ComponentBase):
                                                                column_filter=source_settings.column_filter,
                                                                server_id_unique=self._build_unique_server_id(),
                                                                snapshot_mode=self.get_snapshot_mode(),
-                                                               signal_table=sync_options.source_signal_table,
+                                                               signal_config=signal_config,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
-                                                               binary_handling_mode=sync_options.handle_binary.name)
+                                                               binary_handling_mode=sync_options.handle_binary.name,
+                                                               read_only=sync_options.read_only)
 
             self._collect_source_metadata()
 
@@ -129,7 +134,7 @@ class MySqlCDCComponent(ComponentBase):
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
-                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='file')
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,

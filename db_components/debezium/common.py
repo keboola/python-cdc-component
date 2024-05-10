@@ -1,4 +1,26 @@
+import tempfile
+from dataclasses import dataclass
+from typing import Literal
+
 from db_components.db_common.table_schema import TableSchema, ColumnSchema
+
+
+@dataclass
+class SignallingConfig:
+    signal_channel: Literal['file', 'source']
+    signal_table: str = None
+    signal_file: str = tempfile.NamedTemporaryFile(suffix='_signal.jsonl', delete=False)
+
+    def debezium_properties(self) -> dict:
+
+        dbz_properties = {
+            "signal.enabled.channels": self.signal_channel
+        }
+        if self.signal_channel == 'source':
+            dbz_properties["signal.data.collection"] = self.signal_table
+        elif self.signal_channel == 'file':
+            dbz_properties["signal.data.file"] = self.signal_file.name
+        return dbz_properties
 
 
 def get_schema_change_table_metadata(database_name: str = None, schema_name: str = None) -> TableSchema:

@@ -8,6 +8,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
+from db_components.debezium.common import SignallingConfig
 from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
@@ -86,11 +87,12 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  column_filter: list[str],
                                  server_id_unique: int,
                                  snapshot_mode: str = 'initial',
-                                 signal_table: str = None,
+                                 signal_config: SignallingConfig = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
-                                 binary_handling_mode: str = 'hex') -> str:
+                                 binary_handling_mode: str = 'hex',
+                                 read_only:bool = False) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -112,7 +114,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
-        signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
+        signal_config: SignallingConfig
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
     Returns:
@@ -141,6 +143,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "snapshot.max.threads": snapshot_max_threads,
         "snapshot.fetch.size": snapshot_fetch_size,
         "snapshot.mode": snapshot_mode,
+        "read.only": read_only,
         "decimal.handling.mode": "string",
         "time.precision.mode": "connect",
         "binary.handling.mode": binary_handling_mode,
@@ -151,10 +154,12 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "table.include.list": table_include,
         "errors.max.retries": 3,
         "signal.enabled.channels": "source",
-        "signal.data.collection": signal_table,
         "max.batch.size": 5000,
         "max.queue.size": 10000
     }
+
+    if signal_config:
+        properties |= signal_config.debezium_properties()
 
     if column_filter_type != ColumnFilterType.none:
         filter_key = f"column.{column_filter_type.value}.list"
