@@ -94,8 +94,6 @@ The following example shows a CREATE TABLE command that creates a three-column d
 
 ### MySQL Setup
 
-For this connector to work it is necessary to enable a replication slot, and configure a user with sufficient privileges
-to perform the replication.
 
 
 # Configuration
