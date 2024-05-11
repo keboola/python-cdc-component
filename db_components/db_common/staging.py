@@ -15,6 +15,8 @@ import duckdb
 from duckdb.duckdb import DuckDBPyConnection
 
 from db_components.db_common.table_schema import TableSchema
+
+
 # from db_components.db_common.workspace_client import SnowflakeClient
 
 
@@ -253,6 +255,7 @@ class DuckDBStagingExporter:
                                                           "{table}"
                                                           QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
                                                            ORDER BY "{order_by_column}"::BIGINT DESC) = 1"""
+
             self._connection.execute(sql_create)
 
             # colect pkeys:
@@ -279,9 +282,17 @@ class DuckDBStagingExporter:
             self._connection.execute(f"DROP TABLE SLICE_{slice_nr - 1 - index}")
 
     def get_table_chunks(self, table_name: str) -> list[str]:
+        """
+        Get all chunks of the table. The chunks are created by the debezium core.
+        Args:
+            table_name:
+
+        Returns:
+
+        """
         table_chunks = []
         for t in self.get_extracted_tables():
-            if t == table_name or ('_chunk_' in t and t.startswith(table_name)):
+            if t == table_name or (table_name == t.rsplit('_chunk_', 1)[0]):
                 table_chunks.append(t)
         return table_chunks
 
