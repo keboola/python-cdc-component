@@ -1,0 +1,10 @@
+
+jaydebeapi==1.2.3
+dataconf
+jproperties==2.1.1
+pandas
+duckdb
+https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest
+# tests
+mock
+freezegun
