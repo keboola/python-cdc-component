@@ -239,8 +239,7 @@ class DuckDBStagingExporter:
         # unique_id_concat = 'kbc__primary_key'
         id_cols = self.wrap_columns_in_quotes(primary_keys)
         id_cols_str = ','.join([f'{col}' for col in id_cols])
-        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{order_by_column}\")")
+        unique_id_concat = f"CONCAT_WS('|',{id_cols_str})"
         # MAP
         # make sure the tables are sorted, the order represents order of events in the slice
         new_tables.sort(reverse=False)

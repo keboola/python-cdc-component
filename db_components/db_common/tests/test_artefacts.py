@@ -26,7 +26,7 @@ class TestComponent(unittest.TestCase):
         os.environ['KBC_CONFIGROWID'] = '456'
         os.environ['KBC_BRANCHID'] = '789'
         os.environ['KBC_PROJECTID'] = '10'
-        os.environ['KBC_TOKEN'] = os.environ['STORAGE_TOKEN']
+        os.environ['KBC_TOKEN'] = os.environ['KBC_TOKEN']
         self.ci = CommonInterface(data_folder_path=self.temp_data_dir)
 
     def test_get_artefacts(self):
