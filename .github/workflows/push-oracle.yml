@@ -72,21 +72,21 @@ jobs:
     secrets: inherit
 
   deploy-ex-oracle-cdc:
-    # if: |
-    #    (
-    #      startsWith(github.ref, 'refs/tags/') &&
-    #      (
-    #        (needs.build-python.outputs.is_semantic_tag == 'true') &&
-    #        (
-    #          contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'General') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'general') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-    #        )
-    #      )
-    #    )
+    if: |
+        (
+          startsWith(github.ref, 'refs/tags/') &&
+          (
+            (needs.build-python.outputs.is_semantic_tag == 'true') &&
+            (
+              contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
+              contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
+              contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
+              contains(needs.build-python.outputs.app_image_tag, 'General') ||
+              contains(needs.build-python.outputs.app_image_tag, 'general') ||
+              contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+            )
+          )
+        )
     needs:
       - build-python
       - tests
