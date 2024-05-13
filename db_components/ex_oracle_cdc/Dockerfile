@@ -1,5 +1,5 @@
 # to be executed from the root folder
-FROM python:3.11-buster
+FROM python:3.11-bullseye
 ENV PYTHONIOENCODING utf-8
 ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_components/debezium
 
@@ -7,7 +7,7 @@ ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_
 RUN apt update && \
     apt install -y \
     build-essential \
-    openjdk-11-jre-headless && \
+    openjdk-17-jre-headless && \
     apt clean
 
 
