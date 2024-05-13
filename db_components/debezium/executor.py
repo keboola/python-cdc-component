@@ -259,6 +259,12 @@ class DebeziumExecutor:
                 logging.info(line_str)
                 if self.logger_options.result_log_path:
                     log_out.write(line_str)
+                    # Stream stderr
+            for line in iter(process.stderr.readline, b''):
+                        line_str = line.decode('utf-8').rstrip('\n')
+                        logging.error(line_str)
+                        if self.logger_options.result_log_path:
+                            log_out.write(line_str)
 
         process.stdout.close()
         process.wait()

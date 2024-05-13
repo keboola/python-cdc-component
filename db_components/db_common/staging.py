@@ -194,8 +194,8 @@ class DuckDBStagingExporter:
 
             select_columns = ','.join(all_columns)
             offload_query = (
-                f"COPY (SELECT {select_columns} FROM {table_name}{order_by}) "
-                f"TO \'{result_table_path}\' (HEADER {include_header}, DELIMITER \',\');")
+                f'COPY (SELECT {select_columns} FROM "{table_name}"{order_by}) '
+                f'TO \'{result_table_path}\' (HEADER {include_header}, DELIMITER \',\');')
 
             logging.debug(offload_query)
             self._connection.execute(offload_query)
