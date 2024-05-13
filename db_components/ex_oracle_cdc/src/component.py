@@ -25,9 +25,8 @@ from db_components.db_common.table_schema import TableSchema, ColumnSchema, init
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
 from db_components.ex_oracle_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
-from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import OracleDebeziumExtractor
-from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import SUPPORTED_TYPES
-from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import build_debezium_property_file
+from db_components.ex_oracle_cdc.src.extractor.oracle_extractor import (OracleDebeziumExtractor, SUPPORTED_TYPES,
+                                                                        build_debezium_property_file)
 
 DEBEZIUM_CORE_PATH = os.environ.get(
     'DEBEZIUM_CORE_PATH') or "../../../debezium_core/jars/kbcDebeziumEngine-jar-with-dependencies.jar"
@@ -69,8 +68,6 @@ class OracleComponent(ComponentBase):
         self._source_schema_metadata: dict[str, TableSchema]
 
         self._staging: Staging
-
-        self._last_schema: dict[str, TableSchema] = self._get_schemas_from_state()
 
         if not self.configuration.parameters.get("debug"):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
@@ -134,7 +131,7 @@ class OracleComponent(ComponentBase):
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()
-            result_tables = self._load_tables_to_stage()
+            result_tables = self._load_tables_to_stage(result_schema)
             end = time.time()
             logging.info(f"Load to stage finished in {end - start}")
             self.write_manifests([res[0] for res in result_tables])
@@ -191,9 +188,9 @@ class OracleComponent(ComponentBase):
 
         config: DbOptions = DbOptions.load_from_dict(params['db_settings'])
         tunnel = None
-        self._client: OracleDebeziumExtractor = None
+        self._client: OracleDebeziumExtractor = None # noqa
         try:
-            if config.ssh_options.host:
+            if config.ssh_options.sshHost:
                 tunnel = create_ssh_tunnel(config.ssh_options, config.host, config.port)
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
@@ -278,6 +275,7 @@ class OracleComponent(ComponentBase):
 
         for table in tables_to_collect:
             schema, table = table.split('.')
+
             ts = self._client.metadata_provider.get_table_metadata(database=schema,
                                                                    table_name=table)
             # TODO: change the topic name (testcdc)
@@ -288,16 +286,31 @@ class OracleComponent(ComponentBase):
         table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
             database_name='io_debezium_connector_oracle')
 
+        table_schemas = self._handle_pluggable_name(table_schemas)
         self._source_schema_metadata = table_schemas
 
-    def _load_tables_to_stage(self) -> list[tuple[TableDefinition, TableSchema]]:
+    @staticmethod
+    def _handle_pluggable_name(d: dict) -> dict:
+        new_dict = {}
+        for key, value in d.items():
+            new_key = key.replace('C##', 'C__')
+
+            if value.database_name and 'C##' in value.database_name:
+                value.database_name = value.database_name.replace('C##', 'C__')
+
+            new_dict[new_key] = value
+
+        return new_dict
+
+    def _load_tables_to_stage(self, debezium_result_schema: dict) -> list[tuple[TableDefinition, TableSchema]]:
         with self._staging.connect():
             result_table_defs = []
             for table, nr_chunks in self.get_extracted_tables().items():
+                print(f"Table name: {table}, source scheme metadat: {self._source_schema_metadata}")
                 if table not in self._source_schema_metadata:
                     logging.warning(f"Table {table} not found in source metadata. Skipping.")
                     continue
-                result_table_defs.append(self._process_table_in_stage(table, nr_chunks))
+                result_table_defs.append(self._process_table_in_stage(table, nr_chunks, debezium_result_schema))
 
         return result_table_defs
 
@@ -315,12 +328,14 @@ class OracleComponent(ComponentBase):
                 tables[table] = 0
         return tables
 
-    def _process_table_in_stage(self, table_key: str, nr_chunks: int) -> tuple[TableDefinition, TableSchema]:
+    def _process_table_in_stage(self, table_key: str, nr_chunks: int,
+                                debezium_result_schema: dict) -> tuple[TableDefinition, TableSchema]:
         """
         Processes table in stage. Creates table definition and schema based on the result schema.
         Args:
             table_key:
             nr_chunks: Number of chunks
+            debezium_result_schema: Result schema from Debezium run
 
         Returns:
 
@@ -330,8 +345,8 @@ class OracleComponent(ComponentBase):
             # get latest schema
             staging_key = table_key + f'_chunk_{nr_chunks - 1}'
         result_schema = self._staging.get_table_schema(staging_key)
-        schema = self._get_source_table_schema(table_key)
 
+        schema = self._get_source_table_schema(table_key, debezium_result_schema)
         self.sort_columns_by_result(schema, result_schema)
 
         incremental_load = self._configuration.destination.is_incremental_load
@@ -378,32 +393,42 @@ class OracleComponent(ComponentBase):
             column_types.append({"name": c.name, "type": dtype})
         return column_types
 
-    def _get_source_table_schema(self, table_key: str) -> TableSchema:
+    def _get_source_table_schema(self, table_key: str, debezium_result_schema: dict) -> TableSchema:
         """
         Returns complete table schema from the source database
         including metadata fields and fields already existing in Storage
         Args:
             table_key:
+            debezium_result_schema: result total schema in debezium
 
         Returns:
 
         """
         schema = self._source_schema_metadata[table_key]
-        last_schema = self.previous_storage_schema.get(table_key)
-
         # do not modify if schemachange table
         if table_key == SCHEMA_CHANGE_TABLE_NAME:
             return schema
+
+        last_schema = self.previous_storage_schema.get(table_key)
+        debezium_key = f'{DEFAULT_TOPIC_NAME}.{schema.database_name}.{schema.name}'
+
+        current_result_fields = [c['field'] for c in debezium_result_schema[debezium_key]]
 
         if last_schema:
             current_columns = [c.name for c in schema.fields]
             # Expand current schema with columns existing in storage
             for c in last_schema.fields:
                 if not c.name.startswith('KBC__') and c.name not in current_columns:
-                    c.base_type_converter = MySQLBaseTypeConverter()
-                    # set nullable to false because it's a missing column
-                    c.nullable = False
+                    # set nullable to true because it's a missing column
+                    c.nullable = True
                     schema.fields.append(c)
+
+                if not c.name.startswith('KBC__') and c.name not in current_result_fields:
+                    # in case the current filter excluded existing columns in Storage, add them
+                    current_result_fields.append(c.name)
+
+        # remove all columns that are not in the result schema
+        schema.fields = [c for c in schema.fields if c.name in current_result_fields]
 
         # add system fields
         schema.fields.extend(self.SYSTEM_COLUMNS)
@@ -469,18 +494,11 @@ class OracleComponent(ComponentBase):
             'append_incremental', 'append_full')
 
     def generate_output_bucket_name(self):
-        """
-        Creates output bucket name based on the configuration or environment variables
-        Args:
-            bucket_name:
-
-        Returns:
-
-        """
+        """Creates output bucket name based on the configuration or environment variables"""
         bucket_name = self._configuration.destination.outputBucket
+
         if bucket_name and bucket_name.strip() != '':
             return f'in.c-{bucket_name.strip()}'
-
         else:
             _component_id = self.environment_variables.component_id
             _configuration_id = self.environment_variables.config_id

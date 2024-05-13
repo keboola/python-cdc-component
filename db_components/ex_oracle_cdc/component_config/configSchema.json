@@ -205,7 +205,7 @@
           "title": "Load Type",
           "default": "incremental_load",
           "options": {
-            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
+            "tooltip": "Append modes do not perform deduplication and do not set output table primary key. The result tables will include additional columns: `KBC__EVENT_TIMESTAMP_MS` and `KBC__BATCH_EVENT_ORDER`. \n\n **Note** that changing this parameter after the initial run **may result in errors and drop of the existing tables is recommended** prior changing this parameter.",
             "enum_titles": [
               "Incremental Load - Deduplicated",
               "Full Load - Deduplicated",
@@ -215,6 +215,17 @@
           },
           "description": "If Full load is used, the destination table will be overwritten every run. If Incremental Load is used, data will be upserted into the destination table based on the primary key. Append modes do not contain any primary keys and are not deduplicated.",
           "propertyOrder": 30
+        },
+        "outputBucket": {
+          "type": "string",
+          "title": "Output Bucket",
+          "default": "",
+          "options": {
+            "tooltip": "Specify the bucket name **without the stage prefix**. The default bucket name will be used if empty. The result bucket path will be `in.c-<bucket_name>`",
+            "placeholder": "my-bucket"
+          },
+          "description": "(Optional) The name of bucket in Keboola (without the stage prefix) storage where the data. Keboola will create a bucket for you if not specified. The result bucket path will be `in.c-<bucket_name>",
+          "propertyOrder": 200
         }
       }
     }

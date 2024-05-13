@@ -107,10 +107,12 @@ class LoadType(str, Enum):
 @dataclass
 class DestinationSettings(ConfigurationBase):
     load_type: LoadType = LoadType.incremental_load
+    include_schema_name: bool = True
+    outputBucket: str = ''
 
     @property
     def is_incremental_load(self) -> bool:
-        return self.load_type in (LoadType.incremental_load, LoadType.append_incremental)
+        return self.load_type == LoadType.incremental_load
 
 
 @dataclass

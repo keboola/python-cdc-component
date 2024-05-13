@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import tempfile
+from typing import Optional
 import os
 from jaydebeapi import DatabaseError
 
@@ -16,27 +17,46 @@ class ExtractorUserException(Exception):
     pass
 
 
+# noinspection PyCompatibility
 class OracleBaseTypeConverter(BaseTypeConverter):
-    MAPPING = {"smallint": "INTEGER",
-               "integer": "INTEGER",
+    MAPPING = {"tinyint": "INTEGER",
+               "smallint": "INTEGER",
+               "mediumint": "INTEGER",
+               "int": "INTEGER",
                "bigint": "INTEGER",
                "decimal": "NUMERIC",
-               "numeric": "NUMERIC",
-               "real": "NUMERIC",
+               "float": "NUMERIC",
                "double": "NUMERIC",
-               "smallserial": "INTEGER",
-               "serial": "INTEGER",
-               "bigserial": "INTEGER",
-               "timestamp": "TIMESTAMP",
+               "bit": "STRING",
                "date": "DATE",
+               "datetime": "TIMESTAMP",
+               "timestamp": "TIMESTAMP",
                "time": "TIMESTAMP",
-               "boolean": "BOOLEAN",
-               "varchar": "STRING",
+               "year": "INTEGER",
                "char": "STRING",
-               "text": "STRING"}
+               "varchar": "STRING",
+               "binary": "STRING",
+               "varbinary": "STRING",
+               "tinyblob": "STRING",
+               "blob": "STRING",
+               "mediumblob": "STRING",
+               "longblob": "STRING",
+               "tinytext": "STRING",
+               "text": "STRING",
+               "mediumtext": "STRING",
+               "longtext": "STRING",
+               "enum": "STRING",
+               "set": "STRING"}
 
-    def __call__(self, source_type: str):
-        return self.MAPPING.get(source_type, 'STRING')
+    def __call__(self, source_type: str, length: Optional[str] = None) -> str:
+        source_type_lower = source_type.lower()
+        match source_type_lower:
+            case 'bit' if str(length) == '1':
+                return 'BOOLEAN'
+            case 'boolean':
+                return 'BOOLEAN'
+            case _:
+                return self.MAPPING.get(source_type_lower, 'STRING')
 
 
 SUPPORTED_TYPES = ["smallint",
