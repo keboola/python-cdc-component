@@ -112,6 +112,8 @@ class OracleComponent(ComponentBase):
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
+            logging.info(f"Logging properties: {logging_properties}")
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=DuckDBParameters(self.duck_db_path),
                                                  logger_options=logging_properties,
