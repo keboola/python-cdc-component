@@ -1,6 +1,5 @@
 name: Oracle CDC Build & Deploy
 on: [ push ]
-concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   APP_NAME: "ex-oracle-cdc"

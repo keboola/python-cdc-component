@@ -515,10 +515,6 @@ class OracleComponent(ComponentBase):
         return self.get_state_file().get(KEY_LAST_OFFSET) is None
 
     @cached_property
-    def last_debezium_schema(self) -> dict:
-        return self.get_state_file().get(KEY_DEBEZIUM_SCHEMA, {})
-
-    @cached_property
     def previous_storage_schema(self) -> dict[str, TableSchema]:
         schemas_dict: dict = self.get_state_file().get(KEY_LAST_SCHEMA, dict())
         schema_map = dict()
