@@ -51,6 +51,7 @@ keboola.duckdb.db.path -> path where duckDB will be stored
 keboola.duckdb.max.threads -> maximum number of threads for duckDB
 keboola.duckdb.memory.limit -> memory limit for duckDB
 keboola.duckdb.memory.max -> maximum memory limit for duckDB
+keboola.duckdb.temp.directory -> path to temporary directory for duckDB
 keboola.converter.dedupe.max_chunk_size -> maximum chunk size for deduplication mode
 ```
 
@@ -61,6 +62,7 @@ keboola.duckdb.db.path=""
 keboola.duckdb.max.threads=4
 keboola.duckdb.memory.limit=4GB
 keboola.duckdb.memory.max=2GB
+keboola.duckdb.temp.directory=/tmp/dbtmp
 keboola.converter.dedupe.max_chunk_size=1000
 ```
 
