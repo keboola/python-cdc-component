@@ -46,7 +46,7 @@ public class DuckDbWrapper {
 			// Create a Statement object for sending SQL statements to the DB
 
 			// Set the temporary directory for DuckDB
-			stmt.execute("PRAGMA temp_directory='./tmp/dbtmp'");
+			stmt.execute("PRAGMA temp_directory='" + this.properties.tempDir() + "'");
 
 			// Set the number of threads that DuckDB can use for parallel execution
 			stmt.execute("PRAGMA threads=" + this.properties.maxThreads());
@@ -69,14 +69,16 @@ public class DuckDbWrapper {
 		}
 	}
 
-	public record Properties(String dbPath, int maxThreads, String memoryLimit, String maxMemory) {
+	public record Properties(String dbPath, int maxThreads, String memoryLimit, String maxMemory,
+							 String tempDir) {
 		private static final String TMP_DB_PATH = "";
 		private static final int MAX_THREADS = 4;
 		private static final String MEMORY_LIMIT = "4G";
 		private static final String MAX_MEMORY = "2G";
+		private static final String TEMP_DIR = "/tmp/dbtmp";
 
 		public static Properties defaults() {
-			return new Properties(TMP_DB_PATH, MAX_THREADS, MEMORY_LIMIT, MAX_MEMORY);
+			return new Properties(TMP_DB_PATH, MAX_THREADS, MEMORY_LIMIT, MAX_MEMORY, TEMP_DIR);
 		}
 
 		public static Properties parse(java.util.Properties keboolaProperties) {
@@ -84,7 +86,8 @@ public class DuckDbWrapper {
 					keboolaProperties.getProperty("keboola.duckdb.db.path", TMP_DB_PATH),
 					Integer.parseInt(keboolaProperties.getProperty("keboola.duckdb.max.threads", String.valueOf(MAX_THREADS))),
 					keboolaProperties.getProperty("keboola.duckdb.memory.limit", MEMORY_LIMIT),
-					keboolaProperties.getProperty("keboola.duckdb.memory.max", MAX_MEMORY)
+					keboolaProperties.getProperty("keboola.duckdb.memory.max", MAX_MEMORY),
+					keboolaProperties.getProperty("keboola.duckdb.temp.directory", TEMP_DIR)
 			);
 			log.info("Duck db properties initialized: {}", properties);
 			return properties;

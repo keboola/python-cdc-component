@@ -19,7 +19,7 @@ class JsonConverterTest {
 		var payload = readResource("singleData_extended.json").getAsJsonObject();
 
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 
 		var converter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 

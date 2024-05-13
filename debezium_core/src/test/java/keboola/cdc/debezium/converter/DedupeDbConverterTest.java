@@ -18,7 +18,7 @@ class DedupeDbConverterTest {
 	public void simpleTest() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		var appendDbConverter = new DedupeDbConverter(new Gson(), dbWrapper, "simpleTestTable", initSchema);
 
 		appendDbConverter.processJson(readResource("singleData.json").getAsJsonObject());
@@ -49,7 +49,7 @@ class DedupeDbConverterTest {
 		AbstractDebeziumTask.MAX_CHUNK_SIZE = 1;
 		final var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		final var appendDbConverter = new DedupeDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		final var dataArray = readResource("dataArray.json").getAsJsonArray();

@@ -16,7 +16,7 @@ class AppendDbConverterTest {
 	public void simpleTest() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		var appendDbConverter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		appendDbConverter.processJson(readResource("singleData.json").getAsJsonObject());
@@ -45,7 +45,7 @@ class AppendDbConverterTest {
 	@Test
 	public void appendMoreData() throws SQLException {
 		final var initSchema = readResource("initialSchema.json").getAsJsonArray();
-		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4, "4G", "2G"));
+		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4, "4G", "2G" , "./tmp/dbtmp"));
 		final var appendDbConverter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		final var dataArray = readResource("dataArray.json").getAsJsonArray();
