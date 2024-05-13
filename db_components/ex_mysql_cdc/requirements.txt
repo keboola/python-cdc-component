@@ -1,4 +1,4 @@
-keboola.component==1.4.3
+keboola.component==1.4.4
 keboola.utils
 jaydebeapi==1.2.3
 dataconf

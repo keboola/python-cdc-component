@@ -175,9 +175,25 @@ class PostgresCDCComponent(ComponentBase):
         new_tables = []
         # check only if it's not initial run.
         if not self.is_initial_run:
-            new_tables = set(self._configuration.source_settings.tables).difference(last_synced_tabled)
+            new_tables = set(self.currently_synced_tables).difference(last_synced_tabled)
 
         return list(new_tables)
+
+    @cached_property
+    def currently_synced_tables(self) -> list[str]:
+        """
+        Returns currently synced tables.
+        Returns: List of tables that are currently synced
+
+        """
+        all_tables = self._configuration.source_settings.tables
+        if not all_tables:
+            # if empty download all tables
+            for schema in self._configuration.source_settings.schemas:
+                tables = [f"{t[1]}.{t[2]}" for t in self._client.metadata_provider.get_tables(schema_pattern=schema)]
+                all_tables.extend(tables)
+
+        return all_tables
 
     @contextmanager
     def _init_client(self) -> DbOptions:
@@ -257,7 +273,7 @@ class PostgresCDCComponent(ComponentBase):
 
         """
         table_schemas = dict()
-        tables_to_collect = self._configuration.source_settings.tables
+        tables_to_collect = self.currently_synced_tables
         # in cae the signalling table is not in the synced tables list
         if self._configuration.sync_options.source_signal_table not in tables_to_collect:
             tables_to_collect.append(self._configuration.sync_options.source_signal_table)
@@ -450,7 +466,7 @@ class PostgresCDCComponent(ComponentBase):
         state = {KEY_LAST_OFFSET: offset,
                  KEY_LAST_SCHEMA: {},
                  KEY_DEBEZIUM_SCHEMA: debezium_schema,
-                 KEY_LAST_SYNCED_TABLED: self._configuration.source_settings.tables}
+                 KEY_LAST_SYNCED_TABLED: self.currently_synced_tables}
 
         for schema in table_schemas:
             schema_key = self.generate_table_key(schema)

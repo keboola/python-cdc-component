@@ -1,9 +1,8 @@
-keboola.component==1.4.3
+keboola.component==1.4.4
 keboola.utils
 jaydebeapi==1.2.3
 dataconf
 jproperties==2.1.1
-snowflake-connector-python==3.7.1
 pandas
 duckdb
 sshtunnel
