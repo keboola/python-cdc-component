@@ -41,7 +41,7 @@ jobs:
     needs:
       - build-java
       - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@fix/db-common-test-workflow
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}

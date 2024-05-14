@@ -43,8 +43,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          cd db_components
-          python -m unittest discover tests 
+          python -m unittest discover db_components/tests 
 
   build-python:
     runs-on: ubuntu-latest
