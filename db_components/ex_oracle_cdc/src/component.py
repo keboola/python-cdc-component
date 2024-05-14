@@ -73,10 +73,6 @@ class OracleComponent(ComponentBase):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
 
     def run(self):
-        t = self.get_tables()
-        print(t)
-        exit()
-
         self._init_configuration()
         with self._init_client() as db_config:
             self._init_workspace_client()
