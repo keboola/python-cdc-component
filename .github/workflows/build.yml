@@ -44,7 +44,7 @@ jobs:
       - name: Run Tests
         run: |
           cd db_components
-          python -m unittest discover -s . -p "test_*.py" -k "ex_mysql_cdc" -k "ex_postgres_cdc"
+          python -m unittest discover tests 
 
   build-python:
     runs-on: ubuntu-latest
