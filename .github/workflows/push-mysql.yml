@@ -36,11 +36,15 @@ jobs:
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
+  test-python-common:
+    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@fix/db-common-test-workflow
+
   build-python:
     name: Build and Push Mysql CDC image
     needs:
       - build-java
       - variables
+      - test-python-common
     uses: keboola/python-cdc-component/.github/workflows/build.yml@fix/db-common-test-workflow
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
