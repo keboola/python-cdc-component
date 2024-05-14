@@ -40,7 +40,7 @@ KEY_STAGING_TYPE = 'staging_type'
 KEY_LAST_SYNCED_TABLES = 'last_synced_tables'
 KEY_LAST_SCHEMA = "last_schema"
 KEY_LAST_OFFSET = 'last_offset'
-DEFAULT_TOPIC_NAME = 'testcdc'
+DEFAULT_TOPIC_NAME = 'oracle_cdc'
 
 REQUIRED_IMAGE_PARS = []
 
@@ -73,6 +73,10 @@ class OracleComponent(ComponentBase):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
 
     def run(self):
+        t = self.get_tables()
+        print(t)
+        exit()
+
         self._init_configuration()
         with self._init_client() as db_config:
             self._init_workspace_client()
@@ -280,11 +284,9 @@ class OracleComponent(ComponentBase):
 
             ts = self._client.metadata_provider.get_table_metadata(database=schema,
                                                                    table_name=table)
-            # TODO: change the topic name (testcdc)
             table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table}"] = ts
 
         # schema changes table
-        # TODO: review name
         table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
             database_name='io_debezium_connector_oracle')
 
@@ -540,40 +542,6 @@ class OracleComponent(ComponentBase):
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
         return snapshot_mode
 
-    # SYNC ACTIONS
-    @sync_action('testConnection')
-    def test_connection(self):
-        with self._init_client():
-            self._client.test_connection()
-
-    @sync_action('get_schemas')
-    def get_schemas(self):
-        with self._init_client():
-            schemas = self._client.metadata_provider.get_schemas()
-            return [
-                SelectElement(schema) for schema in schemas
-            ]
-
-    @sync_action('get_tables')
-    def get_tables(self):
-        with self._init_client():
-            self._init_configuration()
-            if not self._configuration.source_settings.schemas:
-                raise UserException("Schema must be selected first!")
-            tables = []
-            for s in self._configuration.source_settings.schemas:
-                tables.extend(self._client.metadata_provider.get_tables(schema_pattern=s))
-            return [SelectElement(f"{table[0]}.{table[1]}") for table in tables]
-
-    @sync_action("generate_ssh_key")
-    def generate_ssh_key(self):
-        private_key, public_key = generate_ssh_key_pair()
-        md_message = f"**Private Key**  (*Copy this to the `Private Key` configuration field*):\n\n" \
-                     f"```\n{private_key}\n```\n\n" \
-                     f"**Public Key**  (*Add this to your servers `ssh_keys`*): \n\n```\n{public_key}\n```"
-
-        return ValidationResult(message=md_message)
-
     def _normalize_columns(self, csv_columns: list[str]) -> list[str]:
         """
         Normalizes result fields based on configuration.
@@ -634,6 +602,40 @@ class OracleComponent(ComponentBase):
     def logging_type(self) -> str:
         return CommonInterface.LOGGING_TYPE_GELF if os.getenv('KBC_LOGGER_ADDR',
                                                               None) else CommonInterface.LOGGING_TYPE_STD
+
+    # SYNC ACTIONS
+    @sync_action('testConnection')
+    def test_connection(self):
+        with self._init_client():
+            self._client.test_connection()
+
+    @sync_action('get_schemas')
+    def get_schemas(self):
+        with self._init_client():
+            schemas = self._client.metadata_provider.get_schemas()
+            return [
+                SelectElement(schema) for schema in schemas
+            ]
+
+    @sync_action('get_tables')
+    def get_tables(self):
+        with self._init_client():
+            self._init_configuration()
+            if not self._configuration.source_settings.schemas:
+                raise UserException("Schema must be selected first!")
+            tables = []
+            for s in self._configuration.source_settings.schemas:
+                tables.extend(self._client.metadata_provider.get_tables(schema_pattern=s))
+            return [SelectElement(f"{table[1]}.{table[2]}") for table in tables]
+
+    @sync_action("generate_ssh_key")
+    def generate_ssh_key(self):
+        private_key, public_key = generate_ssh_key_pair()
+        md_message = f"**Private Key**  (*Copy this to the `Private Key` configuration field*):\n\n" \
+                     f"```\n{private_key}\n```\n\n" \
+                     f"**Public Key**  (*Add this to your servers `ssh_keys`*): \n\n```\n{public_key}\n```"
+
+        return ValidationResult(message=md_message)
 
 
 """

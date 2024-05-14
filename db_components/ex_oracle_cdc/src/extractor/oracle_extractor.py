@@ -180,7 +180,7 @@ class OracleDebeziumExtractor:
                                              f'{db_credentials.p_database}',
                                          driver_args=driver_args,
                                          jars=jdbc_path)
-        # TODO: Add support for non-pluggable databases
+        # TODO: Add support for non-pluggable databases?
         self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self.connection, OracleBaseTypeConverter())
 
@@ -193,7 +193,6 @@ class OracleDebeziumExtractor:
 
     def test_connection(self):
         self.connect()
-        # test if user has appropriate privileges
         self.test_has_privileges()
         self.close_connection()
 
