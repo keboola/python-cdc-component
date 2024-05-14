@@ -9,6 +9,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Set APP_PATH variable
+        run: echo "KBC_TOKEN=${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}" >> $GITHUB_OUTPUT
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:

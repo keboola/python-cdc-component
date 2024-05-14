@@ -38,6 +38,7 @@ jobs:
 
   test-python-common:
     uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@fix/db-common-test-workflow
+    secrets: inherit
 
   build-python:
     name: Build and Push Mysql CDC image
