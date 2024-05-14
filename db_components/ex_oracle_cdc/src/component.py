@@ -40,7 +40,7 @@ KEY_STAGING_TYPE = 'staging_type'
 KEY_LAST_SYNCED_TABLES = 'last_synced_tables'
 KEY_LAST_SCHEMA = "last_schema"
 KEY_LAST_OFFSET = 'last_offset'
-DEFAULT_TOPIC_NAME = 'oracle_cdc'
+DEFAULT_TOPIC_NAME = 'testcdc'
 
 REQUIRED_IMAGE_PARS = []
 
