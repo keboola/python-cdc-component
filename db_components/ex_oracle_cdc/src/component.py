@@ -306,7 +306,6 @@ class OracleComponent(ComponentBase):
         with self._staging.connect():
             result_table_defs = []
             for table, nr_chunks in self.get_extracted_tables().items():
-                print(f"Table name: {table}, source scheme metadat: {self._source_schema_metadata}")
                 if table not in self._source_schema_metadata:
                     logging.warning(f"Table {table} not found in source metadata. Skipping.")
                     continue
