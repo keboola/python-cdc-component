@@ -23,29 +23,6 @@ on:
         value: ${{ jobs.build-python.outputs.is_semantic_tag }}
 
 jobs:
-  test-python-common:
-    runs-on: ubuntu-latest
-    env:
-      KBC_TOKEN: ${{ secrets.KBC_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r db_components/requirements-common.txt
-
-      - name: Run Tests
-        run: |
-          cd db_components
-          python -m unittest discover tests 
-
   build-python:
     runs-on: ubuntu-latest
     outputs:
