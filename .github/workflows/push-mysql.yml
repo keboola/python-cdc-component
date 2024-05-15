@@ -37,7 +37,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   test-python-common:
-    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@fix/db-common-test-workflow
+    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@main
     secrets: inherit
 
   build-python:
@@ -46,7 +46,7 @@ jobs:
       - build-java
       - variables
       - test-python-common
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@fix/db-common-test-workflow
+    uses: keboola/python-cdc-component/.github/workflows/build.yml@main
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}

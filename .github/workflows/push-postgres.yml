@@ -49,7 +49,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
 
   test-python-common:
-    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@fix/db-common-test-workflow
+    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@main
     secrets: inherit
 
   build-python:
