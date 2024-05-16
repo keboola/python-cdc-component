@@ -107,8 +107,8 @@ public class AbstractDebeziumTask {
 
 		this.shutdown(executorService);
 
-		if (completionCallback.getError() != null || !completionCallback.isSuccess()) {
-			throw new Exception(completionCallback.getErrorMessage());
+		if (!completionCallback.isSuccess()) {
+			throw completionCallback.getException();
 		}
 
 		log.info("Ended after receiving records: {}", changeConsumer.getRecordsCount());
