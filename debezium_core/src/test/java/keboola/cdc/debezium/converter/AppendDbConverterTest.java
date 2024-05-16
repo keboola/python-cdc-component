@@ -30,6 +30,7 @@ class AppendDbConverterTest {
 				() -> Assertions.assertEquals("ccc", rs.getString("name")),
 				() -> Assertions.assertEquals("hafanana", rs.getString("description")),
 				() -> Assertions.assertEquals(100.0, rs.getDouble("weight")),
+				() -> Assertions.assertEquals(100.0, rs.getDouble("weight-with-dash")),
 				() -> Assertions.assertEquals("u", rs.getString("kbc__operation")),
 				() -> Assertions.assertEquals(1710349868992L, rs.getLong("kbc__event_timestamp")),
 				() -> Assertions.assertEquals("false", rs.getString("__deleted"))
