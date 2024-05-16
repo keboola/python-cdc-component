@@ -150,6 +150,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
         "schema.history.internal.file.filename": schema_history_filepath,
         "schema.history.internal.store.only.captured.tables.ddl": "true"
+        # "heartbeat.interval.ms": 5000
     }
 
     properties |= additional_properties

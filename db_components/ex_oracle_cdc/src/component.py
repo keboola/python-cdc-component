@@ -42,8 +42,6 @@ KEY_LAST_SCHEMA = "last_schema"
 KEY_LAST_OFFSET = 'last_offset'
 DEFAULT_TOPIC_NAME = 'testcdc'
 
-REQUIRED_IMAGE_PARS = []
-
 
 class OracleComponent(ComponentBase):
     SYSTEM_COLUMNS = [
@@ -261,13 +259,13 @@ class OracleComponent(ComponentBase):
 
     def _get_offset_string(self) -> str:
         image_data_binary = open(self._temp_offset_file.name, 'rb').read()
-        return (base64.b64encode(image_data_binary)).decode('ascii')
+        offset = (base64.b64encode(image_data_binary)).decode('ascii')
+        return offset
 
     def _collect_source_metadata(self):
         """
         Collects metadata such as table and columns schema for the monitored tables from the source database.
         Returns:
-
         """
         table_schemas = dict()
         tables_to_collect = self._configuration.source_settings.tables
@@ -370,7 +368,8 @@ class OracleComponent(ComponentBase):
         return self.create_out_table_definition_from_schema(schema, incremental=incremental_load,
                                                             destination=f"{output_bucket}.{result_table_name}"), schema
 
-    def _convert_to_snowflake_column_definitions(self, columns: list[ColumnSchema]) -> list[dict[str, str]]:
+    @staticmethod
+    def _convert_to_snowflake_column_definitions(columns: list[ColumnSchema]) -> list[dict[str, str]]:
         column_types = []
         for c in columns:
 
@@ -432,20 +431,6 @@ class OracleComponent(ComponentBase):
         # add system fields
         schema.fields.extend(self.SYSTEM_COLUMNS)
         return schema
-
-    @staticmethod
-    def is_pluggable(name: str) -> bool:
-        if name.upper().startswith("C__"):
-            return True
-        return False
-
-    def handle_pluggable_prefix(self, name: str) -> str:
-        logging.info(f"Checking pluggable prefix for table {name}")
-        if self.is_pluggable(name):
-            new_name = name.replace('C__', 'C##')
-            logging.info(f"Pluggable prefix detected, replacing {name} with {new_name}")
-            return new_name
-        return name
 
     def _write_result_state(self, offset: str, table_schemas: list[TableSchema], debezium_schema: dict):
         """
