@@ -25,6 +25,12 @@
     "orderEvent": false
   },
   {
+    "type": "double",
+    "optional": true,
+    "field": "weight-with-dash",
+    "orderEvent": false
+  },
+  {
     "type": "string",
     "optional": true,
     "field": "kbc__operation",
