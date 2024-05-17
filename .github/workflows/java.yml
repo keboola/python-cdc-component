@@ -13,7 +13,7 @@ jobs:
       with:
         distribution: 'oracle'
         java-version: '21'
-
+        
     - name: Build Java Project
       run: |
         cd debezium_core
