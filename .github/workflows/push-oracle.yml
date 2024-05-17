@@ -72,21 +72,21 @@ jobs:
     secrets: inherit
 
   deploy-ex-oracle-cdc:
-    if: |
-        (
-          startsWith(github.ref, 'refs/tags/') &&
-          (
-            (needs.build-python.outputs.is_semantic_tag == 'true') &&
-            (
-              contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
-              contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
-              contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
-              contains(needs.build-python.outputs.app_image_tag, 'General') ||
-              contains(needs.build-python.outputs.app_image_tag, 'general') ||
-              contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-            )
-          )
-        )
+    # if: |
+    #     (
+    #      startsWith(github.ref, 'refs/tags/') &&
+    #      (
+    #        (needs.build-python.outputs.is_semantic_tag == 'true') &&
+    #        (
+    #          contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
+    #          contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
+    #          contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
+    #          contains(needs.build-python.outputs.app_image_tag, 'General') ||
+    #          contains(needs.build-python.outputs.app_image_tag, 'general') ||
+    #          contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+    #        )
+    #      )
+    #    )
     needs:
       - build-python
       - tests
@@ -98,6 +98,6 @@ jobs:
       APP_ID: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
+      TAG: 0.0.6 # ${{ needs.build-python.outputs.app_image_tag }}
+      IS_SEMANTIC_TAG: true # ${{ needs.build-python.outputs.is_semantic_tag }}
     secrets: inherit
