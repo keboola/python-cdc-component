@@ -166,11 +166,12 @@
           "default": 1,
           "propertyOrder": 10
         },
-                "source_signal_table": {
+        "source_signal_table": {
           "type": "string",
           "title": "Signal Table",
           "description": "Signal table that the component will write into.",
           "format": "string",
+          "default": "C##DBZUSER.DEBEZIUM_SIGNAL",
           "uniqueItems": true,
           "propertyOrder": 103
         }

@@ -71,6 +71,7 @@ class OracleComponent(ComponentBase):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
 
     def run(self):
+        logging.info("Component version: 0.0.7")
         self._init_configuration()
         with self._init_client() as db_config:
             self._init_workspace_client()
