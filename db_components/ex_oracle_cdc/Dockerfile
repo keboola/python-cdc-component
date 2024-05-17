@@ -7,7 +7,7 @@ ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_
 RUN apt update && \
     apt install -y \
     build-essential \
-    openjdk-17-jre-headless && \
+    openjdk-22-jre-headless && \
     apt clean
 
 
