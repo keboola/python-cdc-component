@@ -170,18 +170,8 @@
           "type": "string",
           "title": "Signal Table",
           "description": "Signal table that the component will write into.",
-          "enum": [],
-          "format": "select",
+          "format": "string",
           "uniqueItems": true,
-          "options": {
-            "async": {
-              "label": "Re-load tables",
-              "action": "get_tables",
-              "autoload": [
-                "parameters.source_settings.schemas"
-              ]
-            }
-          },
           "propertyOrder": 103
         }
       }

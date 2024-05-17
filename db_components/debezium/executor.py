@@ -192,7 +192,7 @@ class DebeziumExecutor:
             f"(id, type, data) VALUES ('{signal.id}', '{signal.type}', "
             f"'{json.dumps(signal.as_dict()['data'])}')")
 
-        logging.debug(f'Signal sent: {list(result)}')
+        logging.info(f'Signal sent: {list(result)}')
 
     def _signal_via_file(self, table_names: list[str], snapshot_type: Literal['blocking', 'incremental'] = 'blocking'):
         if not table_names:
