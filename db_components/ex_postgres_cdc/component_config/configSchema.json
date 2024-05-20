@@ -8,7 +8,7 @@
     "db_settings": {
       "type": "object",
       "format": "grid-strict",
-      "title": "Authorization",
+      "title": "Connection Settings",
       "description": "The connector is based on Debezium Connector, for the Postgres setup follow the official <a href=\"https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions\">instructions</a>",
       "required": [
         "#password",
@@ -213,7 +213,7 @@
           "type": "integer",
           "title": "Snapshot parallelism",
           "description": "Specifies the number of threads that the connector uses when performing an initial snapshot. To enable parallel initial snapshots, set the property to a value greater than 1. In a parallel initial snapshot, the connector processes multiple tables concurrently.",
-          "default": 1,
+          "default": 4,
           "propertyOrder": 30
         },
         "enable_heartbeat": {

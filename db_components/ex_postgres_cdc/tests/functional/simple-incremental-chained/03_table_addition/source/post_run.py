@@ -1,9 +1,6 @@
-import os
-
 from datadirtest import TestDataDir
 
 from db_components.debezium.tests.functional import TestDatabaseEnvironment
-
 
 
 def run(context: TestDataDir):
