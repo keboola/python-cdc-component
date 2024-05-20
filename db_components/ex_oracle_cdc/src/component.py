@@ -71,7 +71,6 @@ class OracleComponent(ComponentBase):
             logging.getLogger('snowflake.connector').setLevel(logging.WARNING)
 
     def run(self):
-        logging.info("Component version: 0.0.7")
         self._init_configuration()
         with self._init_client() as db_config:
             self._init_workspace_client()
@@ -602,12 +601,11 @@ class OracleComponent(ComponentBase):
     def get_tables(self):
         with self._init_client():
             self._init_configuration()
+            database = self._configuration.db_settings.database # noqa - maybe should be included in get_tables func call
             if not self._configuration.source_settings.schemas:
                 raise UserException("Schema must be selected first!")
-            tables = []
-            for s in self._configuration.source_settings.schemas:
-                tables.extend(self._client.metadata_provider.get_tables(schema_pattern=s))
-            return [SelectElement(f"{table[1]}.{table[2]}") for table in tables]
+            tables = self._client.get_tables()
+            return [SelectElement(f"{table[0]}.{table[1]}") for table in tables]
 
     @sync_action("generate_ssh_key")
     def generate_ssh_key(self):

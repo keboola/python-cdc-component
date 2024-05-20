@@ -199,33 +199,47 @@ class OracleDebeziumExtractor:
 
     def test_has_privileges(self):
         expected_results = {
-            ('C##DBZUSER', 'SYS', 'V_$LOG', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$TRANSACTION', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$MYSTAT', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$STATNAME', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$LOGFILE', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$DATABASE', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$ARCHIVED_LOG', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$LOG_HISTORY', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_CONTENTS', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_PARAMETERS', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$LOGMNR_LOGS', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'V_$ARCHIVE_DEST_STATUS', 'SELECT'),
-            ('C##DBZUSER', 'SYS', 'DBMS_LOGMNR', 'EXECUTE'),
-            ('C##DBZUSER', 'SYS', 'DBMS_LOGMNR_D', 'EXECUTE')
+            ('SYS', 'V_$STATNAME', 'SELECT'),
+            ('SYS', 'V_$DATABASE', 'SELECT'),
+            ('SYS', 'DBMS_LOGMNR', 'EXECUTE'),
+            ('SYS', 'V_$LOGFILE', 'SELECT'),
+            ('SYS', 'V_$LOGMNR_LOGS', 'SELECT'),
+            ('SYS', 'V_$TRANSACTION', 'SELECT'),
+            ('SYS', 'V_$MYSTAT', 'SELECT'),
+            ('SYS', 'V_$ARCHIVED_LOG', 'SELECT'),
+            ('SYS', 'V_$LOG_HISTORY', 'SELECT'),
+            ('SYS', 'V_$LOGMNR_PARAMETERS', 'SELECT'),
+            ('SYS', 'V_$ARCHIVE_DEST_STATUS', 'SELECT'),
+            ('SYS', 'V_$LOGMNR_CONTENTS', 'SELECT'),
+            ('SYS', 'C##DBZUSER', 'INHERIT PRIVILEGES'),
+            ('SYS', 'V_$LOG', 'SELECT'),
+            ('SYS', 'DBMS_LOGMNR_D', 'EXECUTE')
         }
 
         query = """
-            SELECT grantee, owner, table_name, privilege
-            FROM dba_tab_privs
-            WHERE grantee = ?
+            SELECT owner, table_name, privilege
+            FROM user_tab_privs
         """
-        results = set(tuple(row) for row in self.connection.perform_query(query, [self.user]))
+        results = set(tuple(row) for row in self.connection.perform_query(query))
         missing_privileges = expected_results - results
 
         if missing_privileges:
             error_messages = ["Missing privileges: " + ", ".join(str(privilege) for privilege in missing_privileges)]
             raise ExtractorUserException("\n".join(error_messages))
+
+    def get_tables(self):
+        query = """
+        SELECT
+            cdt.owner, cdt.table_name
+        FROM dba_tables cdt
+            JOIN dba_users du ON (du.username = cdt.owner)
+            JOIN dba_log_groups dlg ON (dlg.owner = cdt.owner AND dlg.table_name = cdt.table_name)
+        WHERE du.oracle_maintained = 'N'
+            AND du.username NOT IN (?)
+        """
+        results = set(tuple(row) for row in self.connection.perform_query(query, [self.user]))
+        return results
+
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")

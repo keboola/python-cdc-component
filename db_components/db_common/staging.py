@@ -179,7 +179,6 @@ class DuckDBStagingExporter:
             dedupe_required (bool): Flag indicating whether deduplication is required.
             order_by_column: Column used to order and keep the latest record
             null_string: String that represents NULL values in the CSV files.
-
         """
 
         logging.debug(f"Exporting table {table_name}")
