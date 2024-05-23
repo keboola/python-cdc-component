@@ -485,6 +485,8 @@ class PostgresCDCComponent(ComponentBase):
 
         """
         # TODO: Dedupe only when not init sync with no additional events.
+        # PGSQL is not switched to initial_only as mysql because of a bug in debezium t
+        # that doesn't capture the schema changes properly after this mode is used
         return self._configuration.destination.load_type not in (
             'append_incremental', 'append_full')
 
