@@ -69,6 +69,9 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
 
     files = client.files.list(q=build_tags_query_filter(tags))
     result_files = [f for f in files if f['name'] == artefact_file_name]
+    # sort result files just in case
+    result_files.sort(key=lambda x: int(x['id']), reverse=True)
+
     temp_file_path = None
     tags = []
     if result_files:
