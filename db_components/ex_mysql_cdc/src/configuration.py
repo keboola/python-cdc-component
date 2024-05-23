@@ -86,13 +86,17 @@ class DbAdvancedParameters(ConfigurationBase):
     max_execution_time: Optional[str] = ""
     show_binary_log_config: ShowLogConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
 
+class Adapter(str, Enum):
+    mysql = "MySQL"
+    mariadb = "MariaDB"
 
 @dataclass
 class ReplicaDbOptions(ConfigurationBase):
     host: str
-    port: int
+    port: int | str
     user: str
     pswd_password: str
+    adapter: Adapter = Adapter.mysql
     use_ssh: bool = False
     ssh_options: SSHConfiguration = dataclasses.field(default_factory=lambda: ConfigTree({}))
     use_ssl: bool = False

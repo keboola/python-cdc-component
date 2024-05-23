@@ -8,7 +8,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType
+from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType, Adapter
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
 
@@ -85,6 +85,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  column_filter_type: ColumnFilterType,
                                  column_filter: list[str],
                                  server_id_unique: int,
+                                 adapter: Adapter = Adapter.mysql,
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
@@ -107,6 +108,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         column_filter_type: Type of column filter, 'none', 'exclude' or 'include'
         column_filter: List of columns to include or exclude.
         server_id_unique: Unique server id for the connector.
+        adapter: Adapter type, MySQL or MariaDB
         additional_properties:
         snapshot_max_threads:
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
@@ -161,6 +163,12 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         filter_value = ','.join(column_filter)
         properties[filter_key] = filter_value
 
+    if adapter == Adapter.mariadb:
+        properties["connector.adapter"] = "mariadb"
+        properties["database.protocol"] = "jdbc:mariadb"
+        properties["database.jdbc.driver"] = "org.mariadb.jdbc.Driver"
+        properties["database.ssl.mode"] = "disabled"
+
     properties |= additional_properties
 
     temp_file = tempfile.NamedTemporaryFile(suffix='.properties', delete=False)
@@ -173,11 +181,20 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
 
 class MySQLDebeziumExtractor:
 
-    def __init__(self, db_credentials: DbOptions, jdbc_path=JDBC_PATH):
+    def __init__(self, db_credentials: DbOptions, is_maria_db: bool = False):
         self.__credentials = db_credentials
+        if not is_maria_db:
+            jdbc_path = '../jdbc/mysql-connector-j-8.3.0.jar'
+            driver_class = 'com.mysql.cj.jdbc.Driver'
+            protocol = 'jdbc:mysql'
+        else:
+            jdbc_path = '../jdbc/mariadb-java-client-3.4.0.jar'
+            driver_class = 'org.mariadb.jdbc.Driver'
+            protocol = 'jdbc:mariadb'
+
         logging.debug(f'Driver {jdbc_path}')
-        self.connection = JDBCConnection('com.mysql.cj.jdbc.Driver',
-                                         url=f'jdbc:mysql://{db_credentials.host}:{db_credentials.port}',
+        self.connection = JDBCConnection(driver_class,
+                                         url=f'{protocol}://{db_credentials.host}:{db_credentials.port}',
                                          driver_args={'user': db_credentials.user,
                                                       'password': db_credentials.pswd_password},
                                          jars=jdbc_path)

@@ -25,7 +25,7 @@ from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
-from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode, Adapter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
@@ -100,6 +100,7 @@ class MySqlCDCComponent(ComponentBase):
                                                                self._temp_schema_history_file,
                                                                source_settings.schemas,
                                                                source_settings.tables,
+                                                               adapter=db_config.adapter,
                                                                column_filter_type=source_settings.column_filter_type,
                                                                column_filter=source_settings.column_filter,
                                                                server_id_unique=self._build_unique_server_id(),
@@ -221,7 +222,8 @@ class MySqlCDCComponent(ComponentBase):
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
                 config.port = config.ssh_options.LOCAL_BIND_PORT
-            self._client = MySQLDebeziumExtractor(config, jdbc_path='../jdbc/mysql-connector-j-8.3.0.jar')
+
+            self._client = MySQLDebeziumExtractor(config, is_maria_db=config.adapter == Adapter.mariadb)
             try:
                 self._client.connect()
                 self._client.test_has_replication_privilege()
