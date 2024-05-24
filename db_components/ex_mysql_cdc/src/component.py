@@ -34,7 +34,7 @@ SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
 
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
-DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
+DUCK_DB_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'duckdb_stage')
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
