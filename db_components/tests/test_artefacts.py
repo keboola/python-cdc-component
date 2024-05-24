@@ -6,6 +6,7 @@ Created on 12. 11. 2018
 import json
 import os
 import tempfile
+import time
 import unittest
 import uuid
 
@@ -34,12 +35,16 @@ class TestComponent(unittest.TestCase):
         with open(test_file, 'w+') as f:
             json.dump({"test": "data"}, f)
         # store artefact
-        artefacts.store_artefact(test_file, self.ci)
+        result_id = artefacts.store_artefact(test_file, self.ci)
+        print(f"Result id: {result_id}")
 
         random_id = uuid.uuid4()
         with open(test_file, 'w+') as f:
             json.dump({"test": f"{random_id}"}, f)
-        artefacts.store_artefact(test_file, self.ci)
+        # sleep for 5 seconds to give the artefact time to be stored
+        time.sleep(5)
+        result_id = artefacts.store_artefact(test_file, self.ci)
+        print(f"Result id: {result_id}")
         # get artefact
         expected_tags = [f'test-component-simulated-artefact',
                          f'10-project_id',

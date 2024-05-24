@@ -25,7 +25,7 @@ def _build_unique_tags(context: CommonInterface, additional_tags: list[str] = No
 
 
 def store_artefact(source_file_path: str, context: CommonInterface,
-                   additional_tags: list[str] = None) -> None:
+                   additional_tags: list[str] = None) -> str:
     """
     Store the artefact in the context with the given artefact_name.
     Args:
@@ -37,7 +37,7 @@ def store_artefact(source_file_path: str, context: CommonInterface,
     """
     tags = _build_unique_tags(context, additional_tags)
     client = Client(f'https://{context.environment_variables.stack_id}', context.environment_variables.token)
-    client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
+    return client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
 
 
 def build_tags_query_filter(tags: list[str]) -> str:
