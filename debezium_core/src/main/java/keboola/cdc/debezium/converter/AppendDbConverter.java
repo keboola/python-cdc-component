@@ -59,7 +59,7 @@ public class AppendDbConverter extends AbstractDbConverter implements JsonConver
 				log.debug("Preparing column: {}", element.field());
 				if (getSchema().putIfAbsent(element.field(), element) == null) {
 					log.debug("Alter {} add column: {}", this.tableName, element);
-					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN {1} {2};",
+					stmt.execute(MessageFormat.format("ALTER TABLE {0} ADD COLUMN \"{1}\" {2};",
 							this.tableName, element.field(), element.dbType()));
 				}
 			}

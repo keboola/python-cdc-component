@@ -34,7 +34,7 @@ SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
 
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
 
-DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
+DUCK_DB_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'duckdb_stage')
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
@@ -121,7 +121,8 @@ class MySqlCDCComponent(ComponentBase):
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 duckdb_config=DuckDBParameters(self.duck_db_path,
+                                                                                self.duck_db_tmp_dir),
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )
@@ -161,6 +162,12 @@ class MySqlCDCComponent(ComponentBase):
         tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
         os.remove(tmpdb.name)
         return tmpdb.name
+
+    @cached_property
+    def duck_db_tmp_dir(self):
+        path = os.path.join(DUCK_DB_DIR, 'dbtmp')
+        os.makedirs(path, exist_ok=True)
+        return path
 
     def get_newly_added_tables(self) -> list[str]:
         """
@@ -271,7 +278,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         # TODO: support all stacks
-        existing_file, tags = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
+        existing_file, tags, rid = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
 
         if existing_file and not self.is_initial_run:
             shutil.move(existing_file, self._temp_schema_history_file)
@@ -362,11 +369,15 @@ class MySqlCDCComponent(ComponentBase):
         if (self._configuration.destination.load_type in ('append_incremental', 'append_full')
                 and table_key != SCHEMA_CHANGE_TABLE_NAME):
             schema.primary_keys = []
+        elif not schema.primary_keys:
+            logging.warning(f"No primary keys found for table {table_key}, building primary key using all attributes.")
+            schema.primary_keys = [c.name for c in schema.fields if c not in self.SYSTEM_COLUMNS]
 
         self._convert_to_snowflake_column_definitions(schema.fields)
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")
+
         self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
                                     list(result_schema.keys()))
 
@@ -482,9 +493,8 @@ class MySqlCDCComponent(ComponentBase):
         Returns:
 
         """
-        # TODO: Dedupe only when not init sync with no additional events.
         return self._configuration.destination.load_type not in (
-            'append_incremental', 'append_full')
+            'append_incremental', 'append_full') and not self.is_initial_run
 
     def generate_output_bucket_name(self):
         """
@@ -540,6 +550,9 @@ class MySqlCDCComponent(ComponentBase):
             logging.warning("Initial run with snapshot mode 'Changes Only'."
                             " Running schema only recovery to record table schema. "
                             "The actual sync will start next execution")
+        elif self.is_initial_run:
+            # run only initial snapshot at the start
+            snapshot_mode = 'initial_only'
         else:
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
         return snapshot_mode

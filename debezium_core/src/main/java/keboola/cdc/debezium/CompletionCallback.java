@@ -36,12 +36,8 @@ public class CompletionCallback implements DebeziumEngine.CompletionCallback {
 		this.executorService.shutdown();
 	}
 
-	public String getErrorMessage() {
-		if (this.error != null) {
-			return this.error.getMessage() + ": " + this.error.getCause().getMessage();
-		} else {
-			return this.errorMessage;
-		}
+	public Exception getException() {
+		return this.error != null ? new Exception(this.error) : new Exception(this.errorMessage);
 	}
 
 }

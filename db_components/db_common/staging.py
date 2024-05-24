@@ -254,6 +254,7 @@ class DuckDBStagingExporter:
                                                           "{table}"
                                                           QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
                                                            ORDER BY "{order_by_column}"::BIGINT DESC) = 1"""
+            logging.debug(sql_create)
 
             self._connection.execute(sql_create)
 

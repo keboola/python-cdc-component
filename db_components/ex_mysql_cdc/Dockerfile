@@ -3,6 +3,10 @@ FROM python:3.11-bookworm
 ENV PYTHONIOENCODING utf-8
 ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_components/debezium
 
+ENV TMPDIR=/opt/tmpdir
+
+RUN mkdir -p /opt/tmpdir
+
 # Install required packages
 RUN apt update && \
     apt install -y \

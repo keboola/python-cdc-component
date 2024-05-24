@@ -67,20 +67,6 @@ jobs:
       DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
     secrets: inherit
 
-  build-python-postgres-cdc-duck:
-    name: Build and Push Postgres CDC duck image
-    needs:
-      - build-java
-      - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
-    with:
-      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
-    secrets: inherit
-
   tests:
     runs-on: ubuntu-latest
     needs:
@@ -143,38 +129,6 @@ jobs:
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
-    secrets: inherit
-
-  deploy-ex-postgres-cdc-duck:
-    name: Deploy ex-postgres-cdc-duck
-    if: |
-      (
-        startsWith(github.ref, 'refs/tags/') &&
-        (
-          (needs.build-python.outputs.is_semantic_tag == 'true') &&
-          (
-            contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
-            contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
-            contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
-            contains(needs.build-python.outputs.app_image_tag, 'General') ||
-            contains(needs.build-python.outputs.app_image_tag, 'general') ||
-            contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-          )
-        )
-      )
-    needs:
-      - build-python
-      - tests
-      - tests-kbc
-      - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@update-postgre-pipeline # change to main before deploy!
-    with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
-      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
