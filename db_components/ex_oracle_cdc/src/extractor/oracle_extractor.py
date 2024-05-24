@@ -8,7 +8,9 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_oracle_cdc.src.configuration import DbOptions
+
+from db_components.ex_oracle_cdc.src.configuration import DbOptions, HeartBeatConfig
+
 
 JDBC_PATH = '../jdbc/ojdbc8.jar'
 
@@ -88,7 +90,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
-                                 repl_suffix: str = 'dbz') -> str:
+                                 heartbeat_config: HeartBeatConfig = None) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -111,7 +113,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                              snapshot.
         snapshot_mode: 'initial' or 'never'
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
-        repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
+        heartbeat_config:
 
     Returns:
 
@@ -149,9 +151,14 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "signal.data.collection": signal_table,
         "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
         "schema.history.internal.file.filename": schema_history_filepath,
-        "schema.history.internal.store.only.captured.tables.ddl": "true"
-        # "heartbeat.interval.ms": 5000
+        "schema.history.internal.store.only.captured.tables.ddl": "true",
+        "log.mining.archive.destination.name": "LOG_ARCHIVE_DEST_1",
+        "log.mining.strategy": "online_catalog"
     }
+
+    if heartbeat_config:
+        properties["heartbeat.interval.ms"] = heartbeat_config.interval_ms
+        properties["heartbeat.action.query"] = heartbeat_config.action_query
 
     properties |= additional_properties
     logging.info(f"Oracle properties: {properties}")
@@ -230,16 +237,18 @@ class OracleDebeziumExtractor:
     def get_tables(self):
         query = """
         SELECT
-            cdt.owner, cdt.table_name
-        FROM dba_tables cdt
+               cdt.owner, cdt.table_name
+             , decode(dlg.log_group_type, 'ALL COLUMN LOGGING', 'OK', 'PRIMARY KEY LOGGING'
+             , 'PARTIALLY (NOT ALL COLUMNS)', 'NOT SET') AS "suppLogSetting"
+             , dlg.*
+          FROM dba_tables cdt
             JOIN dba_users du ON (du.username = cdt.owner)
-            JOIN dba_log_groups dlg ON (dlg.owner = cdt.owner AND dlg.table_name = cdt.table_name)
-        WHERE du.oracle_maintained = 'N'
-            AND du.username NOT IN (?)
+            LEFT OUTER JOIN dba_log_groups dlg ON (dlg.owner = cdt.owner AND dlg.table_name = cdt.table_name)
+         WHERE du.oracle_maintained = 'N'
+           AND du.username NOT IN (?)
         """
-        results = set(tuple(row) for row in self.connection.perform_query(query, [self.user]))
+        results = set(tuple(row) for row in self.connection.perform_query(query, [self.user])) # noqa
         return results
-
 
     def close_connection(self):
         logging.debug("Closing the outer connection.")

@@ -65,6 +65,6 @@ jobs:
         app_id: ${{ inputs.KBC_DEVELOPERPORTAL_VENDOR }}.${{ inputs.APP_ID }}
         username: ${{ inputs.KBC_DEVELOPERPORTAL_USERNAME }}
         password: ${{ secrets.KBC_DEVELOPERPORTAL_PASSWORD }}
-        tag: 0.0.9 # ${{ steps.tag.outputs.app_image_tag }}
+        tag: 0.0.10 # ${{ steps.tag.outputs.app_image_tag }}
         push_latest: ${{ steps.tag.outputs.is_semantic_tag }}
         source_image: ${{ inputs.APP_NAME }}

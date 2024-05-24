@@ -186,11 +186,15 @@ class DebeziumExecutor:
 
         # create signal
         signal = SnapshotSignal(snapshot_id=uuid.uuid4().hex, table_names=table_names, snapshot_type=snapshot_type)
+
         # send signal
-        result = self._source_connection.perform_query(
+        query = (
             f"INSERT INTO {self.parsed_properties['signal.data.collection']} "
             f"(id, type, data) VALUES ('{signal.id}', '{signal.type}', "
-            f"'{json.dumps(signal.as_dict()['data'])}')")
+            f"'{json.dumps(signal.as_dict()['data'])}')"
+        )
+        logging.debug(f'Sending signal: {query}')
+        result = self._source_connection.perform_query(query)
 
         logging.info(f'Signal sent: {list(result)}')
 

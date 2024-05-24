@@ -78,6 +78,7 @@ class OracleComponent(ComponentBase):
             self._reconstruct_offset_from_state()
             self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
+            heartbeat_config = sync_options.heartbeat_config if sync_options.enable_heartbeat else None
 
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
@@ -96,7 +97,8 @@ class OracleComponent(ComponentBase):
                 signal_table=sync_options.source_signal_table,
                 snapshot_fetch_size=sync_options.snapshot_fetch_size,
                 snapshot_max_threads=sync_options.snapshot_threads,
-                repl_suffix=self._build_unique_replication_suffix()
+                additional_properties=None,
+                heartbeat_config=heartbeat_config
             )
 
             self._collect_source_metadata()
@@ -270,15 +272,15 @@ class OracleComponent(ComponentBase):
         table_schemas = dict()
         tables_to_collect = self._configuration.source_settings.tables
         # in cae the signalling table is not in the synced tables list
-        if self._configuration.sync_options.source_signal_table not in tables_to_collect:
-            tables_to_collect.append(self._configuration.sync_options.source_signal_table)
+        # if self._configuration.sync_options.source_signal_table not in tables_to_collect:
+        #   tables_to_collect.append(self._configuration.sync_options.source_signal_table)
 
         for table in tables_to_collect:
-            schema, table = table.split('.')
+            schema, table_name = table.split('.')
 
             ts = self._client.metadata_provider.get_table_metadata(database=schema,
-                                                                   table_name=table)
-            table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table}"] = ts
+                                                                   table_name=table_name)
+            table_schemas[f"{DEFAULT_TOPIC_NAME}_{schema}_{table_name}"] = ts
 
         # schema changes table
         table_schemas[SCHEMA_CHANGE_TABLE_NAME] = get_schema_change_table_metadata(
