@@ -41,8 +41,6 @@ class TestComponent(unittest.TestCase):
         random_id = uuid.uuid4()
         with open(test_file, 'w+') as f:
             json.dump({"test": f"{random_id}"}, f)
-        # sleep for 5 seconds to give the artefact time to be stored
-        time.sleep(5)
         result_id = artefacts.store_artefact(test_file, self.ci)
         print(f"Result id: {result_id}")
         # get artefact
@@ -52,7 +50,11 @@ class TestComponent(unittest.TestCase):
                          f'456-config_row_id',
                          f'789-branch_id']
 
-        file_path, tags = artefacts.get_artefact('test_data.json', self.ci)
+        # sleep for 5 seconds to give the artefact time to be stored
+        time.sleep(5)
+
+        file_path, tags, result_file_id = artefacts.get_artefact('test_data.json', self.ci)
+        self.assertEqual(result_file_id, result_id)
         with open(file_path) as f:
             result = json.load(f)
         # content equals

@@ -53,7 +53,7 @@ def build_tags_query_filter(tags: list[str]) -> str:
 
 
 def get_artefact(artefact_file_name: str, context: CommonInterface,
-                 additional_tags: list[str] = None) -> tuple[str, list[str]]:
+                 additional_tags: list[str] = None) -> tuple[str, list[str], str]:
     """
     Gets the artefact in the context with the given artefact_name. Note that the context must contain forwarded token.
     Args:
@@ -79,4 +79,4 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
         temp_file_path = client.files.download(result_files[0]['id'], temp_dir)
         tags = result_files[0]['tags']
 
-    return temp_file_path, tags
+    return temp_file_path, tags, result_files[0]['id']

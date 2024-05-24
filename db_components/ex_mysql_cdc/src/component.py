@@ -271,7 +271,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         # TODO: support all stacks
-        existing_file, tags = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
+        existing_file, tags, rid = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
 
         if existing_file and not self.is_initial_run:
             shutil.move(existing_file, self._temp_schema_history_file)
