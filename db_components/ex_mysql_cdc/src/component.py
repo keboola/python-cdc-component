@@ -121,7 +121,8 @@ class MySqlCDCComponent(ComponentBase):
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 duckdb_config=DuckDBParameters(self.duck_db_path,
+                                                                                self.duck_db_tmp_dir),
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )
@@ -161,6 +162,12 @@ class MySqlCDCComponent(ComponentBase):
         tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
         os.remove(tmpdb.name)
         return tmpdb.name
+
+    @cached_property
+    def duck_db_tmp_dir(self):
+        path = os.path.join(DUCK_DB_DIR, 'dbtmp')
+        os.makedirs(path, exist_ok=True)
+        return path
 
     def get_newly_added_tables(self) -> list[str]:
         """

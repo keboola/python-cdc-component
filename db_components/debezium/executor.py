@@ -37,6 +37,7 @@ class SnapshotSignal:
 @dataclass
 class DuckDBParameters:
     db_path: str
+    tmp_dir_path: str
     max_threads: int = 6
     memory_limit: str = '2GB'
     memory_max: str = '1GB'
@@ -107,6 +108,7 @@ class DebeziumExecutor:
         temp_file = tempfile.NamedTemporaryFile(suffix='_keboola.properties', delete=False)
         with open(temp_file.name, 'w+') as config_file:
             config_file.write(f'keboola.duckdb.db.path={duckdb_config.db_path}\n')
+            config_file.write(f'keboola.duckdb.temp.directory={duckdb_config.tmp_dir_path}\n')
             config_file.write(f'keboola.duckdb.max.threads={duckdb_config.max_threads}\n')
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
@@ -261,10 +263,10 @@ class DebeziumExecutor:
                     log_out.write(line_str)
                     # Stream stderr
             for line in iter(process.stderr.readline, b''):
-                        line_str = line.decode('utf-8').rstrip('\n')
-                        logging.error(line_str)
-                        if self.logger_options.result_log_path:
-                            log_out.write(line_str)
+                line_str = line.decode('utf-8').rstrip('\n')
+                logging.error(line_str)
+                if self.logger_options.result_log_path:
+                    log_out.write(line_str)
 
         process.stdout.close()
         process.wait()

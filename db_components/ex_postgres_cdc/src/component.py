@@ -6,30 +6,29 @@ import base64
 import logging
 import os
 import shutil
-
-from keboola.component import CommonInterface
-
-DUCK_DB_DIR = os.path.join('/tmp', 'duckdb_stage')
 import tempfile
 import time
 from contextlib import contextmanager
 from functools import cached_property
 
+from keboola.component import CommonInterface
 from keboola.component.base import ComponentBase, sync_action
 from keboola.component.dao import TableDefinition
 from keboola.component.exceptions import UserException
 # configuration variables
 from keboola.component.sync_actions import SelectElement, ValidationResult
 
-from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor, \
     PostgresBaseTypeConverter
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import SUPPORTED_TYPES
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import build_postgres_property_file
-from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
+
+DUCK_DB_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'duckdb_stage')
 
 KEY_DEBEZIUM_SCHEMA = 'last_debezium_schema'
 
@@ -110,6 +109,7 @@ class PostgresCDCComponent(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             duckdb_config = DuckDBParameters(self.duck_db_path,
+                                             self.duck_db_tmp_dir,
                                              dedupe_max_chunk_size=sync_options.dedupe_max_chunk_size)
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
@@ -150,7 +150,7 @@ class PostgresCDCComponent(ComponentBase):
     def cleanup_duckdb(self):
         # cleanup duckdb (useful for local dev,to clean resources)
         if os.path.exists(DUCK_DB_DIR):
-            shutil.rmtree(DUCK_DB_DIR)
+            shutil.rmtree(DUCK_DB_DIR, ignore_errors=True)
 
     @cached_property
     def duck_db_path(self):
@@ -159,6 +159,13 @@ class PostgresCDCComponent(ComponentBase):
         tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
         os.remove(tmpdb.name)
         return tmpdb.name
+
+    @cached_property
+    def duck_db_tmp_dir(self):
+        path = os.path.join(DUCK_DB_DIR, 'dbtmp')
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+        return path
 
     @property
     def logging_type(self) -> str:
