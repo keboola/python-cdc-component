@@ -243,8 +243,10 @@ class DebeziumExecutor:
 
         additional_args = DebeziumExecutor._build_args_from_dict({"pf": self._keboola_properties_path,
                                                                   "md": max_duration_s, "mw": max_wait_s, "m": mode})
-        args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', '-jar', self._jar_path] + [
-            self._properties_path, result_folder_path] + additional_args
+        tempdir_override = f"-Djava.io.tmpdir={os.environ.get('TMPDIR', '/tmp')}"
+        args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', tempdir_override,
+                '-jar', self._jar_path] + [
+                   self._properties_path, result_folder_path] + additional_args
         process = subprocess.Popen(args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
