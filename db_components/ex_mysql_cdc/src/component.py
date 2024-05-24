@@ -362,11 +362,15 @@ class MySqlCDCComponent(ComponentBase):
         if (self._configuration.destination.load_type in ('append_incremental', 'append_full')
                 and table_key != SCHEMA_CHANGE_TABLE_NAME):
             schema.primary_keys = []
+        elif not schema.primary_keys:
+            logging.warning(f"No primary keys found for table {table_key}, building primary key using all attributes.")
+            schema.primary_keys = [c.name for c in schema.fields if c not in self.SYSTEM_COLUMNS]
 
         self._convert_to_snowflake_column_definitions(schema.fields)
         table_definition = self.create_out_table_definition_from_schema(schema, incremental=incremental_load)
 
         logging.info(f"Creating table {table_key} in stage")
+
         self._staging.process_table(table_key, table_definition.full_path, self.dedupe_required(), schema.primary_keys,
                                     list(result_schema.keys()))
 
