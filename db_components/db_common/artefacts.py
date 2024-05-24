@@ -74,9 +74,10 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
 
     temp_file_path = None
     tags = []
+    result_id = None
     if result_files:
         temp_dir = tempfile.mkdtemp()
         temp_file_path = client.files.download(result_files[0]['id'], temp_dir)
         tags = result_files[0]['tags']
-
-    return temp_file_path, tags, result_files[0]['id']
+        result_id = result_files[0]['id']
+    return temp_file_path, tags, result_id
