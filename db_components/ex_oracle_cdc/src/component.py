@@ -617,7 +617,16 @@ class OracleComponent(ComponentBase):
             if not self._configuration.source_settings.schemas:
                 raise UserException("Schema must be selected first!")
             tables = self._client.get_tables()
-            return [SelectElement(f"{table[0]}.{table[1]}") for table in tables]
+
+            result = [
+                SelectElement(
+                    value=f"{table[0]}.{table[1]}",
+                    label=f"{table[0]}.{table[1]}{' - SUPPLEMENTAL LOGGING NOT ENABLED' if table[2] != 'OK' else ''}"
+                )
+                for table in tables
+            ]
+
+            return result
 
     @sync_action("generate_ssh_key")
     def generate_ssh_key(self):
