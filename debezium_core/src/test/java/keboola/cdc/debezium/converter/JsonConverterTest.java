@@ -45,6 +45,7 @@ class JsonConverterTest {
 				() -> Assertions.assertEquals("ccc", rs.getString("name")),
 				() -> Assertions.assertEquals("hafanana", rs.getString("description")),
 				() -> Assertions.assertNull(rs.getString("weight")),
+				() -> Assertions.assertTrue(Double.isNaN(rs.getDouble("weight-with-dash"))),
 				() -> Assertions.assertEquals(LocalDateTime.parse("2023-01-01T12:34:56.789"),
 						rs.getTimestamp("timestamp_col").toLocalDateTime()),
 				() -> Assertions.assertEquals("u", rs.getString("kbc__operation")),

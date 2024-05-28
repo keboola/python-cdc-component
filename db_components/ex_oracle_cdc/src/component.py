@@ -78,6 +78,7 @@ class OracleComponent(ComponentBase):
             self._reconstruct_offset_from_state()
             self._reconstruct_schema_history_file()
             sync_options = self._configuration.sync_options
+            source_settings = self._configuration.source_settings
             heartbeat_config = sync_options.heartbeat_config if sync_options.enable_heartbeat else None
 
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
@@ -90,8 +91,10 @@ class OracleComponent(ComponentBase):
                 database=db_config.database,
                 p_database=db_config.p_database,
                 offset_file_path=self._temp_offset_file.name,
-                schema_whitelist=self._configuration.source_settings.schemas,
-                table_whitelist=self._configuration.source_settings.tables,
+                schema_whitelist=source_settings.schemas,
+                table_whitelist=source_settings.tables,
+                column_filter_type=source_settings.column_filter_type,
+                column_filter=source_settings.column_filter,
                 schema_history_filepath=self._temp_schema_history_file,
                 snapshot_mode=self.get_snapshot_mode(),
                 signal_table=sync_options.source_signal_table,
@@ -115,7 +118,8 @@ class OracleComponent(ComponentBase):
             logging.info(f"Logging properties: {logging_properties}")
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path),
+                                                 duckdb_config=DuckDBParameters(self.duck_db_path,
+                                                                                self.duck_db_tmp_dir),
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection)
@@ -156,6 +160,12 @@ class OracleComponent(ComponentBase):
         tmpdb = tempfile.NamedTemporaryFile(suffix='_duckdb_stage.duckdb', delete=False, dir=duckdb_dir)
         os.remove(tmpdb.name)
         return tmpdb.name
+
+    @cached_property
+    def duck_db_tmp_dir(self):
+        path = os.path.join(DUCK_DB_DIR, 'dbtmp')
+        os.makedirs(path, exist_ok=True)
+        return path
 
     @cached_property
     def last_debezium_schema(self) -> dict:
@@ -248,7 +258,7 @@ class OracleComponent(ComponentBase):
 
         """
         # TODO: support all stacks
-        existing_file, tags = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
+        existing_file, tags, rid = artefacts.get_artefact(SCHEMA_HISTORY_FILENAME, self, ['debezium'])
 
         if existing_file and not self.is_initial_run:
             shutil.move(existing_file, self._temp_schema_history_file)

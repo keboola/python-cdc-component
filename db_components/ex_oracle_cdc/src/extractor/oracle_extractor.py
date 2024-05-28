@@ -9,7 +9,7 @@ from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
 
-from db_components.ex_oracle_cdc.src.configuration import DbOptions, HeartBeatConfig
+from db_components.ex_oracle_cdc.src.configuration import DbOptions, HeartBeatConfig, ColumnFilterType
 
 
 JDBC_PATH = '../jdbc/ojdbc8.jar'
@@ -21,34 +21,48 @@ class ExtractorUserException(Exception):
 
 # noinspection PyCompatibility
 class OracleBaseTypeConverter(BaseTypeConverter):
-    MAPPING = {"tinyint": "INTEGER",
-               "smallint": "INTEGER",
-               "mediumint": "INTEGER",
-               "int": "INTEGER",
-               "bigint": "INTEGER",
-               "decimal": "NUMERIC",
-               "float": "NUMERIC",
-               "double": "NUMERIC",
-               "bit": "STRING",
-               "date": "DATE",
-               "datetime": "TIMESTAMP",
-               "timestamp": "TIMESTAMP",
-               "time": "TIMESTAMP",
-               "year": "INTEGER",
-               "char": "STRING",
-               "varchar": "STRING",
-               "binary": "STRING",
-               "varbinary": "STRING",
-               "tinyblob": "STRING",
-               "blob": "STRING",
-               "mediumblob": "STRING",
-               "longblob": "STRING",
-               "tinytext": "STRING",
-               "text": "STRING",
-               "mediumtext": "STRING",
-               "longtext": "STRING",
-               "enum": "STRING",
-               "set": "STRING"}
+    MAPPING = {
+        "tinyint": "INTEGER",
+        "smallint": "INTEGER",
+        "mediumint": "INTEGER",
+        "int": "INTEGER",
+        "integer": "INTEGER",
+        "bigint": "INTEGER",
+        "decimal": "NUMBER",
+        "dec": "NUMBER",
+        "numeric": "NUMBER",
+        "float": "FLOAT",
+        "double": "DOUBLE",
+        "real": "FLOAT",
+        "binary_float": "FLOAT",
+        "binary_double": "DOUBLE",
+        "bit": "BOOLEAN",
+        "date": "DATE",
+        "datetime": "TIMESTAMP",
+        "timestamp": "TIMESTAMP_NTZ",
+        "time": "TIME",
+        "year": "INTEGER",
+        "char": "CHAR",
+        "nchar": "CHAR",
+        "varchar": "VARCHAR",
+        "nvarchar": "VARCHAR",
+        "varchar2": "VARCHAR",
+        "nvarchar2": "VARCHAR",
+        "clob": "STRING",
+        "nclob": "STRING",
+        "binary": "BINARY",
+        "varbinary": "BINARY",
+        "blob": "BINARY",
+        "long": "STRING",
+        "raw": "BINARY",
+        "long raw": "BINARY",
+        "bfile": "STRING",
+        "rowid": "STRING",
+        "urowid": "STRING",
+        "json": "VARIANT",
+        "xml": "STRING",
+        "anydata": "VARIANT"
+    }
 
     def __call__(self, source_type: str, length: Optional[str] = None) -> str:
         source_type_lower = source_type.lower()
@@ -61,29 +75,59 @@ class OracleBaseTypeConverter(BaseTypeConverter):
                 return self.MAPPING.get(source_type_lower, 'STRING')
 
 
-SUPPORTED_TYPES = ["smallint",
-                   "integer",
-                   "bigint",
-                   "decimal",
-                   "numeric",
-                   "real",
-                   "double",
-                   "smallserial",
-                   "serial",
-                   "bigserial",
-                   "timestamp",
-                   "date",
-                   "time",
-                   "boolean",
-                   "varchar",
-                   "char",
-                   "text"]
+SUPPORTED_TYPES = [
+    "tinyint",
+    "smallint",
+    "mediumint",
+    "integer",
+    "bigint",
+    "decimal",
+    "numeric",
+    "float",
+    "double",
+    "real",
+    "binary_float",
+    "binary_double",
+    "boolean",
+    "bit",
+    "timestamp",
+    "timestamp_ntz",
+    "timestamp_ltz",
+    "timestamp_tz",
+    "datetime",
+    "date",
+    "time",
+    "year",
+    "char",
+    "nchar",
+    "varchar",
+    "nvarchar",
+    "varchar2",
+    "nvarchar2",
+    "clob",
+    "nclob",
+    "text",
+    "long",
+    "binary",
+    "varbinary",
+    "blob",
+    "long raw",
+    "bfile",
+    "rowid",
+    "urowid",
+    "json",
+    "xml",
+    "variant",
+    "anydata"
+]
 
 
 def build_debezium_property_file(user: str, password: str, hostname: str, port: str, database: str, p_database: str,
                                  offset_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
+                                 column_filter_type: ColumnFilterType,
+                                 column_filter: list[str],
                                  schema_history_filepath: str,
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
@@ -106,6 +150,8 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         offset_file_path: Path to the file where the connector will store the offset.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
+        column_filter_type: Type of column filter, 'none', 'exclude' or 'include'
+        column_filter: List of columns to include or exclude.
         schema_history_filepath: Path to the file where the connector will store the schema history (dbhistory.dat).
         additional_properties:
         snapshot_max_threads:
@@ -159,6 +205,11 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
     if heartbeat_config:
         properties["heartbeat.interval.ms"] = heartbeat_config.interval_ms
         properties["heartbeat.action.query"] = heartbeat_config.action_query
+
+    if column_filter_type != ColumnFilterType.none:
+        filter_key = f"column.{column_filter_type.value}.list"
+        filter_value = ','.join(column_filter)
+        properties[filter_key] = filter_value
 
     properties |= additional_properties
     logging.info(f"Oracle properties: {properties}")
