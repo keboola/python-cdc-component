@@ -16,7 +16,7 @@ def run(context: TestDataDir):
     # get value from the context parameters injected via DataDirTester constructor
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
     sql_client.connection.connect()
-
+    sql_client.perform_query('RESET MASTER;')
     sql_client.prepare_initial_table('products_table.sql')
     sql_client.perform_query('ALTER DATABASE inventory CHARACTER SET = latin1 COLLATE = latin1_swedish_ci;')
     sql_client.connection.close()
