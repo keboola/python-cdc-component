@@ -50,18 +50,17 @@ class OracleBaseTypeConverter(BaseTypeConverter):
         "nvarchar2": "STRING",
         "clob": "STRING",
         "nclob": "STRING",
-        "binary": "BINARY",
-        "varbinary": "BINARY",
-        "blob": "BINARY",
+        "binary": "STRING",
+        "varbinary": "STRING",
+        "blob": "STRING",
         "long": "STRING",
-        "raw": "BINARY",
-        "long raw": "BINARY",
+        "raw": "STRING",
+        "long raw": "STRING",
         "bfile": "STRING",
         "rowid": "STRING",
         "urowid": "STRING",
-        "json": "VARIANT",
-        "xml": "STRING",
-        "anydata": "VARIANT"
+        "json": "STRING",
+        "xml": "STRING"
     }
 
     def __call__(self, source_type: str, length: Optional[str] = None) -> str:
