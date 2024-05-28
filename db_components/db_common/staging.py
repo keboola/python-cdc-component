@@ -15,6 +15,8 @@ import duckdb
 from duckdb.duckdb import DuckDBPyConnection
 
 from db_components.db_common.table_schema import TableSchema
+
+
 # from db_components.db_common.workspace_client import SnowflakeClient
 
 
@@ -191,8 +193,8 @@ class DuckDBStagingExporter:
 
             select_columns = ','.join(all_columns)
             offload_query = (
-                f"COPY (SELECT {select_columns} FROM {table_name}{order_by}) "
-                f"TO \'{result_table_path}\' (HEADER {include_header}, DELIMITER \',\');")
+                f'COPY (SELECT {select_columns} FROM "{table_name}"{order_by}) '
+                f'TO \'{result_table_path}\' (HEADER {include_header}, DELIMITER \',\');')
 
             logging.debug(offload_query)
             self._connection.execute(offload_query)
@@ -236,8 +238,7 @@ class DuckDBStagingExporter:
         # unique_id_concat = 'kbc__primary_key'
         id_cols = self.wrap_columns_in_quotes(primary_keys)
         id_cols_str = ','.join([f'{col}' for col in id_cols])
-        unique_id_concat = (f"CONCAT_WS('|',{id_cols_str},"
-                            f"\"{order_by_column}\")")
+        unique_id_concat = f"CONCAT_WS('|',{id_cols_str})"
         # MAP
         # make sure the tables are sorted, the order represents order of events in the slice
         new_tables.sort(reverse=False)
@@ -252,6 +253,8 @@ class DuckDBStagingExporter:
                                                           "{table}"
                                                           QUALIFY ROW_NUMBER() OVER (PARTITION BY {id_cols_str}
                                                            ORDER BY "{order_by_column}"::BIGINT DESC) = 1"""
+            logging.debug(sql_create)
+
             self._connection.execute(sql_create)
 
             # colect pkeys:
@@ -278,9 +281,17 @@ class DuckDBStagingExporter:
             self._connection.execute(f"DROP TABLE SLICE_{slice_nr - 1 - index}")
 
     def get_table_chunks(self, table_name: str) -> list[str]:
+        """
+        Get all chunks of the table. The chunks are created by the debezium core.
+        Args:
+            table_name:
+
+        Returns:
+
+        """
         table_chunks = []
         for t in self.get_extracted_tables():
-            if t == table_name or ('_chunk_' in t and t.startswith(table_name)):
+            if t == table_name or (table_name == t.rsplit('_chunk_', 1)[0]):
                 table_chunks.append(t)
         return table_chunks
 

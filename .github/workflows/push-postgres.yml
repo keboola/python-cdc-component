@@ -31,45 +31,36 @@ jobs:
       PGSQL_DATABASE: ${{ steps.step1.outputs.PGSQL_DATABASE }}
       PGSQL_PORT: ${{ steps.step1.outputs.PGSQL_PORT }}
     steps:
-    - name: Assigns inputs passed to the reusable workflow
-      id: step1
-      run: |
-        echo "APP_NAME1=$APP_NAME1" >> $GITHUB_OUTPUT
-        echo "APP_NAME2=$APP_NAME2" >> $GITHUB_OUTPUT
-        echo "KBC_DEVELOPERPORTAL_VENDOR=$KBC_DEVELOPERPORTAL_VENDOR" >> $GITHUB_OUTPUT
-        echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
-        echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
-        echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
-        echo "PGSQL_HOST=$PGSQL_HOST" >> $GITHUB_OUTPUT
-        echo "PGSQL_USER=$PGSQL_USER" >> $GITHUB_OUTPUT
-        echo "PGSQL_DATABASE=$PGSQL_DATABASE" >> $GITHUB_OUTPUT
-        echo "PGSQL_PORT=$PGSQL_PORT" >> $GITHUB_OUTPUT
+      - name: Assigns inputs passed to the reusable workflow
+        id: step1
+        run: |
+          echo "APP_NAME1=$APP_NAME1" >> $GITHUB_OUTPUT
+          echo "APP_NAME2=$APP_NAME2" >> $GITHUB_OUTPUT
+          echo "KBC_DEVELOPERPORTAL_VENDOR=$KBC_DEVELOPERPORTAL_VENDOR" >> $GITHUB_OUTPUT
+          echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
+          echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
+          echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
+          echo "PGSQL_HOST=$PGSQL_HOST" >> $GITHUB_OUTPUT
+          echo "PGSQL_USER=$PGSQL_USER" >> $GITHUB_OUTPUT
+          echo "PGSQL_DATABASE=$PGSQL_DATABASE" >> $GITHUB_OUTPUT
+          echo "PGSQL_PORT=$PGSQL_PORT" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@main
+
+  test-python-common:
+    uses: keboola/python-cdc-component/.github/workflows/test-python-common.yml@main
+    secrets: inherit
 
   build-python:
     name: Build and Push Postgres CDC image
     needs:
       - build-java
       - variables
+      - test-python-common
     uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
     with:
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
-    secrets: inherit
-
-  build-python-postgres-cdc-duck:
-    name: Build and Push Postgres CDC duck image
-    needs:
-      - build-java
-      - variables
-    uses: keboola/python-cdc-component/.github/workflows/build.yml@update-postgre-pipeline
-    with:
-      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
@@ -115,20 +106,20 @@ jobs:
   deploy-ex-postgres-cdc:
     name: Deploy ex-postgres-cdc
     if: |
-       (
-         startsWith(github.ref, 'refs/tags/') &&
-         (
-           (needs.build-python.outputs.is_semantic_tag == 'true') &&
-           (
-             contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
-             contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
-             contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
-             contains(needs.build-python.outputs.app_image_tag, 'General') ||
-             contains(needs.build-python.outputs.app_image_tag, 'general') ||
-             contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-           )
-         )
-       )
+      (
+        startsWith(github.ref, 'refs/tags/') &&
+        (
+          (needs.build-python.outputs.is_semantic_tag == 'true') &&
+          (
+            contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
+            contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
+            contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
+            contains(needs.build-python.outputs.app_image_tag, 'General') ||
+            contains(needs.build-python.outputs.app_image_tag, 'general') ||
+            contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+          )
+        )
+      )
     needs:
       - build-python
       - tests
@@ -138,38 +129,6 @@ jobs:
     with:
       APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
       APP_ID: ${{ needs.variables.outputs.APP_NAME1 }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
-    secrets: inherit
-
-  deploy-ex-postgres-cdc-duck:
-    name: Deploy ex-postgres-cdc-duck
-    if: |
-       (
-         startsWith(github.ref, 'refs/tags/') &&
-         (
-           (needs.build-python.outputs.is_semantic_tag == 'true') &&
-           (
-             contains(needs.build-python.outputs.app_image_tag, 'Mysql') ||
-             contains(needs.build-python.outputs.app_image_tag, 'mysql') ||
-             contains(needs.build-python.outputs.app_image_tag, 'MYSQL') ||
-             contains(needs.build-python.outputs.app_image_tag, 'General') ||
-             contains(needs.build-python.outputs.app_image_tag, 'general') ||
-             contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-           )
-         )
-       )
-    needs:
-      - build-python
-      - tests
-      - tests-kbc
-      - variables
-    uses: keboola/python-cdc-component/.github/workflows/deploy.yml@update-postgre-pipeline # change to main before deploy!
-    with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME1 }}
-      APP_ID: ${{ needs.variables.outputs.APP_NAME2 }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}

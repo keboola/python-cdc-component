@@ -7,7 +7,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_postgres_cdc.src.configuration import DbOptions
+from db_components.ex_postgres_cdc.src.configuration import DbOptions, HeartBeatConfig, ColumnFilterType
 
 JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
 
@@ -19,55 +19,54 @@ class ExtractorUserException(Exception):
 class PostgresBaseTypeConverter(BaseTypeConverter):
     MAPPING = {"smallint": "INTEGER",
                "integer": "INTEGER",
+               "int2": "INTEGER",
+               "int4": "INTEGER",
+               "int8": "INTEGER",
                "bigint": "INTEGER",
                "decimal": "NUMERIC",
                "numeric": "NUMERIC",
+               "float4": "NUMERIC",
                "real": "NUMERIC",
                "double": "NUMERIC",
+               "float8": "NUMERIC",
+               "money": "NUMERIC",
                "smallserial": "INTEGER",
                "serial": "INTEGER",
+               "serial4": "INTEGER",
                "bigserial": "INTEGER",
+               "serial8": "INTEGER",
                "timestamp": "TIMESTAMP",
+               "timestamptz": "TIMESTAMP",
                "date": "DATE",
                "time": "TIMESTAMP",
+               "timetz": "TIMESTAMP",
                "boolean": "BOOLEAN",
+               "bool": "BOOLEAN",
                "varchar": "STRING",
                "char": "STRING",
+               "bpchar": "STRING",
                "text": "STRING"}
 
     def __call__(self, source_type: str, length: str = None) -> str:
-        return self.MAPPING.get(source_type, 'STRING')
+        return self.MAPPING.get(source_type.lower(), 'STRING')
 
 
-SUPPORTED_TYPES = ["smallint",
-                   "integer",
-                   "bigint",
-                   "decimal",
-                   "numeric",
-                   "real",
-                   "double",
-                   "smallserial",
-                   "serial",
-                   "bigserial",
-                   "timestamp",
-                   "date",
-                   "time",
-                   "boolean",
-                   "varchar",
-                   "char",
-                   "text"]
+SUPPORTED_TYPES = list(PostgresBaseTypeConverter.MAPPING.keys())
 
 
 def build_postgres_property_file(user: str, password: str, hostname: str, port: str, database: str,
                                  offset_file_path: str,
                                  schema_whitelist: list[str],
                                  table_whitelist: list[str],
+                                 column_filter_type: ColumnFilterType,
+                                 column_filter: list[str],
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  additional_properties: dict = None,
-                                 repl_suffix: str = 'dbz') -> str:
+                                 repl_suffix: str = 'dbz',
+                                 hearbeat_config: HeartBeatConfig = None) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -82,6 +81,8 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         offset_file_path: Path to the file where the connector will store the offset.
         schema_whitelist: List of schemas to sync.
         table_whitelist: List of tables to sync.
+        column_filter_type: Type of column filter, 'none', 'exclude' or 'include'
+        column_filter: List of columns to include or exclude.
         additional_properties:
         snapshot_max_threads:
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
@@ -89,6 +90,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_mode: 'initial' or 'never'
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
+        hearbeat_config: Configuration for the heartbeat signal.
 
     Returns:
 
@@ -101,6 +103,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
     table_include = ''
     if table_whitelist:
         table_include = ','.join(table_whitelist)
+
     properties = {
         # Engine properties
         "offset.storage": "org.apache.kafka.connect.storage.FileOffsetBackingStore",
@@ -127,6 +130,15 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         "plugin.name": "pgoutput",
         "signal.enabled.channels": "source",
         "signal.data.collection": signal_table}
+
+    if column_filter_type != ColumnFilterType.none:
+        filter_key = f"column.{column_filter_type.value}.list"
+        filter_value = ','.join(column_filter)
+        properties[filter_key] = filter_value
+
+    if hearbeat_config:
+        properties["heartbeat.interval.ms"] = hearbeat_config.interval_ms
+        properties["heartbeat.action.query"] = hearbeat_config.action_query
 
     properties |= additional_properties
 

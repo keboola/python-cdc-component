@@ -8,8 +8,7 @@
     "db_settings": {
       "type": "object",
       "format": "grid-strict",
-      "title": "Authorization",
-      "description": "The connector is based on Debezium Connector, for the Postgres setup follow the official <a href=\"https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions\">instructions</a>",
+      "title": "Connection Settings",
       "required": [
         "#password",
         "host",
@@ -113,6 +112,42 @@
             }
           },
           "propertyOrder": 102
+        },
+        "column_filter_type": {
+          "type": "string",
+          "title": "Column Filter Type",
+          "description": "If not specified all columns are synced. Define filters as list of regular expressions that match the fully-qualified names of columns that should be included or excluded from change event record values.",
+          "enum": [
+            "none",
+            "exclude",
+            "include"
+          ],
+          "default": "none",
+          "propertyOrder": 103
+        },
+        "column_filter": {
+          "title": "Column List",
+          "type": "array",
+          "format": "select",
+          "uniqueItems": true,
+          "options": {
+            "dependencies": {
+              "column_filter_type": [
+                "exclude",
+                "include"
+              ]
+            },
+            "tags": true,
+            "tooltip": "(comma separated list) of fully-qualified names for columns are of the form `schemaName.tableName.columnName`.\n\nTo match the name of a column, connector applies the regular expression that you specify as an **anchored regular expression**. That is, the expression is used to match the entire name string of the column; it does not match substrings that might be present in a column name.",
+            "inputAttributes": {
+              "placeholder": "schemaName.tableName.columnName"
+            }
+          },
+          "description": "Define filters as list of regular expressions that match the fully-qualified names of columns that should be filtered in change event record values.",
+          "items": {
+            "type": "string"
+          },
+          "propertyOrder": 105
         }
       }
     },
@@ -123,7 +158,7 @@
         "source_signal_table",
         "snapshot_mode"
       ],
-      "propertyOrder": 10,
+      "propertyOrder": 15,
       "properties": {
         "source_signal_table": {
           "title": "Signalling Table",
@@ -134,7 +169,7 @@
           "enum": [],
           "format": "select",
           "options": {
-            "tooltip": "You need to create a signaling table by submitting a standard SQL DDL query to the source database. \n\nThe following example shows a `CREATE TABLE` command that creates a three-column `debezium_signal` table: \n\n```sql\nCREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data VARCHAR(2048) NULL);\n``` \n\n **Note** that the connector must have write access to the signaling table.",
+            "tooltip": "You need to create a signaling table by submitting a standard SQL DDL query to the source database. \n\nThe following example shows a `CREATE TABLE` command that creates a three-column `debezium_signal` table: \n\n```sql\nCREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data TEXT NULL);\n``` \n\n **Note** that the connector must have write access to the signaling table.",
             "async": {
               "label": "Re-load tables",
               "action": "get_tables",

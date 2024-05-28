@@ -3,6 +3,7 @@
   "name": "ccc",
   "description": "hafanana",
   "weight": 100.0,
+  "weight-with-dash": 100.0,
   "kbc__operation": "u",
   "kbc__event_timestamp": 1710349868992,
   "__deleted": "false"

@@ -1,0 +1,10 @@
+keboola.component==1.4.4
+jaydebeapi==1.2.3
+dataconf
+jproperties==2.1.1
+pandas
+duckdb
+kbcstorage==0.7.2
+# tests
+mock
+freezegun

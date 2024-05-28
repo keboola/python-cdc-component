@@ -122,6 +122,9 @@ class DebeziumCDCDatadirTest(TestDataDir):
             if 'io_debezium_connector' in in_table and 'schema_changes' in in_table:
                 columns_to_remove = ['source', 'ts_ms']
 
+            if 'kbc_heartbeat' in in_table:
+                columns_to_remove.append('last_heartbeat')
+
             if not os.path.isdir(in_table):
                 self._remove_column_slice(f'{in_table}.manifest',
                                           in_table, columns_to_remove, order_by_column)

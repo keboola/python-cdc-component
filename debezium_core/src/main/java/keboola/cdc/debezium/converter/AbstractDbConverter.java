@@ -146,7 +146,7 @@ abstract class AbstractDbConverter implements JsonConverter {
 								   String name, Integer version, String field, boolean orderEvent) {
 
 		public String columnDefinition() {
-			return MessageFormat.format("{0} {1}", this.field, dbType());
+			return MessageFormat.format("\"{0}\" {1}", this.field, dbType());
 		}
 
 		boolean isDate() {

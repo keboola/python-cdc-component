@@ -75,16 +75,28 @@ class DbOptions(ConfigurationBase):
     ssh_options: SSHConfiguration = dataclasses.field(default_factory=lambda: ConfigTree({}))
 
 
+class ColumnFilterType(str, Enum):
+    none = "none"
+    exclude = "exclude"
+    include = "include"
 @dataclass
 class SourceSettings(ConfigurationBase):
     schemas: list[str] = dataclasses.field(default_factory=list)
     tables: list[str] = dataclasses.field(default_factory=list)
     primary_key: list[str] = dataclasses.field(default_factory=list)
+    column_filter_type: ColumnFilterType = ColumnFilterType.none
+    column_filter: List[str] = dataclasses.field(default_factory=list)
 
 
 class SnapshotMode(str, Enum):
     initial = "initial"
     never = "never"
+
+@dataclass
+class HeartBeatConfig(ConfigurationBase):
+    interval_ms: int = 3000
+    action_query: str = 'UPDATE kbc.heartbeat SET last_heartbeat = NOW()'
+
 
 
 @dataclass
@@ -95,6 +107,8 @@ class SyncOptions(ConfigurationBase):
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     dedupe_max_chunk_size: int = 5000000
+    enable_heartbeat: bool = False
+    heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
 
 
 class LoadType(str, Enum):

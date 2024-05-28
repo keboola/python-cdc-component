@@ -11,14 +11,13 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStreamReader;
 import java.sql.SQLException;
 
-
 class DedupeDbConverterTest {
 
 	@Test
 	public void simpleTest() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		var appendDbConverter = new DedupeDbConverter(new Gson(), dbWrapper, "simpleTestTable", initSchema);
 
 		appendDbConverter.processJson(readResource("singleData.json").getAsJsonObject());
@@ -32,6 +31,7 @@ class DedupeDbConverterTest {
 				() -> Assertions.assertEquals("ccc", rs.getString("name")),
 				() -> Assertions.assertEquals("hafanana", rs.getString("description")),
 				() -> Assertions.assertEquals(100.0, rs.getDouble("weight")),
+				() -> Assertions.assertEquals(100.0, rs.getDouble("weight-with-dash")),
 				() -> Assertions.assertEquals("u", rs.getString("kbc__operation")),
 				() -> Assertions.assertEquals(1710349868992L, rs.getLong("kbc__event_timestamp")),
 				() -> Assertions.assertEquals("false", rs.getString("__deleted"))
@@ -49,7 +49,7 @@ class DedupeDbConverterTest {
 		AbstractDebeziumTask.MAX_CHUNK_SIZE = 1;
 		final var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		final var appendDbConverter = new DedupeDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		final var dataArray = readResource("dataArray.json").getAsJsonArray();

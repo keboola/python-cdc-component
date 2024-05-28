@@ -37,6 +37,7 @@ class SnapshotSignal:
 @dataclass
 class DuckDBParameters:
     db_path: str
+    tmp_dir_path: str
     max_threads: int = 6
     memory_limit: str = '2GB'
     memory_max: str = '1GB'
@@ -107,6 +108,7 @@ class DebeziumExecutor:
         temp_file = tempfile.NamedTemporaryFile(suffix='_keboola.properties', delete=False)
         with open(temp_file.name, 'w+') as config_file:
             config_file.write(f'keboola.duckdb.db.path={duckdb_config.db_path}\n')
+            config_file.write(f'keboola.duckdb.temp.directory={duckdb_config.tmp_dir_path}\n')
             config_file.write(f'keboola.duckdb.max.threads={duckdb_config.max_threads}\n')
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
@@ -245,8 +247,10 @@ class DebeziumExecutor:
 
         additional_args = DebeziumExecutor._build_args_from_dict({"pf": self._keboola_properties_path,
                                                                   "md": max_duration_s, "mw": max_wait_s, "m": mode})
-        args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', '-jar', self._jar_path] + [
-            self._properties_path, result_folder_path] + additional_args
+        tempdir_override = f"-Djava.io.tmpdir={os.environ.get('TMPDIR', '/tmp')}"
+        args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', tempdir_override,
+                '-jar', self._jar_path] + [
+                   self._properties_path, result_folder_path] + additional_args
         process = subprocess.Popen(args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
@@ -261,6 +265,12 @@ class DebeziumExecutor:
             for line in iter(process.stdout.readline, b''):
                 line_str = line.decode('utf-8').rstrip('\n')
                 logging.info(line_str)
+                if self.logger_options.result_log_path:
+                    log_out.write(line_str)
+                    # Stream stderr
+            for line in iter(process.stderr.readline, b''):
+                line_str = line.decode('utf-8').rstrip('\n')
+                logging.error(line_str)
                 if self.logger_options.result_log_path:
                     log_out.write(line_str)
 

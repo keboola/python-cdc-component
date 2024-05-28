@@ -16,7 +16,7 @@ class AppendDbConverterTest {
 	public void simpleTest() throws SQLException {
 		var initSchema = readResource("initialSchema.json").getAsJsonArray();
 		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4,
-				"4G", "2G"));
+				"4G", "2G", "./tmp/dbtmp"));
 		var appendDbConverter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		appendDbConverter.processJson(readResource("singleData.json").getAsJsonObject());
@@ -30,6 +30,7 @@ class AppendDbConverterTest {
 				() -> Assertions.assertEquals("ccc", rs.getString("name")),
 				() -> Assertions.assertEquals("hafanana", rs.getString("description")),
 				() -> Assertions.assertEquals(100.0, rs.getDouble("weight")),
+				() -> Assertions.assertEquals(100.0, rs.getDouble("weight-with-dash")),
 				() -> Assertions.assertEquals("u", rs.getString("kbc__operation")),
 				() -> Assertions.assertEquals(1710349868992L, rs.getLong("kbc__event_timestamp")),
 				() -> Assertions.assertEquals("false", rs.getString("__deleted"))
@@ -45,7 +46,7 @@ class AppendDbConverterTest {
 	@Test
 	public void appendMoreData() throws SQLException {
 		final var initSchema = readResource("initialSchema.json").getAsJsonArray();
-		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4, "4G", "2G"));
+		var dbWrapper = new DuckDbWrapper(new DuckDbWrapper.Properties("", 4, "4G", "2G" , "./tmp/dbtmp"));
 		final var appendDbConverter = new AppendDbConverter(new Gson(), dbWrapper, "testTable", initSchema);
 
 		final var dataArray = readResource("dataArray.json").getAsJsonArray();
