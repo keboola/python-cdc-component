@@ -98,6 +98,6 @@ jobs:
       APP_ID: ${{ needs.variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: 0.0.11 # ${{ needs.build-python.outputs.app_image_tag }}
+      TAG: 0.0.12 # ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: true # ${{ needs.build-python.outputs.is_semantic_tag }}
     secrets: inherit
