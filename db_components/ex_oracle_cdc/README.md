@@ -20,13 +20,6 @@ update, and delete database content and that were committed to an Oracle databas
 **NOTE** The component abstracts the underlying Debezium connector configuration and provides a simplified interface for
 the user. This means that only subset of the Debezium connector capabilities are exposed to the user.
 
-### Performance considerations
-
-Having multiple publications (connector configurations) can have performance implications. Each publication will have its own set of triggers and
-other replication mechanisms, which can increase the load on the database server. However, this can also be beneficial
-if different publications have different performance requirements or if they need to be replicated to different types of
-subscribers with different capabilities.
-
 ## OracleDB Setup
 
 ### Set Recovery File Destination Size
@@ -133,12 +126,11 @@ The connector will then perform UPDATE query on that table in the selected inter
 - Set the `heartbeat > Heartbeat interval [ms]` connector configuration property to the desired interval in milliseconds. 
 - Set the `heartbeat > Action query` connector configuration property to the desired query that will be executed on the heartbeat table.
   - It is recommended to use the default UPDATE query: `UPDATE kbc.heartbeat SET last_heartbeat = NOW()`
-- Select the heartbeat table in the `Datasource > Tables to sync` configuration property to track the heartbeat table and make sure it is contained in the publication.
 
 
  ## Data Type Mapping
 
-The MySQL datatypes are mapped to the [Keboola Connection Base Types](https://help.keboola.com/storage/tables/data-types/#base-types) as follows:
+The Oracle datatypes are mapped to the [Keboola Connection Base Types](https://help.keboola.com/storage/tables/data-types/#base-types) as follows:
 
 Based on the JSON file you've selected, the `base_type` column in the table can be updated as follows:
 
@@ -200,7 +192,7 @@ Each result table will contain the following system columns:
 
 ## Schema Drift
 
-The connector is currently not capable of handling schema changes in the source database, e.g. `ADD`, `DROP` columns.
+The connector is not yet capable of handling schema changes in the source database, e.g. `ADD`, `DROP` columns.
 
 # Prerequisites
 
@@ -235,10 +227,10 @@ The following example shows a CREATE TABLE command that creates a three-column d
 
 ## Connection Settings
 
-- **Host**: The hostname of the MySQL server.
-- **Port**: The port number of the MySQL server.
-- **User**: The username to be used to connect to the MySQL server.
-- **Password**: The password to be used to connect to the MySQL server.
+- **Host**: The hostname of the Oracle server.
+- **Port**: The port number of the Oracle server.
+- **User**: The username to be used to connect to the Oracle server.
+- **Password**: The password to be used to connect to the Oracle server.
 - **Database**: The name of the CDB to be used. (Debezium CDC needs both CDB and PDB to be specified.)
 - **Pluggable Database (PDB)**: The name of the pluggable database to be used.
 
