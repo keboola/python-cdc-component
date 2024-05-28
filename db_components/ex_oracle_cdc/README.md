@@ -108,6 +108,11 @@ GRANT SELECT ON V_$STATNAME TO c##dbzuser CONTAINER=ALL;
 
 ### Enabling the Heartbeat queries
 
+The Debezium Oracle connector tracks system change numbers in the connector offsets so that when the connector is restarted,
+it can begin where it left off. These offsets are part of each emitted change event; however, when the frequency 
+of database changes are low (every few hours or days), the offsets can become stale and prevent the connector from 
+successfully restarting if the system change number is no longer available in the transaction logs.
+
 You can enable heartbeat to force the connector to emit a heartbeat event at regular intervals so that offsets remain synchronized.
 
 **Prerequisites**
@@ -284,10 +289,6 @@ substrings that might be present in a column name.
   default value on your own risk.
 
 ### Heartbeat
-
-Enable heartbeat signals to prevent WAL disk space consumption. The connector will periodically emit a heartbeat signal to the selected table.
-
-**NOTE** The heartbeat signal must also be selected in the `Datasource > Tables to sync` configuration property. For more information, see the [WAL disk space consumption](#wal-disk-space-consumption) section.
 
 - **Heartbeat interval [ms]**: The interval in milliseconds at which the heartbeat signal is emitted. The default value
   is `3000` (3 s).
