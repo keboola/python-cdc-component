@@ -41,6 +41,7 @@ KEY_LAST_SYNCED_TABLES = 'last_synced_tables'
 KEY_LAST_SCHEMA = "last_schema"
 KEY_LAST_OFFSET = 'last_offset'
 DEFAULT_TOPIC_NAME = 'testcdc'
+DEFAULT_MAX_WAIT_S = 5
 
 
 class OracleComponent(ComponentBase):
@@ -130,10 +131,11 @@ class OracleComponent(ComponentBase):
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
 
             logging.info("Running Debezium Engine")
+            max_wait_s = self._configuration.sync_options.max_wait_s or DEFAULT_MAX_WAIT_S
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
                                                       max_duration_s=27000,
-                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
+                                                      max_wait_s=max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()
