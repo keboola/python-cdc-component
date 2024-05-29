@@ -20,6 +20,7 @@ jobs:
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
+      VERSION: ${{ steps.step2.outputs.VERSION }}
     steps:
       - name: Print inputs passed to the reusable workflow
         id: step1
@@ -29,6 +30,20 @@ jobs:
           echo "KBC_DEVELOPERPORTAL_USERNAME=$KBC_DEVELOPERPORTAL_USERNAME" >> $GITHUB_OUTPUT
           echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
           echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
+
+      - name: Get version from VERSION file
+        id: step2
+        run: |
+          echo "VERSION=$(cat db_components/ex_oracle_cdc/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Check if tag is semantic
+        id: step3
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          IS_SEMANTIC_TAG=$(echo "$TAG" | grep -qE '^([a-zA-Z0-9-]+-)?([0-9]+\.[0-9]+\.[0-9]+)$' && echo true || echo false)
+          echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
+          echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
+          echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@add-oracle-cdc
@@ -72,21 +87,21 @@ jobs:
     secrets: inherit
 
   deploy-ex-oracle-cdc:
-    # if: |
-    #     (
-    #      startsWith(github.ref, 'refs/tags/') &&
-    #      (
-    #        (needs.build-python.outputs.is_semantic_tag == 'true') &&
-    #        (
-    #          contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'General') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'general') ||
-    #          contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-    #        )
-    #      )
-    #    )
+    if: |
+         (
+          startsWith(github.ref, 'refs/tags/') &&
+          (
+            (needs.build-python.outputs.is_semantic_tag == 'true') &&
+            (
+              contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
+              contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
+              contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
+              contains(needs.build-python.outputs.app_image_tag, 'General') ||
+              contains(needs.build-python.outputs.app_image_tag, 'general') ||
+              contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
+            )
+          )
+        )
     needs:
       - build-python
       - tests
