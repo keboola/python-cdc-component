@@ -497,7 +497,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         return self._configuration.destination.load_type not in (
-            'append_incremental', 'append_full')  # and not self.is_initial_run
+            'append_incremental', 'append_full') and not self.is_initial_run
 
     def generate_output_bucket_name(self):
         """
@@ -553,9 +553,9 @@ class MySqlCDCComponent(ComponentBase):
             logging.warning("Initial run with snapshot mode 'Changes Only'."
                             " Running schema only recovery to record table schema. "
                             "The actual sync will start next execution")
-        # elif self.is_initial_run:
-        #     # run only initial snapshot at the start
-        #     snapshot_mode = 'initial_only'
+        elif self.is_initial_run:
+            # run only initial snapshot at the start
+            snapshot_mode = 'initial_only'
         else:
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
         return snapshot_mode
