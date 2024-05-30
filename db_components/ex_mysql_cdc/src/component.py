@@ -209,6 +209,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         params = self.configuration.parameters
+
         # fix eternal KBC issue
         if isinstance(params.get('db_settings', {}).get('ssh_options'), list):
             params['db_settings']['ssh_options'] = {}
@@ -496,7 +497,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         return self._configuration.destination.load_type not in (
-            'append_incremental', 'append_full') # and not self.is_initial_run
+            'append_incremental', 'append_full')  # and not self.is_initial_run
 
     def generate_output_bucket_name(self):
         """

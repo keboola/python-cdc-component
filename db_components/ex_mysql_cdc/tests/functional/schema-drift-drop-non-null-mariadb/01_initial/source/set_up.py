@@ -18,7 +18,6 @@ def run(context: TestDataDir):
     sql_client.connection.connect()
     sql_client.perform_query('RESET MASTER;')
     sql_client.prepare_initial_table('products_table.sql')
-    sql_client.perform_query('ALTER DATABASE inventory CHARACTER SET = latin1 COLLATE = latin1_swedish_ci;')
     sql_client.connection.close()
 
     traits.set_order_by_columns('inventory_products', ['id', 'KBC__EVENT_TIMESTAMP_MS'])

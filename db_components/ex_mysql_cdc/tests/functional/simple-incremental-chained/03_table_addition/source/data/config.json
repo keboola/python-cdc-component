@@ -1,7 +1,7 @@
 {
   "parameters": {
     "db_settings": {
-      "adapter": "{{env.MYSQL_ADAPTER}}",
+
       "ssh_options": [],
       "host": "{{env.MYSQL_HOST}}",
       "port":  "{{env.MYSQL_PORT}}",

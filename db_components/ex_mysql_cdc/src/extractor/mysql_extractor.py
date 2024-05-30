@@ -183,21 +183,21 @@ class MySQLDebeziumExtractor:
 
     def __init__(self, db_credentials: DbOptions, is_maria_db: bool = False):
         self.__credentials = db_credentials
+        # include both jars, so they are on classpath to enable functional tests and driver switching
+        jars = ['../jdbc/mysql-connector-j-8.3.0.jar', '../jdbc/mariadb-java-client-3.4.0.jar']
         if not is_maria_db:
-            jdbc_path = '../jdbc/mysql-connector-j-8.3.0.jar'
             driver_class = 'com.mysql.cj.jdbc.Driver'
             protocol = 'jdbc:mysql'
         else:
-            jdbc_path = '../jdbc/mariadb-java-client-3.4.0.jar'
             driver_class = 'org.mariadb.jdbc.Driver'
             protocol = 'jdbc:mariadb'
 
-        logging.debug(f'Driver {jdbc_path}')
+        logging.debug(f'Driver {driver_class}')
         self.connection = JDBCConnection(driver_class,
                                          url=f'{protocol}://{db_credentials.host}:{db_credentials.port}',
                                          driver_args={'user': db_credentials.user,
                                                       'password': db_credentials.pswd_password},
-                                         jars=jdbc_path)
+                                         jars=jars)
         self.user = db_credentials.user
         self.metadata_provider = JDBCMetadataProvider(self.connection, MySQLBaseTypeConverter())
 
