@@ -8,7 +8,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType, Adapter
+from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType, Adapter, SnapshotStatementOverride
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
 
@@ -90,6 +90,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
+                                 snapshot_statement_overrides: list[SnapshotStatementOverride] = None,
                                  additional_properties: dict = None,
                                  binary_handling_mode: str = 'hex') -> str:
     """
@@ -114,6 +115,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
+        snapshot_statement_overrides: List of statements to override the default snapshot statement.
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
@@ -162,6 +164,12 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         filter_key = f"column.{column_filter_type.value}.list"
         filter_value = ','.join(column_filter)
         properties[filter_key] = filter_value
+
+    if snapshot_statement_overrides:
+        properties["snapshot.select.statement.overrides"] = ','.join(
+            [override.table for override in snapshot_statement_overrides])
+        for override in snapshot_statement_overrides:
+            properties[f"snapshot.select.statement.overrides.{override.table}"] = override.statement
 
     if adapter == Adapter.mariadb:
         properties["connector.adapter"] = "mariadb"

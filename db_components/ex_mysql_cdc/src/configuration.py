@@ -141,6 +141,11 @@ class BinaryHandler(str, Enum):
     base64 = "base64"
     bytes = "bytes"
 
+@dataclass
+class SnapshotStatementOverride(ConfigurationBase):
+    table: str
+    statement: str
+
 
 @dataclass
 class SyncOptions(ConfigurationBase):
@@ -150,6 +155,8 @@ class SyncOptions(ConfigurationBase):
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     handle_binary: BinaryHandler = BinaryHandler.hex
+    snapshot_statement_override: bool = False
+    snapshot_statements: list[SnapshotStatementOverride] = dataclasses.field(default_factory=list)
 
 
 class LoadType(str, Enum):

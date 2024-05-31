@@ -95,6 +95,7 @@ class MySqlCDCComponent(ComponentBase):
             source_settings = self._configuration.source_settings
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
+            snapshot_overrides = sync_options.snapshot_statements
             debezium_properties = build_debezium_property_file(db_config.user, db_config.pswd_password,
                                                                db_config.host,
                                                                str(db_config.port),
@@ -110,6 +111,7 @@ class MySqlCDCComponent(ComponentBase):
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
+                                                               snapshot_statement_overrides=snapshot_overrides,
                                                                binary_handling_mode=sync_options.handle_binary.name)
 
             self._collect_source_metadata()

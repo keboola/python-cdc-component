@@ -234,6 +234,55 @@
             "base64-url-safe"
           ],
           "description": "Marks how to handle binary data:<ul><li><strong>plain</strong> - data in decoded from binary to string using Python's <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.decode' target='_blank'>bytes.decode()</a></i> method,</li><li><strong>hex</strong> - data is converted to hex representation of binary string using <i><a href='https://docs.python.org/3/library/stdtypes.html#bytes.hex' target='_blank'>bytes.hex()</a></i> method,</li><li><strong>base64</strong> - data is converted to a base64 string, using <i><a href='https://docs.python.org/3/library/base64.html#base64.b64encode' target='_blank'>base64.b64encode()</a></i> method.</li></ul>All trailing or leading null bytes are replaced."
+        },
+        "snapshot_statement_override": {
+          "type": "boolean",
+          "title": "Snapshot Statement Override",
+          "description": "Define a custom SQL SELECT statement that will be used to fetch the initial snapshot. ",
+          "format": "checkbox",
+          "propertyOrder": 40
+        },
+        "snapshot_statements": {
+          "type": "array",
+          "title": "Snapshot Statements",
+          "format": "table",
+          "uniqueItems": true,
+          "description": "Define a custom SQL SELECT statement that will be used to fetch the initial snapshot for specified tables. ",
+          "options": {
+            "dependencies": {
+              "snapshot_statement_override": true
+            }
+          },
+          "items": {
+            "type": "object",
+            "properties": {
+              "table": {
+                "type": "string",
+                "title": "Table",
+                "description": "Fully qualified table name, e.g. `schemaName.tableName`.",
+                "options": {
+                  "inputAttributes": {
+                    "placeholder": "customers.orders"
+                  },
+                  "input_width": "300px"
+                },
+                "propertyOrder": 10
+              },
+              "statement": {
+                "type": "string",
+                "title": "Statement",
+                "format": "sql",
+                "description": "The custom SQL SELECT statement that will be used to fetch the initial snapshot.",
+                "options": {
+                  "inputAttributes": {
+                    "placeholder": "SELECT * FROM [customers].[orders] WHERE delete_flag = 0 ORDER BY id DESC"
+                  }
+                },
+                "propertyOrder": 20
+              }
+            }
+          },
+          "propertyOrder": 50
         }
       }
     },
