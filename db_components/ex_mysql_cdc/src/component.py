@@ -30,6 +30,8 @@ from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebezi
     build_debezium_property_file, MySQLBaseTypeConverter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
 
+COMPONENT_TIMEOUT = 85500
+
 SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
 
 SCHEMA_HISTORY_FILENAME = 'schema_history.jsonl'
@@ -136,7 +138,7 @@ class MySqlCDCComponent(ComponentBase):
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=27000,
+                                                      max_duration_s=COMPONENT_TIMEOUT,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
