@@ -1,1 +1,1 @@
-Postgre SQL CDC Extractor short description
+[PostgreSQL](https://www.postgresql.org/) is an open source database renowned for its advanced features, reliability, and performance, enabling the development of robust, scalable applications.

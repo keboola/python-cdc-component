@@ -25,7 +25,7 @@ def _build_unique_tags(context: CommonInterface, additional_tags: list[str] = No
 
 
 def store_artefact(source_file_path: str, context: CommonInterface,
-                   additional_tags: list[str] = None) -> None:
+                   additional_tags: list[str] = None) -> str:
     """
     Store the artefact in the context with the given artefact_name.
     Args:
@@ -37,7 +37,7 @@ def store_artefact(source_file_path: str, context: CommonInterface,
     """
     tags = _build_unique_tags(context, additional_tags)
     client = Client(f'https://{context.environment_variables.stack_id}', context.environment_variables.token)
-    client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
+    return client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
 
 
 def build_tags_query_filter(tags: list[str]) -> str:
@@ -53,7 +53,7 @@ def build_tags_query_filter(tags: list[str]) -> str:
 
 
 def get_artefact(artefact_file_name: str, context: CommonInterface,
-                 additional_tags: list[str] = None) -> tuple[str, list[str]]:
+                 additional_tags: list[str] = None) -> tuple[str, list[str], str]:
     """
     Gets the artefact in the context with the given artefact_name. Note that the context must contain forwarded token.
     Args:
@@ -69,11 +69,15 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
 
     files = client.files.list(q=build_tags_query_filter(tags))
     result_files = [f for f in files if f['name'] == artefact_file_name]
+    # sort result files just in case
+    result_files.sort(key=lambda x: int(x['id']), reverse=True)
+
     temp_file_path = None
     tags = []
+    result_id = None
     if result_files:
         temp_dir = tempfile.mkdtemp()
         temp_file_path = client.files.download(result_files[0]['id'], temp_dir)
         tags = result_files[0]['tags']
-
-    return temp_file_path, tags
+        result_id = result_files[0]['id']
+    return temp_file_path, tags, result_id

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from datadirtest import TestDataDir
 
@@ -15,5 +16,5 @@ def run(context: TestDataDir):
     os.environ['KBC_STACKID'] = 'connection.keboola.com'
     os.environ['KBC_CONFIGID'] = '123'
     os.environ['KBC_CONFIGROWID'] = '456'
-    os.environ['KBC_BRANCHID'] = '789'
+    os.environ['KBC_BRANCHID'] = Path(__file__).parent.parent.name
     os.environ['KBC_PROJECTID'] = '10'
