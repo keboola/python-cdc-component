@@ -141,6 +141,7 @@ class BinaryHandler(str, Enum):
     base64 = "base64"
     bytes = "bytes"
 
+
 @dataclass
 class SnapshotStatementOverride(ConfigurationBase):
     table: str
