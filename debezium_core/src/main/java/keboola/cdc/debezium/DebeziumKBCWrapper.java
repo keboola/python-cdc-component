@@ -15,9 +15,11 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.TimeZone;
 
 @Slf4j
 public class DebeziumKBCWrapper implements Runnable {
@@ -66,6 +68,7 @@ public class DebeziumKBCWrapper implements Runnable {
 	}
 
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 		new CommandLine(new DebeziumKBCWrapper()).execute(args);
 	}
 
