@@ -16,10 +16,23 @@
         "user"
       ],
       "properties": {
+        "adapter": {
+          "type": "string",
+          "title": "Connector adapter",
+          "propertyOrder": 1,
+          "default": "MySQL",
+          "enum": [
+            "MySQL",
+            "MariaDB"
+          ],
+          "options": {
+            "grid_columns": 8
+          }
+        },
         "host": {
           "type": "string",
           "title": "Hostname",
-          "propertyOrder": 1,
+          "propertyOrder": 2,
           "options": {
             "grid_columns": 8
           }

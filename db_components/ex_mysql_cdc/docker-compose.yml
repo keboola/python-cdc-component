@@ -4,6 +4,7 @@ services:
   dev: &app
     links:
       - mysql
+      - mariadb
     build:
       context: ../../
       dockerfile: db_components/ex_mysql_cdc/Dockerfile
@@ -20,10 +21,19 @@ services:
     environment:
       MYSQL_DATABASE: inventory
       MYSQL_ROOT_PASSWORD: rootpassword
+  mariadb:
+    image: mariadb:11.0
+    command: --port 3808 --local-infile --datadir=/var/lib/mysql --server-id=1 --log-bin=/var/lib/mysql/mysql-bin.log --binlog_do_db=inventory --binlog-format=ROW
+    ports:
+      - 3808:3808
+    environment:
+      MARIADB_DATABASE: inventory
+      MARIADB_ROOT_PASSWORD: rootpassword
   wait:
     image: waisbrot/wait
     depends_on:
       - mysql
+      - mariadb
     environment:
       - TARGETS=mysql:3306
       - TIMEOUT=200
@@ -35,6 +45,8 @@ services:
     volumes:
       - ./:/code/db_components/ex_mysql_cdc/
     environment:
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_ADAPTER: ${MYSQL_ADAPTER}
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}

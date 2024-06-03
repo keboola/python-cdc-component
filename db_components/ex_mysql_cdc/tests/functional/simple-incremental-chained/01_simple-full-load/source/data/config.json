@@ -3,7 +3,7 @@
     "db_settings": {
       "ssh_options": [],
       "host": "{{env.MYSQL_HOST}}",
-      "port": 3306,
+      "port":  3306,
       "user": "{{env.MYSQL_USER}}",
       "#password": "{{env.MYSQL_PASSWORD}}",
       "use_ssh": false

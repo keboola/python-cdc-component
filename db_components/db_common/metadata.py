@@ -25,14 +25,22 @@ class JDBCMetadataProvider(ABC):
                 continue
             # None if the column is autoincrement
             default_value = col['COLUMN_DEF'] if not str(col['COLUMN_DEF']).startswith('nextval') else None
+            if default_value == 'NULL':
+                default_value = None
+                
+            additional_properties = {}
+            # convert to string to avoid conversion issues.
+            for key, value in col.items():
+                additional_properties[key] = str(value)
+            # convert column
             column_schema = ColumnSchema(name=col['COLUMN_NAME'],
                                          source_type=col['TYPE_NAME'],
                                          base_type_converter=self._base_type_converter,
                                          description=col['REMARKS'] or '',
                                          default=default_value,
                                          length=col['COLUMN_SIZE'],
-                                         precision=col.get('DECIMAL_DIGITS'),
-                                         additional_properties=col,
+                                         precision=str(col.get('DECIMAL_DIGITS')),
+                                         additional_properties=additional_properties,
                                          nullable=bool(col['NULLABLE'])
                                          )
             self._build_source_type_signature(column_schema)

@@ -1,1 +1,1 @@
-[PostgreSQL](https://www.postgresql.org/) is an open source database renowned for its advanced features, reliability, and performance, enabling the development of robust, scalable applications.
+PostgreSQL is an open source database renowned for its advanced features, reliability, and performance, enabling the development of robust, scalable applications.

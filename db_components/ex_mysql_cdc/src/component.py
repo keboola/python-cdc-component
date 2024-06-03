@@ -25,10 +25,12 @@ from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
-from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
+from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode, Adapter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
+
+COMPONENT_TIMEOUT = 85500
 
 SCHEMA_CHANGE_TABLE_NAME = 'io_debezium_connector_mysql_SchemaChangeValue'
 
@@ -100,6 +102,7 @@ class MySqlCDCComponent(ComponentBase):
                                                                self._temp_schema_history_file,
                                                                source_settings.schemas,
                                                                source_settings.tables,
+                                                               adapter=db_config.adapter,
                                                                column_filter_type=source_settings.column_filter_type,
                                                                column_filter=source_settings.column_filter,
                                                                server_id_unique=self._build_unique_server_id(),
@@ -135,7 +138,7 @@ class MySqlCDCComponent(ComponentBase):
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=27000,
+                                                      max_duration_s=COMPONENT_TIMEOUT,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
@@ -208,6 +211,7 @@ class MySqlCDCComponent(ComponentBase):
 
         """
         params = self.configuration.parameters
+
         # fix eternal KBC issue
         if isinstance(params.get('db_settings', {}).get('ssh_options'), list):
             params['db_settings']['ssh_options'] = {}
@@ -221,7 +225,8 @@ class MySqlCDCComponent(ComponentBase):
                 tunnel.start()
                 config.host = config.ssh_options.LOCAL_BIND_ADDRESS
                 config.port = config.ssh_options.LOCAL_BIND_PORT
-            self._client = MySQLDebeziumExtractor(config, jdbc_path='../jdbc/mysql-connector-j-8.3.0.jar')
+
+            self._client = MySQLDebeziumExtractor(config, is_maria_db=config.adapter == Adapter.mariadb)
             try:
                 self._client.connect()
                 self._client.test_has_replication_privilege()
