@@ -544,7 +544,6 @@ class OracleComponent(ComponentBase):
             csv_columns:
 
         Returns:
-
         """
         new_columns = []
         for c in csv_columns:
