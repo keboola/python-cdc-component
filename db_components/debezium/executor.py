@@ -38,7 +38,7 @@ class SnapshotSignal:
 class DuckDBParameters:
     db_path: str
     tmp_dir_path: str
-    max_threads: int = 6
+    max_threads: int = 3
     memory_limit: str = '2GB'
     memory_max: str = '1GB'
     dedupe_max_chunk_size: int = 5_000_000

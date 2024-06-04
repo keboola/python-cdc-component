@@ -92,7 +92,10 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  snapshot_max_threads: int = 1,
                                  snapshot_statement_overrides: list[SnapshotStatementOverride] = None,
                                  additional_properties: dict = None,
-                                 binary_handling_mode: str = 'hex') -> str:
+                                 binary_handling_mode: str = 'hex',
+                                 max_batch_size: int = 2048,
+                                 max_queue_size: int = 8192
+                                 ) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -156,8 +159,8 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "errors.max.retries": 3,
         "signal.enabled.channels": "source",
         "signal.data.collection": signal_table,
-        "max.batch.size": 5000,
-        "max.queue.size": 10000
+        "max.batch.size": max_batch_size,
+        "max.queue.size": max_queue_size
     }
 
     if column_filter_type != ColumnFilterType.none:

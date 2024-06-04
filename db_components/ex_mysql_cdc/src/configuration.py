@@ -153,6 +153,9 @@ class SyncOptions(ConfigurationBase):
     source_signal_table: str
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     max_wait_s: int = 5
+    batch_size: int = 2048
+    queue_size: int = 8192
+    duckdb_threads: int = 2
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     handle_binary: BinaryHandler = BinaryHandler.hex

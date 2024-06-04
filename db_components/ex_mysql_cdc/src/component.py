@@ -112,7 +112,9 @@ class MySqlCDCComponent(ComponentBase):
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
                                                                snapshot_statement_overrides=snapshot_overrides,
-                                                               binary_handling_mode=sync_options.handle_binary.name)
+                                                               binary_handling_mode=sync_options.handle_binary.name,
+                                                               max_batch_size=sync_options.batch_size,
+                                                               max_queue_size=sync_options.queue_size)
 
             self._collect_source_metadata()
 
@@ -125,9 +127,12 @@ class MySqlCDCComponent(ComponentBase):
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
+            duckdb_config = DuckDBParameters(self.duck_db_path,
+                                             self.duck_db_tmp_dir,
+                                             max_threads=sync_options.duckdb_threads)
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path,
-                                                                                self.duck_db_tmp_dir),
+                                                 duckdb_config=duckdb_config,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )
