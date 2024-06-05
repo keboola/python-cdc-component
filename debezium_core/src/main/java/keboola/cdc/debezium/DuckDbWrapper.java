@@ -23,6 +23,12 @@ public class DuckDbWrapper {
 		this(Properties.parse(keboolaProperties));
 	}
 
+	private static java.util.Properties getConnectionProperties() {
+		final java.util.Properties connectionProperties = new java.util.Properties();
+		connectionProperties.setProperty("memory_limit", "3GB");
+		return connectionProperties;
+	}
+
 	public DuckDbWrapper(Properties properties) {
 		this.properties = properties;
 		try {
@@ -34,7 +40,8 @@ public class DuckDbWrapper {
 
 		// Establish a connection to the DuckDB database
 		try {
-			this.conn = (DuckDBConnection) DriverManager.getConnection("jdbc:duckdb:" + properties.dbPath());
+			this.conn = (DuckDBConnection) DriverManager.getConnection("jdbc:duckdb:" + properties.dbPath(),
+					getConnectionProperties());
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
