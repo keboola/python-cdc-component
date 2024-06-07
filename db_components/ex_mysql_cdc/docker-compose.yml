@@ -2,6 +2,10 @@ version: "3.2"
 services:
   # for development purposes
   dev: &app
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
     links:
       - mysql
       - mariadb
@@ -13,6 +17,11 @@ services:
       - ./data:/data
     environment:
       - KBC_DATADIR=/data
+      - JDK_JAVA_OPTIONS=-Xmx1600m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/data/dumps
+      - KBC_TOKEN=${KBC_TOKEN}
+      - KBC_COMPONENTID=kds-team.ex-mysql-cdc-local
+      - KBC_CONFIGID=12345
+      - KBC_STACKID=connection.keboola.com
   mysql:
     image: mysql:5.7.12
     command: --local-infile --datadir=/var/lib/mysql --server-id=1 --log-bin=/var/lib/mysql/mysql-bin.log --binlog_do_db=inventory

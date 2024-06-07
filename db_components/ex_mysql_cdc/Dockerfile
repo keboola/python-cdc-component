@@ -29,7 +29,7 @@ RUN chmod +x /usr/local/bin/kbc_slicer
 
 
 # set switch that enables correct JVM memory allocation in containers
-ENV JDK_JAVA_OPTIONS="-XX:+UseContainerSupport -Xmx3000m -XX:+HeapDumpOnOutOfMemoryError"
+ENV JDK_JAVA_OPTIONS="-XX:+UseContainerSupport -Xmx2600m -XX:+HeapDumpOnOutOfMemoryError"
 
 RUN pip install flake8
 

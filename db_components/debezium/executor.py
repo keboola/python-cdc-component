@@ -40,7 +40,7 @@ class DuckDBParameters:
     tmp_dir_path: str
     max_threads: int = 3
     memory_limit: str = '2GB'
-    memory_max: str = '1GB'
+    memory_max: str = '2GB'
     dedupe_max_chunk_size: int = 5_000_000
 
 
