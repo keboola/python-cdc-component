@@ -25,7 +25,8 @@ public class DuckDbWrapper {
 
 	private static java.util.Properties getConnectionProperties() {
 		final java.util.Properties connectionProperties = new java.util.Properties();
-		connectionProperties.setProperty("memory_limit", "3GB");
+		connectionProperties.setProperty("memory_limit", "2GB");
+		connectionProperties.setProperty("max_memory", "2GB");
 		return connectionProperties;
 	}
 
