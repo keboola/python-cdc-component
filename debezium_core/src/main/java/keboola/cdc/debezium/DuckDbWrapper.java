@@ -80,8 +80,8 @@ public class DuckDbWrapper {
 	public record Properties(String dbPath, int maxThreads, String memoryLimit, String maxMemory,
 							 String tempDir) {
 		private static final String TMP_DB_PATH = "";
-		private static final int MAX_THREADS = 4;
-		private static final String MEMORY_LIMIT = "4G";
+		private static final int MAX_THREADS = 1;
+		private static final String MEMORY_LIMIT = "2G";
 		private static final String MAX_MEMORY = "2G";
 		private static final String TEMP_DIR = "/tmp/dbtmp";
 
