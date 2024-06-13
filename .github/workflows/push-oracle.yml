@@ -19,6 +19,9 @@ jobs:
       DOCKERHUB_USER: ${{ steps.set-vars.outputs.DOCKERHUB_USER }}
       VERSION: ${{ steps.set-version.outputs.VERSION }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Set Variables
         id: set-vars
         run: |
@@ -28,9 +31,14 @@ jobs:
           echo "KBC_TEST_PROJECT_CONFIGS=$KBC_TEST_PROJECT_CONFIGS" >> $GITHUB_OUTPUT
           echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
 
+      - name: List directory contents
+        run: |
+          ls -R
+
       - name: Get version from VERSION file
         id: set-version
         run: |
+          cat db_components/ex_oracle_cdc/VERSION
           echo "VERSION=$(cat db_components/ex_oracle_cdc/VERSION)" >> $GITHUB_OUTPUT
 
   build-java:
