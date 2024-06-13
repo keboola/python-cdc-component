@@ -11,6 +11,7 @@ public interface JsonConverter {
 	void processJson(JsonObject jsonValue);
 
 	void close();
+	void flush();
 
 	JsonElement getJsonSchema();
 

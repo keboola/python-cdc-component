@@ -116,6 +116,9 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			this.converters.put(tableIdentifier, converter);
 		}
 		converter.processJson(payload);
+		if (this.count.intValue() % 20000 == 0) {
+			this.converters.get(tableIdentifier).flush();
+		}
 	}
 
 	private boolean shouldStop(final JsonObject payload) {

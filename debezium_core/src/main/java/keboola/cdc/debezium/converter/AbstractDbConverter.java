@@ -121,6 +121,16 @@ abstract class AbstractDbConverter implements JsonConverter {
 			throw new RuntimeException(e);
 		}
 	}
+	public void flush() {
+		try {
+			if (this.appender != null) {
+				this.appender.flush();
+			}
+		} catch (SQLException e) {
+			log.error("Error during JsonToDbConverter flush!", e);
+			throw new RuntimeException(e);
+		}
+	}
 
 	public JsonElement getJsonSchema() {
 		return this.gson.toJsonTree(this.schema.values());
