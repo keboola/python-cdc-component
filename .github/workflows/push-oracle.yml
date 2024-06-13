@@ -17,7 +17,7 @@ jobs:
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.set-vars.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.set-vars.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.set-vars.outputs.DOCKERHUB_USER }}
-      TAG: ${{ steps.set-tag.outputs.VERSION }}
+      TAG: ${{ steps.set-tag.outputs.TAG }}
       IS_SEMANTIC_TAG: ${{ steps.set-tag.outputs.IS_SEMANTIC_TAG }}
     steps:
       - name: Checkout repository
