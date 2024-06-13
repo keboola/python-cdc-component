@@ -17,7 +17,8 @@ jobs:
       KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.set-vars.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       KBC_TEST_PROJECT_CONFIGS: ${{ steps.set-vars.outputs.KBC_TEST_PROJECT_CONFIGS }}
       DOCKERHUB_USER: ${{ steps.set-vars.outputs.DOCKERHUB_USER }}
-      VERSION: ${{ steps.set-version.outputs.VERSION }}
+      TAG: ${{ steps.set-tag.outputs.VERSION }}
+      IS_SEMANTIC_TAG: ${{ steps.set-tag.outputs.IS_SEMANTIC_TAG }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -59,6 +60,8 @@ jobs:
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       DOCKERHUB_USER: ${{ needs.set-variables.outputs.DOCKERHUB_USER }}
+      TAG: ${{ needs.set-variables.outputs.VERSION }}
+      IS_SEMANTIC_TAG: ${{ needs.set-variables.outputs.IS_SEMANTIC_TAG }}
     secrets: inherit
 
   tests:
