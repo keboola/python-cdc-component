@@ -1,29 +1,26 @@
 name: Oracle CDC Build & Deploy
-on: [ push ]
+on: [push]
 env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   APP_NAME: "ex-oracle-cdc"
   KBC_DEVELOPERPORTAL_VENDOR: "kds-team"
   KBC_DEVELOPERPORTAL_USERNAME: "kds-team+github"
-
-  # Test KBC project: https://connection.keboola.com/admin/projects/9382
-  KBC_TEST_PROJECT_CONFIGS: "" # space separated list of config ids
-
+  KBC_TEST_PROJECT_CONFIGS: "" # space-separated list of config ids
   DOCKERHUB_USER: "keboolabot"
 
 jobs:
-  variables:
+  set-variables:
     runs-on: ubuntu-latest
     outputs:
-      APP_NAME: ${{ steps.step1.outputs.APP_NAME }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.step1.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      KBC_TEST_PROJECT_CONFIGS: ${{ steps.step1.outputs.KBC_TEST_PROJECT_CONFIGS }}
-      DOCKERHUB_USER: ${{ steps.step1.outputs.DOCKERHUB_USER }}
-      VERSION: ${{ steps.step2.outputs.VERSION }}
+      APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ steps.set-vars.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ steps.set-vars.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      KBC_TEST_PROJECT_CONFIGS: ${{ steps.set-vars.outputs.KBC_TEST_PROJECT_CONFIGS }}
+      DOCKERHUB_USER: ${{ steps.set-vars.outputs.DOCKERHUB_USER }}
+      VERSION: ${{ steps.set-version.outputs.VERSION }}
     steps:
-      - name: Print inputs passed to the reusable workflow
-        id: step1
+      - name: Set Variables
+        id: set-vars
         run: |
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
           echo "KBC_DEVELOPERPORTAL_VENDOR=$KBC_DEVELOPERPORTAL_VENDOR" >> $GITHUB_OUTPUT
@@ -32,18 +29,9 @@ jobs:
           echo "DOCKERHUB_USER=$DOCKERHUB_USER" >> $GITHUB_OUTPUT
 
       - name: Get version from VERSION file
-        id: step2
+        id: set-version
         run: |
           echo "VERSION=$(cat db_components/ex_oracle_cdc/VERSION)" >> $GITHUB_OUTPUT
-
-      - name: Check if tag is semantic
-        id: step3
-        run: |
-          TAG="${GITHUB_REF##*/}"
-          IS_SEMANTIC_TAG=$(echo "$TAG" | grep -qE '^([a-zA-Z0-9-]+-)?([0-9]+\.[0-9]+\.[0-9]+)$' && echo true || echo false)
-          echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
-          echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
-          echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
 
   build-java:
     uses: keboola/python-cdc-component/.github/workflows/java.yml@add-oracle-cdc
@@ -52,67 +40,55 @@ jobs:
     name: Build and Push Oracle CDC image
     needs:
       - build-java
-      - variables
+      - set-variables
     uses: keboola/python-cdc-component/.github/workflows/build.yml@add-oracle-cdc
     with:
-      APP_ID: ${{ needs.variables.outputs.APP_NAME }}
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      DOCKERHUB_USER: ${{ needs.variables.outputs.DOCKERHUB_USER }}
+      APP_ID: ${{ needs.set-variables.outputs.APP_NAME }}
+      APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      DOCKERHUB_USER: ${{ needs.set-variables.outputs.DOCKERHUB_USER }}
     secrets: inherit
 
   tests:
     needs:
       - build-python
-      - variables
+      - set-variables
     uses: keboola/python-cdc-component/.github/workflows/tests.yml@add-oracle-cdc
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
     secrets: inherit
 
   tests-kbc:
     needs:
       - build-python
-      - variables
+      - set-variables
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@add-oracle-cdc
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
+      APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_TEST_PROJECT_CONFIGS: ${{ needs.variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_TEST_PROJECT_CONFIGS: ${{ needs.set-variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
     secrets: inherit
 
   deploy-ex-oracle-cdc:
     if: |
-         (
-          startsWith(github.ref, 'refs/tags/') &&
-          (
-            (needs.build-python.outputs.is_semantic_tag == 'true') &&
-            (
-              contains(needs.build-python.outputs.app_image_tag, 'Oracle') ||
-              contains(needs.build-python.outputs.app_image_tag, 'oracle') ||
-              contains(needs.build-python.outputs.app_image_tag, 'ORACLE') ||
-              contains(needs.build-python.outputs.app_image_tag, 'General') ||
-              contains(needs.build-python.outputs.app_image_tag, 'general') ||
-              contains(needs.build-python.outputs.app_image_tag, 'GENERAL')
-            )
-          )
-        )
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.build-python.outputs.is_semantic_tag == 'true'
     needs:
       - build-python
       - tests
       - tests-kbc
-      - variables
+      - set-variables
     uses: keboola/python-cdc-component/.github/workflows/deploy.yml@add-oracle-cdc
     with:
-      APP_NAME: ${{ needs.variables.outputs.APP_NAME }}
-      APP_ID: ${{ needs.variables.outputs.APP_NAME }}
-      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
-      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
+      APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
+      APP_ID: ${{ needs.set-variables.outputs.APP_NAME }}
+      KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
+      KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       TAG: ${{ needs.build-python.outputs.app_image_tag }}
       IS_SEMANTIC_TAG: ${{ needs.build-python.outputs.is_semantic_tag }}
     secrets: inherit
