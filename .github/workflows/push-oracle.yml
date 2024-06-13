@@ -40,8 +40,8 @@ jobs:
           if [ "$IS_SEMANTIC_TAG" = "true" ]; then
             TAG=$(cat db_components/ex_oracle_cdc/VERSION)
           fi
-          echo "app_image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "is_semantic_tag=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "IS_SEMANTIC_TAG=$IS_SEMANTIC_TAG" >> $GITHUB_OUTPUT
           echo "TAG: $TAG"
           echo "IS SEMANTIC: $IS_SEMANTIC_TAG"
 
@@ -73,7 +73,7 @@ jobs:
       APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      TAG: ${{ needs.set-variables.outputs.TAG }}
     secrets: inherit
 
   tests-kbc:
@@ -83,7 +83,7 @@ jobs:
     uses: keboola/python-cdc-component/.github/workflows/tests-kbc.yml@add-oracle-cdc
     with:
       APP_NAME: ${{ needs.set-variables.outputs.APP_NAME }}
-      TAG: ${{ needs.build-python.outputs.app_image_tag }}
+      TAG: ${{ needs.set-variables.outputs.TAG }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_TEST_PROJECT_CONFIGS: ${{ needs.set-variables.outputs.KBC_TEST_PROJECT_CONFIGS }}
     secrets: inherit
@@ -103,5 +103,5 @@ jobs:
       APP_ID: ${{ needs.set-variables.outputs.APP_NAME }}
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
-      TAG: ${{ needs.set-variables.outputs.VERSION }}
+      TAG: ${{ needs.set-variables.outputs.TAG }}
     secrets: inherit
