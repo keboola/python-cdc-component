@@ -60,7 +60,7 @@ jobs:
       KBC_DEVELOPERPORTAL_VENDOR: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_VENDOR }}
       KBC_DEVELOPERPORTAL_USERNAME: ${{ needs.set-variables.outputs.KBC_DEVELOPERPORTAL_USERNAME }}
       DOCKERHUB_USER: ${{ needs.set-variables.outputs.DOCKERHUB_USER }}
-      TAG: ${{ needs.set-variables.outputs.VERSION }}
+      TAG: ${{ needs.set-variables.outputs.TAG }}
       IS_SEMANTIC_TAG: ${{ needs.set-variables.outputs.IS_SEMANTIC_TAG }}
     secrets: inherit
 
