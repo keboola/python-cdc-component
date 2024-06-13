@@ -1,7 +1,7 @@
 version: "3.2"
 services:
-  # for development purposes
-  dev:
+  # common configuration for dev and tests
+  dev: &app
     build:
       context: ../../
       dockerfile: db_components/ex_oracle_cdc/Dockerfile
@@ -10,16 +10,13 @@ services:
       - ./data:/data
     environment:
       - KBC_DATADIR=/data
-  test:
-    # Use to run flake8 and unittests checks
-    build:
-      context: ../../
-      dockerfile: db_components/ex_oracle_cdc/Dockerfile
+
+  tests:
+    <<: *app
     volumes:
       - ./:/code/db_components/ex_oracle_cdc/
-      - ./data:/data
-    environment:
-      - KBC_DATADIR=/data
+    env_file:
+      - .env
     command:
       - /bin/sh
       - -c

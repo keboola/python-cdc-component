@@ -8,6 +8,7 @@ snowflake-connector-python==3.7.0
 sshtunnel
 paramiko
 # tests
+https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest
 mock
 freezegun
 duckdb
