@@ -111,6 +111,7 @@ class SyncOptions(ConfigurationBase):
     max_wait_s: int = 30
     enable_heartbeat: bool = False
     heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
+    timezone: str = 'UTC'
 
 
 class LoadType(str, Enum):

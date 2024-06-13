@@ -118,12 +118,15 @@ class OracleComponent(ComponentBase):
 
             logging.info(f"Logging properties: {logging_properties}")
 
+            keboola_properties = {"keboola.timezone": self._configuration.sync_options.timezone}
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=DuckDBParameters(self.duck_db_path,
                                                                                 self.duck_db_tmp_dir),
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
-                                                 source_connection=self._client.connection)
+                                                 source_connection=self._client.connection,
+                                                 keboola_properties=keboola_properties)
 
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
@@ -248,8 +251,8 @@ class OracleComponent(ComponentBase):
 
         if last_state.get(KEY_LAST_OFFSET):
             last_state = base64.b64decode(last_state[KEY_LAST_OFFSET].encode('ascii'))
-            with open(self._temp_offset_file.name, 'wb') as outp:
-                outp.write(last_state)
+            with open(self._temp_offset_file.name, 'wb') as f:
+                f.write(last_state)
         elif self._configuration.sync_options.snapshot_mode == SnapshotMode.initial:
             logging.warning("No State found, running full sync.")
 
@@ -283,7 +286,7 @@ class OracleComponent(ComponentBase):
         """
         table_schemas = dict()
         tables_to_collect = self._configuration.source_settings.tables
-        # in cae the signalling table is not in the synced tables list
+        # in case the signalling table is not in the synced tables list
         # if self._configuration.sync_options.source_signal_table not in tables_to_collect:
         #   tables_to_collect.append(self._configuration.sync_options.source_signal_table)
 
@@ -529,8 +532,7 @@ class OracleComponent(ComponentBase):
         Returns:
 
         """
-        # TODO: mozna bude potreba ohandlovat `never` mode jako v mysql
-        if self.is_initial_run and self._configuration.sync_options.snapshot_mode != SnapshotMode.never:
+        if self.is_initial_run:
             snapshot_mode = 'initial_only'
         else:
             snapshot_mode = self._configuration.sync_options.snapshot_mode.name
