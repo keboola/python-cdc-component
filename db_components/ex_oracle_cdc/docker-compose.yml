@@ -1,0 +1,27 @@
+version: "3.2"
+services:
+  # common configuration for dev and tests
+  dev: &app
+    build:
+      context: ../../
+      dockerfile: db_components/ex_oracle_cdc/Dockerfile
+    volumes:
+      - ./:/code/db_components/ex_oracle_cdc/
+      - ./data:/data
+    environment:
+      - KBC_DATADIR=/data
+
+  tests:
+    <<: *app
+    volumes:
+      - ./:/code/db_components/ex_oracle_cdc/
+    env_file:
+      - .env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        cd /code/db_components/ex_oracle_cdc
+        flake8 --config=flake8.cfg
+        python -m unittest discover

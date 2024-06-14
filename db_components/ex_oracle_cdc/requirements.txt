@@ -1,0 +1,14 @@
+keboola.component==1.4.3
+keboola.utils
+kbcstorage==0.7.2
+jaydebeapi==1.2.3
+dataconf
+jproperties==2.1.1
+snowflake-connector-python==3.7.0
+sshtunnel
+paramiko
+# tests
+https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest
+mock
+freezegun
+duckdb

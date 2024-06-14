@@ -42,17 +42,18 @@ class JDBCConnection(DbConnection):
         """
 
         Args:
-             jclassname: Full qualified Java class name of the JDBC driver.
-                driver_args: Dictionary or sequence of arguments to be passed to
-                       the Java DriverManager.getConnection method. Usually
-                       sequence of username and password for the db. Alternatively
-                       a dictionary of connection arguments (where `user` and
-                       `password` would probably be included). See
-                       http://docs.oracle.com/javase/7/docs/api/java/sql/DriverManager.html
-                       for more details
-                jars: Jar filename or sequence of filenames for the JDBC driver
-                libs: Dll/so filenames or sequence of dlls/sos used as shared
-                      library by the JDBC driver
+            jclassname: Full qualified Java class name of the JDBC driver.
+            url: JDBC connection URL
+            driver_args: Dictionary or sequence of arguments to be passed to
+                   the Java DriverManager.getConnection method. Usually
+                   sequence of username and password for the db. Alternatively
+                   a dictionary of connection arguments (where `user` and
+                   `password` would probably be included). See
+                   http://docs.oracle.com/javase/7/docs/api/java/sql/DriverManager.html
+                   for more details
+            jars: Jar filename or sequence of filenames for the JDBC driver
+            libs: Dll/so filenames or sequence of dlls/sos used as shared
+                  library by the JDBC driver
         """
         self._jclassname = jclassname
         self._driver_args = driver_args

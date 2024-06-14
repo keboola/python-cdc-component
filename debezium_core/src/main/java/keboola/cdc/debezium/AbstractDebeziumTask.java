@@ -4,7 +4,6 @@ import io.debezium.config.Configuration;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
 import io.debezium.engine.format.Json;
-import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.FileInputStream;
@@ -13,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -29,19 +29,19 @@ public class AbstractDebeziumTask {
 	private final Properties keboolaProperties;
 	private final Duration maxDuration;
 	private final Path resultFolder;
-	private final JsonConverter.ConverterProvider converterProvider;
+	private final DebeziumKBCWrapper.Mode mode;
 	private final Duration maxWait;
 
 	public AbstractDebeziumTask(Path debeziumPropertiesPath,
 								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
-								JsonConverter.ConverterProvider provider) {
+								DebeziumKBCWrapper.Mode mode) {
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				new Properties(),
 				maxDuration,
 				maxWait, resultFolder,
-				provider
+				mode
 		);
 	}
 
@@ -50,14 +50,14 @@ public class AbstractDebeziumTask {
 								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
-								JsonConverter.ConverterProvider provider) {
+								DebeziumKBCWrapper.Mode mode) {
 
 		this(loadPropertiesWithDebeziumDefaults(debeziumPropertiesPath),
 				loadProperties(keboolaPropertiesPath),
 				maxDuration,
 				maxWait,
 				resultFolder,
-				provider
+				mode
 		);
 	}
 
@@ -66,14 +66,20 @@ public class AbstractDebeziumTask {
 								Duration maxDuration,
 								Duration maxWait,
 								Path resultFolder,
-								JsonConverter.ConverterProvider converterProvider) {
+								DebeziumKBCWrapper.Mode mode) {
 		this.debeziumProperties = debeziumProperties;
 		this.keboolaProperties = keboolaProperties;
 		this.maxDuration = maxDuration;
 		this.resultFolder = resultFolder;
-		this.converterProvider = converterProvider;
+		this.mode = mode;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
 		adjustMaxChunkSize(keboolaProperties);
+		adjustTimezone(keboolaProperties);
+	}
+
+	private static void adjustTimezone(Properties keboolaProperties) {
+		var timezone = keboolaProperties.getProperty("keboola.timezone", "UTC");
+		TimeZone.setDefault(TimeZone.getTimeZone(timezone));
 	}
 
 	private static void adjustMaxChunkSize(Properties keboolaProperties) {
@@ -88,7 +94,7 @@ public class AbstractDebeziumTask {
 		var completionCallback = new CompletionCallback(executorService);
 		var connectorCallback = new ConnectorCallback();
 		var changeConsumer = new DbChangeConsumer(this.resultFolder.toString(),
-				new DuckDbWrapper(this.keboolaProperties), this.converterProvider);
+				new DuckDbWrapper(this.keboolaProperties), this.mode.converterProvider(this.debeziumProperties));
 
 		// start
 		try (DebeziumEngine<ChangeEvent<String, String>> engine = DebeziumEngine.create(Json.class)

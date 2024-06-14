@@ -1,20 +1,35 @@
 package keboola.cdc.debezium;
 
 import keboola.cdc.debezium.converter.AppendDbConverter;
+import keboola.cdc.debezium.converter.DedubeOnEmptyStateDbConverter;
 import keboola.cdc.debezium.converter.DedupeDbConverter;
 import keboola.cdc.debezium.converter.JsonConverter;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.connect.runtime.standalone.StandaloneConfig;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Objects;
+import java.util.Properties;
 
 @Slf4j
 public class DebeziumKBCWrapper implements Runnable {
+
+    static {
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            log.error(e.getMessage(), e);
+            System.exit(1);
+        }
+    }
 
 	@Parameters(index = "0", description = "The debezium properties path")
 	private String debeziumPropertiesPath;
@@ -40,16 +55,16 @@ public class DebeziumKBCWrapper implements Runnable {
 
 		var debeziumTask = this.keboolaPropertiesPath == null
 				? new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
-						Duration.ofSeconds(this.maxDuration),
-						Duration.ofSeconds(this.maxWait),
-						Path.of(this.resultFolderPath),
-						this.mode.getConverterProvider())
+				Duration.ofSeconds(this.maxDuration),
+				Duration.ofSeconds(this.maxWait),
+				Path.of(this.resultFolderPath),
+				this.mode)
 				: new AbstractDebeziumTask(Path.of(this.debeziumPropertiesPath),
-						Path.of(this.keboolaPropertiesPath),
-						Duration.ofSeconds(this.maxDuration),
-						Duration.ofSeconds(this.maxWait),
-						Path.of(this.resultFolderPath),
-						this.mode.getConverterProvider());
+				Path.of(this.keboolaPropertiesPath),
+				Duration.ofSeconds(this.maxDuration),
+				Duration.ofSeconds(this.maxWait),
+				Path.of(this.resultFolderPath),
+				this.mode);
 		try {
 			debeziumTask.run();
 		} catch (Exception e) {
@@ -65,9 +80,28 @@ public class DebeziumKBCWrapper implements Runnable {
 
 	@Getter
 	@AllArgsConstructor
-	private enum Mode {
-		APPEND(AppendDbConverter::new),
-		DEDUPE(DedupeDbConverter::new);
-		private final JsonConverter.ConverterProvider converterProvider;
+	public enum Mode {
+		APPEND, DEDUPE;
+
+		public JsonConverter.ConverterProvider converterProvider(Properties debeziumProperties) {
+			if (this == APPEND)
+				return AppendDbConverter::new;
+			if (this == DEDUPE) {
+				var isFileOffsetStorage = Objects.equals(debeziumProperties.getProperty("offset.storage"),
+						"org.apache.kafka.connect.storage.FileOffsetBackingStore");
+				if (isFileOffsetStorage) {
+					var offsetStoragePath = debeziumProperties.getProperty(StandaloneConfig.OFFSET_STORAGE_FILE_FILENAME_CONFIG);
+					try {
+						if (Files.size(Path.of(offsetStoragePath)) == 0) {
+							return DedubeOnEmptyStateDbConverter::new;
+						}
+					} catch (IOException ignored) {
+					}
+				}
+				return DedupeDbConverter::new;
+			}
+			// default converter
+			return AppendDbConverter::new;
+		}
 	}
 }

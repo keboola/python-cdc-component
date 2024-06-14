@@ -220,7 +220,7 @@
           "type": "boolean",
           "format": "checkbox",
           "title": "Enable Heartbeat",
-          "description": "Enables the heartbeat signal that is used to prevent WAL disk space overflow when tracking low transaction tables.",
+          "description": "You can enable heartbeat to force the connector to emit a heartbeat event at regular intervals so that offsets remain synchronized.",
           "default": false,
           "propertyOrder": 40
         },

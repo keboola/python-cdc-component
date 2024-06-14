@@ -67,7 +67,8 @@ class LoggerOptions:
 class DebeziumExecutor:
 
     def __init__(self, properties_path: str, duckdb_config: DuckDBParameters, logger_options: LoggerOptions,
-                 jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None):
+                 jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None,
+                 keboola_properties: dict = None):
         """
         Initialize the Debezium CDC engine with the given properties file and jar path.
         Args:
@@ -76,10 +77,11 @@ class DebeziumExecutor:
             source_connection: Optional JDBCConnection to the source database used for signaling
             duckdb_config: `DuckDBParameters` object with the configuration for the DuckDB instance
             logger_options: Optional GelfLoggerOptions object with the configuration for the GELF logger
+            keboola_properties: Optional dict with additional properties to be added to the keboola properties file
         """
         self._jar_path = jar_path
         self._properties_path = properties_path
-        self._keboola_properties_path = self.build_keboola_properties(duckdb_config)
+        self._keboola_properties_path = self.build_keboola_properties(duckdb_config, keboola_properties)
 
         self._source_connection = source_connection
         self.parsed_properties = self._parse_properties()
@@ -96,11 +98,12 @@ class DebeziumExecutor:
                 db_configs_dict[key] = value.data
             return db_configs_dict
 
-    def build_keboola_properties(self, duckdb_config: DuckDBParameters):
+    def build_keboola_properties(self, duckdb_config: DuckDBParameters, additional_properties: dict = None) -> str:
         """
         Append DuckDB configuration to the properties file.
         Args:
             duckdb_config:
+            additional_properties:
 
         Returns:
 
@@ -113,6 +116,11 @@ class DebeziumExecutor:
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
             config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
+            if additional_properties:
+                for key, value in additional_properties.items():
+                    logging.info(f'Adding property to keboola properties file: {key}={value}')
+                    config_file.write(f'{key}={value}\n')
+
         return temp_file.name
 
     def build_logger_properties(self, logger_options: LoggerOptions) -> str:
@@ -188,13 +196,17 @@ class DebeziumExecutor:
 
         # create signal
         signal = SnapshotSignal(snapshot_id=uuid.uuid4().hex, table_names=table_names, snapshot_type=snapshot_type)
+
         # send signal
-        result = self._source_connection.perform_query(
+        query = (
             f"INSERT INTO {self.parsed_properties['signal.data.collection']} "
             f"(id, type, data) VALUES ('{signal.id}', '{signal.type}', "
-            f"'{json.dumps(signal.as_dict()['data'])}')")
+            f"'{json.dumps(signal.as_dict()['data'])}')"
+        )
+        logging.debug(f'Sending signal: {query}')
+        result = self._source_connection.perform_query(query)
 
-        logging.debug(f'Signal sent: {list(result)}')
+        logging.info(f'Signal sent: {list(result)}')
 
     def _signal_via_file(self, table_names: list[str], snapshot_type: Literal['blocking', 'incremental'] = 'blocking'):
         if not table_names:
