@@ -329,6 +329,16 @@
               "Pacific/Tarawa", "Pacific/Wake", "Pacific/Wallis", "Pacific/Chatham", "Pacific/Enderbury",
               "Pacific/Tongatapu", "Pacific/Kiritimati"
           ]
+        },
+          "strategy": {
+          "type": "string",
+          "title": "LogMiner Strategy",
+          "description": "Specifies the mining strategy that controls how Oracle LogMiner builds and uses a given data dictionary for resolving table and column ids to names. For description of the strategies please refer to the <a href=\"https://debezium.io/documentation/reference/stable/connectors/oracle.html#oracle-property-log-mining-strategy\">official documentation</a>.",
+          "propertyOrder": 80,
+          "enum": [
+            "redo_log_catalog",
+            "online_catalog"
+          ]
         }
       }
     },

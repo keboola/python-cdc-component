@@ -197,8 +197,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
         "schema.history.internal.file.filename": schema_history_filepath,
         "schema.history.internal.store.only.captured.tables.ddl": "true",
-        "log.mining.archive.destination.name": "LOG_ARCHIVE_DEST_1",
-        "log.mining.strategy": "online_catalog"
+        "log.mining.archive.destination.name": "LOG_ARCHIVE_DEST_1"
     }
 
     if heartbeat_config:

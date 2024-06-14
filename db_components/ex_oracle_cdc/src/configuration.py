@@ -96,6 +96,11 @@ class SnapshotMode(str, Enum):
     never = "never"
 
 
+class Strategy(str, Enum):
+    redo_log_catalog = "redo_log_catalog"
+    online_catalog = "online_catalog"
+
+
 @dataclass
 class HeartBeatConfig(ConfigurationBase):
     interval_ms: int = 3000
@@ -112,6 +117,7 @@ class SyncOptions(ConfigurationBase):
     enable_heartbeat: bool = False
     heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
     timezone: str = 'UTC'
+    strategy: Strategy = Strategy.online_catalog
 
 
 class LoadType(str, Enum):

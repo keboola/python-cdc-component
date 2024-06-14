@@ -84,6 +84,11 @@ class OracleComponent(ComponentBase):
 
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
+            if self._configuration.sync_options.strategy:
+                additional_properties = {"log.mining.strategy": sync_options.strategy.name}
+            else:
+                additional_properties = None
+
             debezium_properties = build_debezium_property_file(
                 user=db_config.user,
                 password=db_config.pswd_password,
@@ -101,7 +106,7 @@ class OracleComponent(ComponentBase):
                 signal_table=sync_options.source_signal_table,
                 snapshot_fetch_size=sync_options.snapshot_fetch_size,
                 snapshot_max_threads=sync_options.snapshot_threads,
-                additional_properties=None,
+                additional_properties=additional_properties,
                 heartbeat_config=heartbeat_config
             )
 
