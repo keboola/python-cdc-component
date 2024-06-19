@@ -42,6 +42,7 @@ class DuckDBParameters:
     memory_limit: str = '2GB'
     memory_max: str = '2GB'
     dedupe_max_chunk_size: int = 5_000_000
+    max_appender_cache_size: int = 200_000
 
 
 @dataclass
@@ -113,6 +114,8 @@ class DebeziumExecutor:
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
             config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
+            config_file.write(
+                f'keboola.converter.dedupe.max_appender_cache_size={duckdb_config.max_appender_cache_size}\n')
         return temp_file.name
 
     def build_logger_properties(self, logger_options: LoggerOptions) -> str:

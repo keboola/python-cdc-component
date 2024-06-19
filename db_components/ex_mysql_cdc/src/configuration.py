@@ -156,6 +156,7 @@ class SyncOptions(ConfigurationBase):
     batch_size: int = 2048
     queue_size: int = 8192
     duckdb_threads: int = 2
+    max_duckdb_appender_cache_size: int = 200_000
     snapshot_fetch_size: int = 10240
     snapshot_threads: int = 1
     handle_binary: BinaryHandler = BinaryHandler.hex

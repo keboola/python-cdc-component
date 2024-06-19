@@ -129,6 +129,7 @@ class MySqlCDCComponent(ComponentBase):
 
             duckdb_config = DuckDBParameters(self.duck_db_path,
                                              self.duck_db_tmp_dir,
+                                             max_appender_cache_size=sync_options.max_duckdb_appender_cache_size,
                                              max_threads=sync_options.duckdb_threads)
 
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
