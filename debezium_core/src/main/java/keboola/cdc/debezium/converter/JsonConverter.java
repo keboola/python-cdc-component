@@ -6,6 +6,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import keboola.cdc.debezium.DuckDbWrapper;
 
+import java.sql.SQLException;
+
 public interface JsonConverter {
 
 	void processJson(JsonObject jsonValue);
@@ -17,6 +19,8 @@ public interface JsonConverter {
 	void adjustSchema(JsonArray debeziumFields);
 
 	boolean isMissingAnyColumn(JsonObject jsonValue);
+
+	void flush() throws SQLException;
 
 	interface ConverterProvider {
 		JsonConverter getConverter(Gson gson, DuckDbWrapper dbWrapper,
