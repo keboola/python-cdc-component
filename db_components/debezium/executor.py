@@ -81,6 +81,9 @@ class DebeziumExecutor:
         self._jar_path = jar_path
         self._properties_path = properties_path
         self._keboola_properties_path = self.build_keboola_properties(duckdb_config)
+        # print contents of the properties file
+        with open(properties_path, 'r') as f:
+            logging.info(f.read())
 
         self._source_connection = source_connection
         self.parsed_properties = self._parse_properties()
