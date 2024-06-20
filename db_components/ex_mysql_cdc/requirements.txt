@@ -12,3 +12,4 @@ kbcstorage==0.7.2
 mock
 freezegun
 https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest
+memory_profiler

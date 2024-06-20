@@ -5,7 +5,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2GB
+          memory: 3GB
     links:
       - mysql
       - mariadb
@@ -22,6 +22,8 @@ services:
       - KBC_COMPONENTID=kds-team.ex-mysql-cdc-local
       - KBC_CONFIGID=12345
       - KBC_STACKID=connection.keboola.com
+      - KBC_LOGGER_ADDR=host.docker.internal
+      - KBC_LOGGER_PORT=12202
   mysql:
     image: mysql:5.7.12
     command: --local-infile --datadir=/var/lib/mysql --server-id=1 --log-bin=/var/lib/mysql/mysql-bin.log --binlog_do_db=inventory
