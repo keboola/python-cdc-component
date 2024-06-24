@@ -39,10 +39,10 @@ class DuckDBParameters:
     db_path: str
     tmp_dir_path: str
     max_threads: int = 3
-    memory_limit: str = '2GB'
-    memory_max: str = '2GB'
+    memory_limit: str = '800MB'
+    memory_max: str = '800MB'
     dedupe_max_chunk_size: int = 5_000_000
-    max_appender_cache_size: int = 200_000
+    max_appender_cache_size: int = 500_000
 
 
 @dataclass
