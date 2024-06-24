@@ -113,7 +113,7 @@ class SyncOptions(ConfigurationBase):
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     max_wait_s: int = 40
     snapshot_fetch_size: int = 10240
-    snapshot_threads: int = 1
+    snapshot_threads: int = 2
     dedupe_max_chunk_size: int = 5000000
     enable_heartbeat: bool = False
     heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
