@@ -67,7 +67,7 @@ jobs:
       - variables
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Echo Environment Variables
         run: |
