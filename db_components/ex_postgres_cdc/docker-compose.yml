@@ -13,7 +13,7 @@ services:
     environment:
       - KBC_DATADIR=/data
   postgres:
-    image: debezium/example-postgres
+    image: debezium/example-postgres:2.5.1.Final
     environment:
       POSTGRES_USER: ${PGSQL_USER}
       POSTGRES_PASSWORD: ${PGSQL_PASSWORD}
