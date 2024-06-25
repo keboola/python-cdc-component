@@ -168,20 +168,30 @@
       "title": "Sync Options",
       "type": "object",
       "required": [
-        "source_signal_table",
         "snapshot_mode"
       ],
       "propertyOrder": 15,
       "properties": {
+        "ro_mode": {
+          "type": "boolean",
+          "title": "Read-only mode",
+          "description": "When enabled, the connector doesn't require write access to the source database for signalling.",
+          "format": "checkbox",
+          "default": true,
+          "propertyOrder": 1
+        },
         "source_signal_table": {
           "title": "Signalling Table",
-          "propertyOrder": 1,
+          "propertyOrder": 2,
           "type": "string",
           "default": "",
           "description": "A system signal table that will be used by to connector to store various signal events and incremental snapshot watermarks.",
           "enum": [],
           "format": "select",
           "options": {
+            "dependencies": {
+              "ro_mode": false
+            },
             "tooltip": "You need to create a signaling table by submitting a standard SQL DDL query to the source database. \n\nThe following example shows a `CREATE TABLE` command that creates a three-column `debezium_signal` table: \n\n```sql\nCREATE TABLE debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data TEXT NULL);\n``` \n\n **Note** that the connector must have write access to the signaling table.",
             "async": {
               "label": "Re-load tables",

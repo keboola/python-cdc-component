@@ -150,7 +150,8 @@ class SnapshotStatementOverride(ConfigurationBase):
 
 @dataclass
 class SyncOptions(ConfigurationBase):
-    source_signal_table: str
+    ro_mode: bool = False
+    source_signal_table: str = ''
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     max_wait_s: int = 5
     batch_size: int = 2048
