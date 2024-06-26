@@ -38,10 +38,11 @@ class SnapshotSignal:
 class DuckDBParameters:
     db_path: str
     tmp_dir_path: str
-    max_threads: int = 6
-    memory_limit: str = '2GB'
-    memory_max: str = '1GB'
+    max_threads: int = 3
+    memory_limit: str = '800MB'
+    memory_max: str = '800MB'
     dedupe_max_chunk_size: int = 5_000_000
+    max_appender_cache_size: int = 500_000
 
 
 @dataclass
@@ -80,6 +81,9 @@ class DebeziumExecutor:
         self._jar_path = jar_path
         self._properties_path = properties_path
         self._keboola_properties_path = self.build_keboola_properties(duckdb_config)
+        # print contents of the properties file
+        with open(properties_path, 'r') as f:
+            logging.info(f.read())
 
         self._source_connection = source_connection
         self.parsed_properties = self._parse_properties()
@@ -113,6 +117,8 @@ class DebeziumExecutor:
             config_file.write(f'keboola.duckdb.memory.limit={duckdb_config.memory_limit}\n')
             config_file.write(f'keboola.duckdb.memory.max={duckdb_config.memory_max}\n')
             config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
+            config_file.write(
+                f'keboola.converter.dedupe.max_appender_cache_size={duckdb_config.max_appender_cache_size}\n')
         return temp_file.name
 
     def build_logger_properties(self, logger_options: LoggerOptions) -> str:

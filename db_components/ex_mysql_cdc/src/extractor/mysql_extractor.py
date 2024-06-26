@@ -8,7 +8,7 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType, Adapter
+from db_components.ex_mysql_cdc.src.configuration import DbOptions, ColumnFilterType, Adapter, SnapshotStatementOverride
 
 JDBC_PATH = '../jdbc/mysql-connector-j-8.3.0.jar'
 
@@ -90,8 +90,12 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
+                                 snapshot_statement_overrides: list[SnapshotStatementOverride] = None,
                                  additional_properties: dict = None,
-                                 binary_handling_mode: str = 'hex') -> str:
+                                 binary_handling_mode: str = 'hex',
+                                 max_batch_size: int = 2048,
+                                 max_queue_size: int = 8192
+                                 ) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
     For documentation see:
@@ -114,6 +118,7 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
+        snapshot_statement_overrides: List of statements to override the default snapshot statement.
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
 
@@ -154,14 +159,20 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "errors.max.retries": 3,
         "signal.enabled.channels": "source",
         "signal.data.collection": signal_table,
-        "max.batch.size": 5000,
-        "max.queue.size": 10000
+        "max.batch.size": max_batch_size,
+        "max.queue.size": max_queue_size
     }
 
     if column_filter_type != ColumnFilterType.none:
         filter_key = f"column.{column_filter_type.value}.list"
         filter_value = ','.join(column_filter)
         properties[filter_key] = filter_value
+
+    if snapshot_statement_overrides:
+        properties["snapshot.select.statement.overrides"] = ','.join(
+            [override.table for override in snapshot_statement_overrides])
+        for override in snapshot_statement_overrides:
+            properties[f"snapshot.select.statement.overrides.{override.table}"] = override.statement
 
     if adapter == Adapter.mariadb:
         properties["connector.adapter"] = "mariadb"

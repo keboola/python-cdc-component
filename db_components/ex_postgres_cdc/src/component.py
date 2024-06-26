@@ -88,6 +88,7 @@ class PostgresCDCComponent(ComponentBase):
 
             heartbeat_config = sync_options.heartbeat_config if sync_options.enable_heartbeat else None
 
+            snapshot_overrides = sync_options.snapshot_statements
             debezium_properties = build_postgres_property_file(db_config.user, db_config.pswd_password,
                                                                db_config.host,
                                                                str(db_config.port), db_config.database,
@@ -100,6 +101,7 @@ class PostgresCDCComponent(ComponentBase):
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
+                                                               snapshot_statement_overrides=snapshot_overrides,
                                                                repl_suffix=self._build_unique_replication_suffix(),
                                                                hearbeat_config=heartbeat_config)
 

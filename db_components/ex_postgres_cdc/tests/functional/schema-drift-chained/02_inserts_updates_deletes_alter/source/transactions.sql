@@ -11,6 +11,8 @@ WHERE sku = 'SKU2';
 
 ALTER TABLE inventory.sales ADD COLUMN newcolumn VARCHAR(255) DEFAULT 'defaultvalue';
 
+COMMIT;
+
 INSERT INTO inventory.sales (usergender, usercity, usersentiment, zipcode, sku, createdate, category, price, county, countycode, userstate, categorygroup, newcolumn)
 VALUES ('Male', 'San Francisco', 3, '94101', 'SKU30', '2023-01-03', 'Clothing', 49.99, 'San Francisco', 'CA', 'CA', 'Clothing', 'defaultvalue');
 

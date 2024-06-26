@@ -7,7 +7,8 @@ from jaydebeapi import DatabaseError
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
 from db_components.db_common.table_schema import BaseTypeConverter
-from db_components.ex_postgres_cdc.src.configuration import DbOptions, HeartBeatConfig, ColumnFilterType
+from db_components.ex_postgres_cdc.src.configuration import DbOptions, HeartBeatConfig, ColumnFilterType, \
+    SnapshotStatementOverride
 
 JDBC_PATH = '../jdbc/postgresql-42.6.0.jar'
 
@@ -64,6 +65,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
                                  signal_table: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
+                                 snapshot_statement_overrides: list[SnapshotStatementOverride] = None,
                                  additional_properties: dict = None,
                                  repl_suffix: str = 'dbz',
                                  hearbeat_config: HeartBeatConfig = None) -> str:
@@ -88,6 +90,7 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         snapshot_fetch_size: Maximum number of records to fetch from the database when performing an incremental
                              snapshot.
         snapshot_mode: 'initial' or 'never'
+        snapshot_statement_overrides: List of statements to override the default snapshot statement.
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
         hearbeat_config: Configuration for the heartbeat signal.
@@ -135,6 +138,12 @@ def build_postgres_property_file(user: str, password: str, hostname: str, port: 
         filter_key = f"column.{column_filter_type.value}.list"
         filter_value = ','.join(column_filter)
         properties[filter_key] = filter_value
+
+    if snapshot_statement_overrides:
+        properties["snapshot.select.statement.overrides"] = ','.join(
+            [override.table for override in snapshot_statement_overrides])
+        for override in snapshot_statement_overrides:
+            properties[f"snapshot.select.statement.overrides.{override.table}"] = override.statement
 
     if hearbeat_config:
         properties["heartbeat.interval.ms"] = hearbeat_config.interval_ms

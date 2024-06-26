@@ -95,6 +95,7 @@ class MySqlCDCComponent(ComponentBase):
             source_settings = self._configuration.source_settings
             logging.info(f"Running sync mode: {sync_options.snapshot_mode}")
 
+            snapshot_overrides = sync_options.snapshot_statements
             debezium_properties = build_debezium_property_file(db_config.user, db_config.pswd_password,
                                                                db_config.host,
                                                                str(db_config.port),
@@ -110,7 +111,10 @@ class MySqlCDCComponent(ComponentBase):
                                                                signal_table=sync_options.source_signal_table,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
-                                                               binary_handling_mode=sync_options.handle_binary.name)
+                                                               snapshot_statement_overrides=snapshot_overrides,
+                                                               binary_handling_mode=sync_options.handle_binary.name,
+                                                               max_batch_size=sync_options.batch_size,
+                                                               max_queue_size=sync_options.queue_size)
 
             self._collect_source_metadata()
 
@@ -123,9 +127,13 @@ class MySqlCDCComponent(ComponentBase):
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
+            duckdb_config = DuckDBParameters(self.duck_db_path,
+                                             self.duck_db_tmp_dir,
+                                             max_appender_cache_size=sync_options.max_duckdb_appender_cache_size,
+                                             max_threads=sync_options.duckdb_threads)
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
-                                                 duckdb_config=DuckDBParameters(self.duck_db_path,
-                                                                                self.duck_db_tmp_dir),
+                                                 duckdb_config=duckdb_config,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )

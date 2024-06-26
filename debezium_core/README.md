@@ -53,6 +53,8 @@ keboola.duckdb.memory.limit -> memory limit for duckDB
 keboola.duckdb.memory.max -> maximum memory limit for duckDB
 keboola.duckdb.temp.directory -> path to temporary directory for duckDB
 keboola.converter.dedupe.max_chunk_size -> maximum chunk size for deduplication mode
+keboola.converter.dedupe.max_appender_cache_size -> maximum appender cache size across all tables
+keboola.timezone -> timezone of module, default value is UTC 
 ```
 
 **NOTE:** If no value is specified for given property, default value is applied:
@@ -64,6 +66,7 @@ keboola.duckdb.memory.limit=4GB
 keboola.duckdb.memory.max=2GB
 keboola.duckdb.temp.directory=/tmp/dbtmp
 keboola.converter.dedupe.max_chunk_size=1000
+keboola.timezone=Europe/Prague
 ```
 
 ## Enforcing snapshot (blocking)

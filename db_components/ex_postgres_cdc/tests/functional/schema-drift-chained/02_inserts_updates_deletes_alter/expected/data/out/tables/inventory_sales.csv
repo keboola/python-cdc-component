@@ -1,6 +1,6 @@
-Male,New York,1,10001,SKU10,2023-01-01,Electronics,199.99000,New York,NY,NY,Electronics,c,false,0,
-Female,Los Angeles,5,90001,SKU20,2023-01-02,Books,14.99000,Los Angeles,CA,CA,Books,c,false,1,
-Female,Mize,-1,39153,SKU1,2013-09-23 22:38:29,Cameras,249.99000,Smith,28129,Mississippi,Electronics,u,false,2,
-,,,,,2013-09-23 22:38:30,,,,,,,d,true,3,
+Male,,1,10001,SKU10,2023-01-01,Electronics,199.99000,New York,NY,NY,Electronics,c,false,0,defaultvalue
+Female,,5,90001,SKU20,2023-01-02,Books,14.99000,Los Angeles,CA,CA,Books,c,false,1,defaultvalue
+Female,,-1,39153,SKU1,2013-09-23 22:38:29,Cameras,249.99000,Smith,28129,Mississippi,Electronics,u,false,2,defaultvalue
+,,,,,2013-09-23 22:38:30,,,,,,,d,true,3,defaultvalue
 Male,San Francisco,3,94101,SKU30,2023-01-03,Clothing,49.99000,San Francisco,CA,CA,Clothing,c,false,4,defaultvalue
 Male,,3,94101,SKU30,2023-01-04,Clothing,49.99000,San Francisco,CA,CA,Clothing,c,false,5,defaultvalue

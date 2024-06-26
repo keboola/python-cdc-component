@@ -13,8 +13,9 @@ services:
     environment:
       - KBC_DATADIR=/data
   postgres:
-    image: debezium/example-postgres
+    image: debezium/example-postgres:2.5.1.Final
     environment:
+      DK_JAVA_OPTIONS: -Xmx1600m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/data/dumps
       POSTGRES_USER: ${PGSQL_USER}
       POSTGRES_PASSWORD: ${PGSQL_PASSWORD}
   wait:

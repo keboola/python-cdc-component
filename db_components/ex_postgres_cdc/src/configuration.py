@@ -79,6 +79,8 @@ class ColumnFilterType(str, Enum):
     none = "none"
     exclude = "exclude"
     include = "include"
+
+
 @dataclass
 class SourceSettings(ConfigurationBase):
     schemas: list[str] = dataclasses.field(default_factory=list)
@@ -92,11 +94,17 @@ class SnapshotMode(str, Enum):
     initial = "initial"
     never = "never"
 
+
 @dataclass
 class HeartBeatConfig(ConfigurationBase):
     interval_ms: int = 3000
     action_query: str = 'UPDATE kbc.heartbeat SET last_heartbeat = NOW()'
 
+
+@dataclass
+class SnapshotStatementOverride(ConfigurationBase):
+    table: str
+    statement: str
 
 
 @dataclass
@@ -105,10 +113,12 @@ class SyncOptions(ConfigurationBase):
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     max_wait_s: int = 40
     snapshot_fetch_size: int = 10240
-    snapshot_threads: int = 1
+    snapshot_threads: int = 2
     dedupe_max_chunk_size: int = 5000000
     enable_heartbeat: bool = False
     heartbeat_config: HeartBeatConfig = dataclasses.field(default_factory=lambda: ConfigTree({}))
+    snapshot_statement_override: bool = False
+    snapshot_statements: list[SnapshotStatementOverride] = dataclasses.field(default_factory=list)
 
 
 class LoadType(str, Enum):
