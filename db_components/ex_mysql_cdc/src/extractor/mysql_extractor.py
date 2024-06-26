@@ -1,6 +1,8 @@
 import logging
 import logging.handlers
+import os
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from jaydebeapi import DatabaseError
@@ -88,13 +90,15 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
                                  adapter: Adapter = Adapter.mysql,
                                  snapshot_mode: str = 'initial',
                                  signal_table: str = None,
+                                 signal_file: str = None,
                                  snapshot_fetch_size: int = 10240,
                                  snapshot_max_threads: int = 1,
                                  snapshot_statement_overrides: list[SnapshotStatementOverride] = None,
                                  additional_properties: dict = None,
                                  binary_handling_mode: str = 'hex',
                                  max_batch_size: int = 2048,
-                                 max_queue_size: int = 8192
+                                 max_queue_size: int = 8192,
+                                 read_only: bool = True
                                  ) -> str:
     """
     Builds temporary file with Postgres related Debezium properties.
@@ -120,7 +124,9 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         snapshot_mode: 'initial' or 'never'
         snapshot_statement_overrides: List of statements to override the default snapshot statement.
         signal_table: Name of the table where the signals will be stored, fully qualified name, e.g. schema.table
+        signal_file: Path to the file where the signals will be stored.
         repl_suffix: Suffixed to the publication and slot name to avoid name conflicts.
+        read_only: enable read only incremental snapshot mode for the connector
 
     Returns:
 
@@ -157,8 +163,6 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         "database.include.list": schema_include,
         "table.include.list": table_include,
         "errors.max.retries": 3,
-        "signal.enabled.channels": "source",
-        "signal.data.collection": signal_table,
         "max.batch.size": max_batch_size,
         "max.queue.size": max_queue_size
     }
@@ -180,6 +184,14 @@ def build_debezium_property_file(user: str, password: str, hostname: str, port: 
         properties["database.jdbc.driver"] = "org.mariadb.jdbc.Driver"
         properties["database.ssl.mode"] = "disabled"
 
+    if read_only:
+        # properties["read.only"] = True
+        properties["signal.enabled.channels"] = "file"
+        properties["signal.file"] = signal_file
+    else:
+        properties["signal.enabled.channels"] = "source"
+        properties["signal.data.collection"] = signal_table
+
     properties |= additional_properties
 
     temp_file = tempfile.NamedTemporaryFile(suffix='.properties', delete=False)
@@ -195,7 +207,12 @@ class MySQLDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, is_maria_db: bool = False):
         self.__credentials = db_credentials
         # include both jars, so they are on classpath to enable functional tests and driver switching
-        jars = ['../jdbc/mysql-connector-j-8.3.0.jar', '../jdbc/mariadb-java-client-3.4.0.jar']
+
+        # get current file path
+        jdbc_folder = Path(__file__).parent.parent.parent
+
+        jars = [jdbc_folder.joinpath('jdbc/mysql-connector-j-8.3.0.jar').as_posix(),
+                jdbc_folder.joinpath('jdbc/mariadb-java-client-3.4.0.jar').as_posix()]
         if not is_maria_db:
             driver_class = 'com.mysql.cj.jdbc.Driver'
             protocol = 'jdbc:mysql'

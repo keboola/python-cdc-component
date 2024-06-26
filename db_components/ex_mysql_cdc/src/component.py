@@ -109,12 +109,14 @@ class MySqlCDCComponent(ComponentBase):
                                                                server_id_unique=self._build_unique_server_id(),
                                                                snapshot_mode=self.get_snapshot_mode(),
                                                                signal_table=sync_options.source_signal_table,
+                                                               signal_file=self._signal_file,
                                                                snapshot_fetch_size=sync_options.snapshot_fetch_size,
                                                                snapshot_max_threads=sync_options.snapshot_threads,
                                                                snapshot_statement_overrides=snapshot_overrides,
                                                                binary_handling_mode=sync_options.handle_binary.name,
                                                                max_batch_size=sync_options.batch_size,
-                                                               max_queue_size=sync_options.queue_size)
+                                                               max_queue_size=sync_options.queue_size,
+                                                               read_only=sync_options.ro_mode)
 
             self._collect_source_metadata()
 
@@ -141,7 +143,8 @@ class MySqlCDCComponent(ComponentBase):
             newly_added_tables = self.get_newly_added_tables()
             if newly_added_tables:
                 logging.warning(f"New tables detected: {newly_added_tables}. Running initial blocking snapshot.")
-                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel='source')
+                channel = 'file' if sync_options.ro_mode else 'source'
+                debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel=channel)
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
@@ -315,7 +318,8 @@ class MySqlCDCComponent(ComponentBase):
         table_schemas = dict()
         tables_to_collect = self.currently_synced_tables
         # in cae the signalling table is not in the synced tables list
-        if self._configuration.sync_options.source_signal_table not in tables_to_collect:
+        if (self._configuration.sync_options.source_signal_table
+                and self._configuration.sync_options.source_signal_table not in tables_to_collect):
             tables_to_collect.append(self._configuration.sync_options.source_signal_table)
 
         for table in tables_to_collect:
