@@ -1,6 +1,8 @@
 import logging
 import logging.handlers
+import os
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from jaydebeapi import DatabaseError
@@ -205,7 +207,12 @@ class MySQLDebeziumExtractor:
     def __init__(self, db_credentials: DbOptions, is_maria_db: bool = False):
         self.__credentials = db_credentials
         # include both jars, so they are on classpath to enable functional tests and driver switching
-        jars = ['../jdbc/mysql-connector-j-8.3.0.jar', '../jdbc/mariadb-java-client-3.4.0.jar']
+
+        # get current file path
+        jdbc_folder = Path(__file__).parent.parent.parent
+
+        jars = [jdbc_folder.joinpath('jdbc/mysql-connector-j-8.3.0.jar').as_posix(),
+                jdbc_folder.joinpath('jdbc/mariadb-java-client-3.4.0.jar').as_posix()]
         if not is_maria_db:
             driver_class = 'com.mysql.cj.jdbc.Driver'
             protocol = 'jdbc:mysql'

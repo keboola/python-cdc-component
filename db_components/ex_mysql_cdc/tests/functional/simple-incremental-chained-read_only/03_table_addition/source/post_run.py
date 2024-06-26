@@ -5,7 +5,7 @@ from db_components.debezium.tests.functional import TestDatabaseEnvironment
 
 def run(context: TestDataDir):
     # get value from the context parameters injected via DataDirTester constructor
-    sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
+    sql_client: TestDatabaseEnvironment = context.context_parameters['root_client']
 
     sql_client.connection.connect()
     # drop tables created in the same schema by other tests

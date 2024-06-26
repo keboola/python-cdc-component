@@ -13,7 +13,7 @@ def get_transactions_queries():
 
 def run(context: TestDataDir):
     # get value from the context parameters injected via DataDirTester constructor
-    sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
+    sql_client: TestDatabaseEnvironment = context.context_parameters['root_client']
     sql_client.connection.connect()
 
     queries = get_transactions_queries()

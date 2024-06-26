@@ -4,8 +4,8 @@
       "ssh_options": [],
       "host": "{{env.MYSQL_HOST}}",
       "port":  3306,
-      "user": "{{env.MYSQL_USER}}",
-      "#password": "{{env.MYSQL_PASSWORD}}",
+      "user": "ro_user",
+      "#password": "password",
       "use_ssh": false
     },
     "destination": {
