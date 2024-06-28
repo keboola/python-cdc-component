@@ -91,6 +91,9 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 				}
 			}
 			committer.markBatchFinished();
+		} catch (StopEngineException e) {
+			committer.markBatchFinished();
+			throw e;
 		} finally {
 			SyncStats.recordCount(this.count.intValue());
 			SyncStats.setProcessing(false);
@@ -129,7 +132,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private boolean shouldStop(final JsonObject payload) {
-		if (SyncStats.isSnapshotInProgress()) {
+		if (SyncStats.isSnapshotInProgress() || SyncStats.isInitialSnapshotOnly()) {
 			log.trace("Snapshot phase, do not stop processing.");
 			return false;
 		}
@@ -139,7 +142,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		}
 		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
 				.getAsLong();
-		if (timestampField > SyncStats.started()) {
+		if (timestampField > SyncStats.started() + 500) { // delta 500ms
 			log.info("Stop processing out of scope records, {}: {} and started: {}",
 					KBC_EVENT_TIMESTAMP_FIELD, timestampField, SyncStats.started());
 			return true;
