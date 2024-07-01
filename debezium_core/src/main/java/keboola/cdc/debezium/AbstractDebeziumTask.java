@@ -77,6 +77,7 @@ public class AbstractDebeziumTask {
 		adjustMaxChunkSize(keboolaProperties);
 		adjustMaxAppenderCacheSize(keboolaProperties);
 		adjustTimezone(keboolaProperties);
+		setSnapshotMode(debeziumProperties);
 	}
 
 	private static void adjustTimezone(Properties keboolaProperties) {
@@ -86,6 +87,10 @@ public class AbstractDebeziumTask {
 
 	private static void adjustMaxChunkSize(Properties keboolaProperties) {
 		MAX_CHUNK_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_chunk_size", "1000"));
+	}
+
+	private static void setSnapshotMode(Properties debeziumProperties) {
+		SyncStats.setInitialSnapshotOnly(debeziumProperties.getProperty("snapshot.mode", "").equalsIgnoreCase("initial_only"));
 	}
 
 	private static void adjustMaxAppenderCacheSize(Properties keboolaProperties) {

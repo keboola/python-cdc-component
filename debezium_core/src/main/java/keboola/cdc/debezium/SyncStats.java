@@ -1,5 +1,8 @@
 package keboola.cdc.debezium;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.ZonedDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -8,11 +11,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class SyncStats {
 	private final static SyncStats singleton = new SyncStats();
+	private static final Logger log = LoggerFactory.getLogger(SyncStats.class);
 
 	private final AtomicReference<ZonedDateTime> lastRecord;
 	private final AtomicBoolean processing;
 	private final AtomicLong started;
 	private final AtomicBoolean snapshotInProgress;
+	private final AtomicBoolean snapshotOnly;
 	private final AtomicBoolean taskStarted;
 	private final AtomicInteger recordCount;
 
@@ -21,6 +26,7 @@ public class SyncStats {
 		this.recordCount = new AtomicInteger(0);
 		this.taskStarted = new AtomicBoolean(false);
 		this.snapshotInProgress = new AtomicBoolean(false);
+		this.snapshotOnly = new AtomicBoolean(false);
 		this.started = new AtomicLong(0L);
 		this.processing = new AtomicBoolean(false);
 	}
@@ -67,5 +73,14 @@ public class SyncStats {
 
 	public static boolean taskStarted() {
 		return singleton.taskStarted.get();
+	}
+
+	public static void setInitialSnapshotOnly(boolean initialOnly) {
+		log.info("Setting initial snapshot only to: {}", initialOnly);
+		singleton.snapshotOnly.set(initialOnly);
+	}
+
+	public static boolean isInitialSnapshotOnly() {
+		return singleton.snapshotOnly.get();
 	}
 }
