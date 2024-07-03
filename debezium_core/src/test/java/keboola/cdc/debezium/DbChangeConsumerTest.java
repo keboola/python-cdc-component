@@ -64,7 +64,7 @@ class DbChangeConsumerTest {
 				() -> this.dbChangeConsumer.handleBatch(Collections.singletonList(event), this.committer));
 
 		verify(this.committer, Mockito.never()).markProcessed(event);
-		verify(this.committer, Mockito.never()).markBatchFinished();
+		verify(this.committer, Mockito.times(1)).markBatchFinished();
 		verify(this.converter, Mockito.never()).processJson(any());
 		assertEquals(0, this.dbChangeConsumer.getRecordsCount().get());
 	}
@@ -77,7 +77,7 @@ class DbChangeConsumerTest {
 				() -> this.dbChangeConsumer.handleBatch(events, this.committer));
 
 		verify(this.committer, Mockito.times(3)).markProcessed(any());
-		verify(this.committer, Mockito.never()).markBatchFinished();
+		verify(this.committer, Mockito.times(1)).markBatchFinished();
 		verify(this.converter, Mockito.times(3)).processJson(any());
 		assertEquals(3, this.dbChangeConsumer.getRecordsCount().get());
 	}
