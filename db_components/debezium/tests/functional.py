@@ -1,3 +1,4 @@
+import csv
 import glob
 import json
 import os
@@ -106,6 +107,12 @@ class DebeziumCDCDatadirTest(TestDataDir):
         os.remove(table_path)
         shutil.move(tmp_path, table_path)
 
+        print("Table after removing columns:")
+        with open(table_path, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                print(row)
+
     def _cleanup_result_data(self):
         """
         We cannot compare binlog read_at timestamp, so exclude these columns from the comparison.
@@ -143,4 +150,5 @@ class DebeziumCDCDatadirTest(TestDataDir):
 
     def run_component(self):
         super().run_component()
+        print("Running cleanup")
         self._cleanup_result_data()
