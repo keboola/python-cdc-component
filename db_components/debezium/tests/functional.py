@@ -25,11 +25,6 @@ class TestDatabaseEnvironment:
     def create_signal_table(self):
         self.prepare_initial_table('signal_table.sql')
 
-    def ora_drop_table(self, table: str):
-        """Oracle helper function"""
-        self.connection.perform_query(f"DROP TABLE {table};")
-        logging.info(f"Table {table} dropped")
-
     def perform_query(self, query: str):
         return list(self.connection.perform_query(query))
 

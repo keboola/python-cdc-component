@@ -3,7 +3,6 @@ from pathlib import Path
 from datadirtest import TestDataDir
 from dotenv import load_dotenv
 
-from db_components.debezium.tests.functional import TestDatabaseEnvironment
 from db_components.ex_oracle_cdc.tests.scripts_executor import OracleSQLExecutor
 
 traits_folder = '/code/db_components/ex_oracle_cdc/tests/sql_test_traits'
@@ -22,7 +21,7 @@ def run(context: TestDataDir):
     oracle_executor.execute_sql(
         """
         BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE TESTUSER01.SALES';
+           EXECUTE IMMEDIATE 'DROP TABLE TESTUSER01.USERS';
         EXCEPTION
            WHEN OTHERS THEN
               IF SQLCODE != -942 THEN
@@ -31,24 +30,8 @@ def run(context: TestDataDir):
         END;
         """
     )
-    oracle_executor.execute_sql_from_file(os.path.join(traits_folder, 'sales_table.sql'))
+    oracle_executor.execute_sql_from_file(os.path.join(traits_folder, 'users_table.sql'))
 
-    oracle_executor.execute_sql(
-        """
-        BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE C##DBZUSER.DEBEZIUM_SIGNALS';
-        EXCEPTION
-           WHEN OTHERS THEN
-              IF SQLCODE != -942 THEN
-                 RAISE;
-              END IF;
-        END;
-        """
-    )
-
-    # debezium signal table will be created as debezium user
-    sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
-    sql_client.create_signal_table()
     print("Running before script")
     os.environ['KBC_COMPONENTID'] = 'kds-team-ex-oracle-cdc-local'
     os.environ['KBC_STACKID'] = 'connection.keboola.com'

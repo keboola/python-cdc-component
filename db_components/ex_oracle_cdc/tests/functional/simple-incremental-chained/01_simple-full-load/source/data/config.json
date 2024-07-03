@@ -1,0 +1,46 @@
+{
+    "parameters": {
+    "db_settings": {
+      "host": "{{env.ORACLE_HOST}}",
+      "port": 1525,
+      "user": "{{env.ORACLE_DBZUSER}}",
+      "database": "{{env.ORACLE_DATABASE}}",
+      "#password": "{{env.ORACLE_DBZPASSWORD}}",
+      "p_database": "{{env.ORACLE_P_DATABASE}}",
+      "ssh_options": {
+        "enabled": false
+      }
+    },
+        "destination": {
+          "load_type": "incremental_load",
+          "outputBucket": "oracle19"
+        },
+        "sync_options": {
+            "snapshot_mode": "initial",
+            "snapshot_threads": 1,
+            "snapshot_fetch_size": 10240,
+            "source_signal_table": "C##DBZUSER.DEBEZIUM_SIGNAL",
+            "enable_heartbeat": false,
+            "heartbeat_config": {
+            "interval_ms": 10000,
+            "action_query": "INSERT INTO C##DBZUSER.HEARTBEAT (last_heartbeat) VALUES (SYSDATE)"
+      }
+        },
+        "source_settings": {
+            "tables": [
+              "TESTUSER01.SALES"
+            ],
+            "schemas": [
+                "TESTUSER01"
+            ],
+            "column_filter": [],
+      "column_filter_type": "exclude"
+        },
+        "debug": false,
+        "max_workers": 10
+    },
+    "shared_code_row_ids": [],
+    "image_parameters": {},
+    "action": "run",
+    "storage": {}
+}

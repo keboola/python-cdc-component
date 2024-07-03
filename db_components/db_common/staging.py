@@ -230,6 +230,11 @@ class DuckDBStagingExporter:
             null_string: String that represents NULL values in the CSV files.
 
         """
+
+        if not primary_keys:
+            # TODO: I don't know how to handle this
+            raise NotImplementedError("Primary keys are required for deduplication")
+
         new_tables = self.get_table_chunks(table_name)
 
         # create pkey table
