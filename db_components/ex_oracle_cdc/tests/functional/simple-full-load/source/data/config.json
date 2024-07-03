@@ -3,9 +3,9 @@
     "db_settings": {
       "host": "{{env.ORACLE_HOST}}",
       "port": 1525,
-      "user": "{{env.ORACLE_USER}}",
+      "user": "{{env.ORACLE_DBZUSER}}",
       "database": "{{env.ORACLE_DATABASE}}",
-      "#password": "{{env.ORACLE_PASSWORD}}",
+      "#password": "{{env.ORACLE_DBZPASSWORD}}",
       "p_database": "{{env.ORACLE_P_DATABASE}}",
       "ssh_options": {
         "enabled": false
@@ -28,7 +28,7 @@
         },
         "source_settings": {
             "tables": [
-              "TESTUSER01.EMPLOYEES"
+              "TESTUSER01.SALES"
             ],
             "schemas": [
                 "TESTUSER01"

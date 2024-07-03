@@ -12,3 +12,4 @@ https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirt
 mock
 freezegun
 duckdb
+oracledb

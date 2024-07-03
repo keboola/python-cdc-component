@@ -24,39 +24,10 @@ class TestDatabaseEnvironment:
     def create_signal_table(self):
         self.prepare_initial_table('signal_table.sql')
 
-    def ora_drop_table_if_exists(self, table: str):
+    def ora_drop_table(self, table: str):
         """Oracle helper function"""
-        self.connection.connect()
-        query = """
-        BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE ';
-        EXCEPTION
-           WHEN OTHERS THEN
-              IF SQLCODE != -942 THEN
-                 RAISE;
-              END IF;
-        END;
-        /
-        """
-        self.connection.perform_query(query)
-        self.connection.perform_query("COMMIT;")
-
-    def ora_create_signal_table(self):
-        """Oracle helper function"""
-        self.connection.connect()
-        query = """
-        BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE TESTUSER01.SALES';
-        EXCEPTION
-           WHEN OTHERS THEN
-              IF SQLCODE != -942 THEN
-                 RAISE;
-              END IF;
-        END;
-        /
-        """
-        self.connection.perform_query(query)
-        self.connection.perform_query("COMMIT;")
+        self.connection.perform_query(f"DROP TABLE {table};")
+        logging.info(f"Table {table} dropped")
 
     def perform_query(self, query: str):
         return list(self.connection.perform_query(query))
@@ -67,7 +38,6 @@ class TestDatabaseEnvironment:
         queries = table.init_queries
         for q in queries:
             if q.strip():
-                logging.info(f"Executing query: {q}")
                 self.perform_query(q)
 
 

@@ -235,7 +235,7 @@ class DebeziumExecutor:
     def execute(self, result_folder_path: str,
                 mode: Literal['APPEND', 'DEDUPE'] = 'APPEND',
                 max_duration_s: int = 3600,
-                max_wait_s: int = 5, previous_schema: dict = None) -> dict:
+                max_wait_s: int = 30, previous_schema: dict = None) -> dict:
 
         """
         Execute the Debezium CDC engine with the given properties file and additional arguments.

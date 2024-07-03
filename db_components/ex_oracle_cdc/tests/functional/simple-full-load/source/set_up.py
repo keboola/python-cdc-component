@@ -1,17 +1,54 @@
 import os
 from pathlib import Path
-
 from datadirtest import TestDataDir
+from dotenv import load_dotenv
 
 from db_components.debezium.tests.functional import TestDatabaseEnvironment
+from db_components.ex_oracle_cdc.tests.scripts_executor import OracleSQLExecutor
+
+traits_folder = '/code/db_components/ex_oracle_cdc/tests/sql_test_traits'
 
 
 def run(context: TestDataDir):
-    # get value from the context parameters injected via DataDirTester constructor
+
+    load_dotenv()
+    user = os.getenv("TEST_ORACLE_USER")
+    password = os.getenv("TEST_ORACLE_PASSWORD")
+    oracle_host = os.getenv("ORACLE_HOST")
+    oracle_port = 1525
+    oracle_p_database = os.getenv("ORACLE_P_DATABASE")
+    oracle_executor = OracleSQLExecutor(user, password, f'{oracle_host}:{oracle_port}/'f'{oracle_p_database}')
+
+    oracle_executor.execute_sql(
+        """
+        BEGIN
+           EXECUTE IMMEDIATE 'DROP TABLE TESTUSER01.SALES';
+        EXCEPTION
+           WHEN OTHERS THEN
+              IF SQLCODE != -942 THEN
+                 RAISE;
+              END IF;
+        END;
+        """
+    )
+    oracle_executor.execute_sql_from_file(os.path.join(traits_folder, 'sales_table.sql'))
+
+    oracle_executor.execute_sql(
+        """
+        BEGIN
+           EXECUTE IMMEDIATE 'DROP TABLE C##DBZUSER.DEBEZIUM_SIGNALS';
+        EXCEPTION
+           WHEN OTHERS THEN
+              IF SQLCODE != -942 THEN
+                 RAISE;
+              END IF;
+        END;
+        """
+    )
+
+    # debezium signal table will be created as debezium user
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
-    sql_client.ora_drop_table_if_exists('TESTUSER01.SALES')
-    sql_client.prepare_initial_table('sales_table.sql')
-    sql_client.ora_drop_table_if_exists('C##DBZUSER.DEBEZIUM_SIGNALS')
+    sql_client.ora_drop_table('"C##DBZUSER"."DEBEZIUM_SIGNALS"')
     sql_client.create_signal_table()
     print("Running before script")
     os.environ['KBC_COMPONENTID'] = 'kds-team-ex-oracle-cdc-local'
