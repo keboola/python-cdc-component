@@ -15,6 +15,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.*;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static keboola.cdc.debezium.AbstractDebeziumTask.KBC_EVENT_TIMESTAMP_FIELD;
+import static keboola.cdc.debezium.AbstractDebeziumTask.MAX_APPENDER_CACHE_SIZE;
 
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
@@ -32,7 +34,6 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	private final Path jsonSchemaFilePath;
 	private final DuckDbWrapper dbWrapper;
 	private final JsonConverter.ConverterProvider converterProvider;
-
 
 	public DbChangeConsumer(String resultFolder, DuckDbWrapper dbWrapper,
 							JsonConverter.ConverterProvider converterProvider) {
@@ -78,9 +79,21 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			for (final var r : records) {
 				handle(r.key(), r.value());
 				committer.markProcessed(r);
-				this.count.incrementAndGet();
+				if (this.count.incrementAndGet() % MAX_APPENDER_CACHE_SIZE == 0) {
+					log.info("Flushing all tables");
+					this.converters.forEach((k, v) -> {
+						try {
+							v.flush();
+						} catch (SQLException e) {
+							log.error("Error during flushing", e);
+						}
+					});
+				}
 			}
 			committer.markBatchFinished();
+		} catch (StopEngineException e) {
+			committer.markBatchFinished();
+			throw e;
 		} finally {
 			SyncStats.recordCount(this.count.intValue());
 			SyncStats.setProcessing(false);
@@ -119,7 +132,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 	}
 
 	private boolean shouldStop(final JsonObject payload) {
-		if (SyncStats.isSnapshotInProgress()) {
+		if (SyncStats.isSnapshotInProgress() || SyncStats.isInitialSnapshotOnly()) {
 			log.trace("Snapshot phase, do not stop processing.");
 			return false;
 		}
@@ -129,7 +142,7 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		}
 		long timestampField = payload.getAsJsonPrimitive(KBC_EVENT_TIMESTAMP_FIELD)
 				.getAsLong();
-		if (timestampField > SyncStats.started()) {
+		if (timestampField > SyncStats.started() + 500) { // delta 500ms
 			log.info("Stop processing out of scope records, {}: {} and started: {}",
 					KBC_EVENT_TIMESTAMP_FIELD, timestampField, SyncStats.started());
 			return true;

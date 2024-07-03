@@ -24,6 +24,7 @@ public class AbstractDebeziumTask {
 	public static final String KBC_EVENT_TIMESTAMP_FIELD = KBC_FIELDS_PREFIX + EVENT_TIMESTAMP_FIELD;
 
 	public static int MAX_CHUNK_SIZE = 1000;
+	public static int MAX_APPENDER_CACHE_SIZE = 20000;
 
 	private final Properties debeziumProperties;
 	private final Properties keboolaProperties;
@@ -74,7 +75,9 @@ public class AbstractDebeziumTask {
 		this.mode = mode;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
 		adjustMaxChunkSize(keboolaProperties);
+		adjustMaxAppenderCacheSize(keboolaProperties);
 		adjustTimezone(keboolaProperties);
+		setSnapshotMode(debeziumProperties);
 	}
 
 	private static void adjustTimezone(Properties keboolaProperties) {
@@ -84,6 +87,14 @@ public class AbstractDebeziumTask {
 
 	private static void adjustMaxChunkSize(Properties keboolaProperties) {
 		MAX_CHUNK_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_chunk_size", "1000"));
+	}
+
+	private static void setSnapshotMode(Properties debeziumProperties) {
+		SyncStats.setInitialSnapshotOnly(debeziumProperties.getProperty("snapshot.mode", "").equalsIgnoreCase("initial_only"));
+	}
+
+	private static void adjustMaxAppenderCacheSize(Properties keboolaProperties) {
+		MAX_APPENDER_CACHE_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_appender_cache_size", "20000"));
 	}
 
 	public void run() throws Exception {

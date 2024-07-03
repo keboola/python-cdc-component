@@ -86,6 +86,10 @@ abstract class AbstractDbConverter implements JsonConverter {
 		}
 	}
 
+	public void flush() throws SQLException {
+		this.appender.flush();
+	}
+
 	/**
 	 * Converts values in Debezium format and append them
 	 *
