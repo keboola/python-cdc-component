@@ -124,7 +124,7 @@ class MySqlCDCComponent(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
-            logging_properties = LoggerOptions(result_log_path=log_artefact_path)
+            logging_properties = LoggerOptions(result_log_path=log_artefact_path, trace_mode=self._configuration.debug)
             if self.logging_type == 'gelf':
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))

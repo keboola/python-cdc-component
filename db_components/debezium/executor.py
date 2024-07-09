@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Tuple, Literal, Optional
 
 from jproperties import Properties
@@ -59,6 +58,7 @@ class LoggerOptions:
     log4j_additional_properties: dict = None
     gelf_host: str = None
     gelf_port: int = None
+    trace_mode: bool = False
 
     @property
     def gelf_enabled(self) -> bool:
@@ -136,6 +136,20 @@ class DebeziumExecutor:
         with open(os.path.join(os.path.dirname(__file__), 'default_log4j.properties'), 'rb') as config_file:
             log4j_config.load(config_file)
 
+        # default loggers
+        log4j_config['logger.component.name'] = 'keboola.cdc.debezium'
+        log4j_config['logger.component.level'] = 'info'
+        log4j_config['logger.component.appenderRef.stdout.ref'] = 'consoleLogger'
+
+        log4j_config['logger.debeziumchange.name'] = 'io.debezium.connector.mysql.MySqlStreamingChangeEventSource'
+        log4j_config['logger.debeziumchange.level'] = 'warn'
+
+        log4j_config['logger.debezium.name'] = 'io.debezium'
+        log4j_config['logger.debezium.level'] = 'info'
+
+        log4j_config['logger.debezium.additivity.io.debezium.connector'] = 'false'
+        log4j_config['logger.debezium.additivity.io.debezium.relational.history'] = 'false'
+        default_logger = 'consoleLogger'
         if logger_options.gelf_enabled:
             log4j_config['packages'] = 'biz.paluch.logging.gelf.log4j2'
             log4j_config['appender.gelf.type'] = 'Gelf'
@@ -149,7 +163,24 @@ class DebeziumExecutor:
             log4j_config['appender.gelf.includeFullMdc'] = 'true'
             log4j_config['appender.gelf.maximumMessageSize'] = '32000'
             log4j_config['appender.gelf.originHost'] = '%host{fqdn}'
-            log4j_config['rootLogger.appenderRef.gelf.ref'] = 'gelf'
+            default_logger = 'gelf'
+
+        # File appender
+        log4j_config['appender.file.type'] = 'File'
+        log4j_config['appender.file.name'] = 'fileLogger'
+        log4j_config['appender.file.fileName'] = logger_options.result_log_path
+        log4j_config['appender.file.layout.type'] = 'PatternLayout'
+        log4j_config['appender.file.layout.pattern'] = '[%p] %c{6} - %m%n'
+
+        if logger_options.trace_mode:
+            log4j_config['rootLogger.appenderRef.file.ref'] = 'fileLogger'
+            log4j_config['logger.debezium.level'] = 'trace'
+            log4j_config['logger.debezium.debeziumchange'] = 'debug'
+            # log at least component outputs to the file
+            log4j_config['logger.component.appenderRef.stdout.ref'] = default_logger
+        else:
+            log4j_config['rootLogger.appenderRef.file.ref'] = 'fileLogger'
+            log4j_config['rootLogger.appenderRef.file.ref'] = default_logger
 
         if logger_options.log4j_additional_properties:
             for key, value in logger_options.log4j_additional_properties.items():
@@ -253,47 +284,21 @@ class DebeziumExecutor:
         args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', tempdir_override,
                 '-jar', self._jar_path] + [
                    self._properties_path, result_folder_path] + additional_args
-        process = subprocess.Popen(args,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+        process = subprocess.Popen(args, stderr=subprocess.PIPE)
 
         logging.info(f'Running CDC Debezium Engine: {args}')
-        log_out = None
-        if not self.logger_options.gelf_enabled:
-            Path(self.logger_options.result_log_path).parent.mkdir(parents=True, exist_ok=True)
 
-            log_out = open(self.logger_options.result_log_path, 'w+')
-            # Stream stdout
-            for line in iter(process.stdout.readline, b''):
-                line_str = line.decode('utf-8').rstrip('\n')
-                logging.info(line_str)
-                if self.logger_options.result_log_path:
-                    log_out.write(line_str)
-                    # Stream stderr
-            for line in iter(process.stderr.readline, b''):
-                line_str = line.decode('utf-8').rstrip('\n')
-                logging.error(line_str)
-                if self.logger_options.result_log_path:
-                    log_out.write(line_str)
-
-        process.stdout.close()
         process.wait()
         logging.info('Debezium CDC run finished, processing stderr...')
         err_string = process.stderr.read().decode('utf-8')
         if process.returncode != 0:
             message, stack_trace = self.process_java_log_message(err_string)
-            if not self.logger_options.gelf_enabled:
-                log_out.write(err_string)
 
-            if not self.logger_options.gelf_enabled:
-                log_out.close()
             raise DebeziumException(
                 f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
                 extra={'additional_detail': err_string})
 
         logging.info('Debezium CDC run finished', extra={'additional_detail': err_string})
-        if not self.logger_options.gelf_enabled:
-            log_out.close()
         return self._get_result_schema(result_folder_path)
 
     def _get_result_schema(self, result_folder_path: str):
