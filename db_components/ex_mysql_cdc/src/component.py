@@ -75,6 +75,8 @@ class MySqlCDCComponent(ComponentBase):
 
         self._temp_offset_file = tempfile.NamedTemporaryFile(suffix='.dat', delete=False)
         self._temp_schema_history_file = Path(tempfile.gettempdir()).joinpath(SCHEMA_HISTORY_FILENAME).as_posix()
+        os.makedirs(os.path.dirname(self._temp_schema_history_file), exist_ok=True)
+        
         self._signal_file = f'{self.data_folder_path}/signal.jsonl'
         self._source_schema_metadata: dict[str, TableSchema]
 
