@@ -147,9 +147,10 @@ class MySqlCDCComponent(ComponentBase):
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel=channel)
 
             logging.info("Running Debezium Engine")
+            max_duration_s = sync_options.max_runtime_s or COMPONENT_TIMEOUT
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=COMPONENT_TIMEOUT,
+                                                      max_duration_s=max_duration_s,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
