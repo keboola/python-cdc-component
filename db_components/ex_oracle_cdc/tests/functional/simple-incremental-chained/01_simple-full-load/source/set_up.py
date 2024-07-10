@@ -19,18 +19,7 @@ def run(context: TestDataDir):
     oracle_p_database = os.getenv("ORACLE_P_DATABASE")
     oracle_executor = OracleSQLExecutor(user, password, f'{oracle_host}:{oracle_port}/'f'{oracle_p_database}')
 
-    oracle_executor.execute_sql(
-        """
-        BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE TESTUSER01.SALES';
-        EXCEPTION
-           WHEN OTHERS THEN
-              IF SQLCODE != -942 THEN
-                 RAISE;
-              END IF;
-        END;
-        """
-    )
+    oracle_executor.execute_sql("DROP TABLE TESTUSER01.SALES")
     oracle_executor.execute_sql_from_file(os.path.join(traits_folder, 'sales_table.sql'))
 
     oracle_executor.execute_sql(
@@ -54,5 +43,5 @@ def run(context: TestDataDir):
     os.environ['KBC_STACKID'] = 'connection.keboola.com'
     os.environ['KBC_CONFIGID'] = '123'
     os.environ['KBC_CONFIGROWID'] = '456'
-    os.environ['KBC_BRANCHID'] = Path(__file__).parent.parent.name
+    os.environ['KBC_BRANCHID'] = Path(__file__).parent.parent.parent.name
     os.environ['KBC_PROJECTID'] = '10'

@@ -29,6 +29,7 @@ def store_artefact(source_file_path: str, context: CommonInterface,
     """
     Store the artefact in the context with the given artefact_name.
     Args:
+        source_file_path: Path to the source file
         context: CommonInterface object
         additional_tags: List of additional tags to be added to the artefact
 
@@ -36,6 +37,7 @@ def store_artefact(source_file_path: str, context: CommonInterface,
 
     """
     tags = _build_unique_tags(context, additional_tags)
+    print(f"Uploading Tags: {tags}")
     client = Client(f'https://{context.environment_variables.stack_id}', context.environment_variables.token)
     return client.files.upload_file(source_file_path, tags=tags, is_permanent=False)
 
@@ -65,6 +67,7 @@ def get_artefact(artefact_file_name: str, context: CommonInterface,
 
     """
     tags = _build_unique_tags(context, additional_tags)
+    print(f"Searching Tags: {tags}")
     client = Client(f'https://{context.environment_variables.stack_id}', context.environment_variables.token)
 
     files = client.files.list(q=build_tags_query_filter(tags))

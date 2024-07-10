@@ -18,25 +18,22 @@ class OracleSQLExecutor:
                 password=self.config['password'],
                 dsn=self.config['dsn']
             )
-            print("Successfully connected to the database.")
             return conn
         except oracledb.DatabaseError as e:
             error, = e.args
-            print(f"Error connecting to the database: {error.message}")
-            return None
+            raise Exception(f"Error connecting to the database: {error.message}")
 
     def execute_sql(self, sql):
         if not self.conn:
-            print("No database connection.")
-            return
+            raise Exception("No database connection.")
         try:
             with self.conn.cursor() as cursor:
+                print(f"Executing query: {sql}")
                 cursor.execute(sql)
                 self.conn.commit()
-                print("SQL command executed successfully.")
         except Exception as e:
-            print(f"Error executing SQL command: {e}")
             self.conn.rollback()
+            print(f"Error executing SQL command: {e}")
 
     def close_connection(self):
         if self.conn:
@@ -51,9 +48,9 @@ class OracleSQLExecutor:
         try:
             with self.conn.cursor() as cursor:
                 for query in queries:
+                    print(f"Executing query: {query}")
                     cursor.execute(query)
                     self.conn.commit()
-                print("SQL commands executed successfully.")
         except Exception as e:
             print(f"Error executing SQL commands: {e}")
             self.conn.rollback()
@@ -70,6 +67,10 @@ class OracleSQLExecutor:
 
 
 if __name__ == "__main__":
-    executor = OracleSQLExecutor(user="testUser01", password="testUser01", dsn="35.232.223.228:1525/FREEPDB1")
-    executor.execute_sql("SELECT * FROM EMPLOYEES")
+    executor = OracleSQLExecutor(user="t", password="t", dsn="35.232.223.228:1525/FREE")
+    executor.execute_sql("""
+    INSERT INTO TESTUSER01.USERS (NAME, GENDER)
+    VALUES ('Dominik', 'M'),
+    ('David', 'M')
+    """)
     executor.close_connection()

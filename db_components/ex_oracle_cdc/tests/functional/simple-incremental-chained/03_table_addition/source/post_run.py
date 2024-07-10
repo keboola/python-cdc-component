@@ -1,13 +1,29 @@
+import os
+from pathlib import Path
 from datadirtest import TestDataDir
+from dotenv import load_dotenv
 
-from db_components.debezium.tests.functional import TestDatabaseEnvironment
+from db_components.ex_oracle_cdc.tests.scripts_executor import OracleSQLExecutor
+
+traits_folder = '/code/db_components/ex_oracle_cdc/tests/sql_test_traits'
 
 
 def run(context: TestDataDir):
-    # get value from the context parameters injected via DataDirTester constructor
-    sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
+    load_dotenv()
+    user = os.getenv("TEST_ORACLE_USER")
+    password = os.getenv("TEST_ORACLE_PASSWORD")
+    oracle_host = os.getenv("ORACLE_HOST")
+    oracle_port = 1525
+    oracle_p_database = os.getenv("ORACLE_P_DATABASE")
+    oracle_executor = OracleSQLExecutor(user, password, f'{oracle_host}:{oracle_port}/'f'{oracle_p_database}')
 
-    sql_client.connection.connect()
-    # drop tables created in the same schema by other tests
-    sql_client.perform_query('DROP TABLE IF EXISTS inventory.debezium_signals')
-    print("Running after script")
+    oracle_executor.execute_sql("DROP TABLE TESTUSER01.USERS")
+    oracle_executor.execute_sql("DROP TABLE C##DBZUSER.DEBEZIUM_SIGNAL")
+
+    print("Running before script")
+    os.environ['KBC_COMPONENTID'] = 'kds-team-ex-oracle-cdc-local'
+    os.environ['KBC_STACKID'] = 'connection.keboola.com'
+    os.environ['KBC_CONFIGID'] = '123'
+    os.environ['KBC_CONFIGROWID'] = '456'
+    os.environ['KBC_BRANCHID'] = Path(__file__).parent.parent.parent.name
+    os.environ['KBC_PROJECTID'] = '10'

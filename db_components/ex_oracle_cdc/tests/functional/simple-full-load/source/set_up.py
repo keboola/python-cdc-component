@@ -33,19 +33,6 @@ def run(context: TestDataDir):
     )
     oracle_executor.execute_sql_from_file(os.path.join(traits_folder, 'sales_table.sql'))
 
-    oracle_executor.execute_sql(
-        """
-        BEGIN
-           EXECUTE IMMEDIATE 'DROP TABLE C##DBZUSER.DEBEZIUM_SIGNALS';
-        EXCEPTION
-           WHEN OTHERS THEN
-              IF SQLCODE != -942 THEN
-                 RAISE;
-              END IF;
-        END;
-        """
-    )
-
     # debezium signal table will be created as debezium user
     sql_client: TestDatabaseEnvironment = context.context_parameters['db_client']
     sql_client.create_signal_table()

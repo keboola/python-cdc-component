@@ -486,6 +486,7 @@ class OracleComponent(ComponentBase):
         Returns:
 
         """
+        print(f"Storing schema history file: {self._temp_schema_history_file}")
         artefacts.store_artefact(self._temp_schema_history_file, self, ['debezium'])
 
     def dedupe_required(self) -> bool:
