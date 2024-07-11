@@ -181,7 +181,7 @@ class DestinationSettings(ConfigurationBase):
 
     @property
     def is_incremental_load(self) -> bool:
-        return self.load_type == LoadType.incremental_load
+        return self.load_type in (LoadType.incremental_load, LoadType.append_incremental)
 
 
 @dataclass
