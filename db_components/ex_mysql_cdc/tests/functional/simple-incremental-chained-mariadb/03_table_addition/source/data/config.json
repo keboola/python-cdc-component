@@ -1,10 +1,10 @@
 {
   "parameters": {
     "db_settings": {
-
+      "adapter": "MariaDB",
       "ssh_options": [],
-      "host": "{{env.MYSQL_HOST}}",
-      "port":  3306,
+      "host": "mariadb",
+      "port":  3808,
       "user": "{{env.MYSQL_USER}}",
       "#password": "{{env.MYSQL_PASSWORD}}",
       "use_ssh": false
@@ -13,7 +13,6 @@
       "load_type": "append_full"
     },
     "sync_options": {
-      "handle_binary": "base64",
       "source_signal_table": "inventory.debezium_signals",
       "max_wait_s": 5,
       "snapshot_mode": "initial",
@@ -22,6 +21,7 @@
     },
     "source_settings": {
       "tables": [
+        "inventory.sales",
         "inventory.products"
       ],
       "schemas": [
@@ -51,5 +51,6 @@
     }
   },
   "action": "run",
-  "image_parameters": {}
+  "image_parameters": {
+  }
 }

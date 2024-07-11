@@ -296,9 +296,7 @@ class DebeziumExecutor:
         logging.info('Debezium CDC run finished, processing stderr...')
         err_string = process.stderr.read().decode('utf-8')
         if process.returncode != 0:
-            message = ''
-            if not self.logger_options.gelf_enabled:
-                message, stack_trace = self.process_java_log_message(err_string)
+            message, stack_trace = self.process_java_log_message(err_string)
 
             raise DebeziumException(
                 f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',

@@ -27,7 +27,7 @@
         "inventory"
       ]
     },
-    "debug": false
+    "debug": true
   },
   "authorization": {
     "workspace": {

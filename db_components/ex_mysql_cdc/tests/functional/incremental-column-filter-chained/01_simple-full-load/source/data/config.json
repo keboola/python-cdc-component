@@ -22,11 +22,13 @@
     },
     "source_settings": {
       "tables": [
-        "inventory.products"
+        "inventory.sales"
       ],
       "schemas": [
         "inventory"
-      ]
+      ],
+      "column_filter_type": "exclude",
+      "column_filter": ["^inventory\\.sales\\.user.*"]
     },
     "debug": true
   },

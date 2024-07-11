@@ -13,7 +13,6 @@
       "load_type": "append_full"
     },
     "sync_options": {
-      "handle_binary": "base64",
       "source_signal_table": "inventory.debezium_signals",
       "max_wait_s": 5,
       "snapshot_mode": "initial",
@@ -22,11 +21,13 @@
     },
     "source_settings": {
       "tables": [
-        "inventory.products"
+        "inventory.sales"
       ],
       "schemas": [
         "inventory"
-      ]
+      ],
+      "column_filter_type": "exclude",
+      "column_filter": ["^inventory\\.sales\\.user.*"]
     },
     "debug": true
   },
@@ -51,5 +52,6 @@
     }
   },
   "action": "run",
-  "image_parameters": {}
+  "image_parameters": {
+  }
 }
