@@ -139,7 +139,6 @@ class DebeziumExecutor:
         # default loggers
         log4j_config['logger.component.name'] = 'keboola.cdc.debezium'
         log4j_config['logger.component.level'] = 'info'
-        log4j_config['logger.component.appenderRef.stdout.ref'] = 'consoleLogger'
 
         log4j_config['logger.debeziumchange.name'] = 'io.debezium.connector.mysql.MySqlStreamingChangeEventSource'
         log4j_config['logger.debeziumchange.level'] = 'warn'
@@ -150,6 +149,7 @@ class DebeziumExecutor:
         log4j_config['logger.debezium.additivity.io.debezium.connector'] = 'false'
         log4j_config['logger.debezium.additivity.io.debezium.relational.history'] = 'false'
         default_logger = 'consoleLogger'
+        appender_ref = 'stdout'
         if logger_options.gelf_enabled:
             log4j_config['packages'] = 'biz.paluch.logging.gelf.log4j2'
             log4j_config['appender.gelf.type'] = 'Gelf'
@@ -164,6 +164,7 @@ class DebeziumExecutor:
             log4j_config['appender.gelf.maximumMessageSize'] = '32000'
             log4j_config['appender.gelf.originHost'] = '%host{fqdn}'
             default_logger = 'gelf'
+            appender_ref = 'gelf'
 
         # File appender
         log4j_config['appender.file.type'] = 'File'
@@ -176,11 +177,11 @@ class DebeziumExecutor:
             log4j_config['rootLogger.appenderRef.file.ref'] = 'fileLogger'
             log4j_config['logger.debezium.level'] = 'trace'
             log4j_config['logger.debezium.debeziumchange'] = 'debug'
-            # log at least component outputs to the file
-            log4j_config['logger.component.appenderRef.stdout.ref'] = default_logger
+            # log at least component outputs to the stdout
+            log4j_config[f'logger.component.appenderRef.{appender_ref}.ref'] = default_logger
         else:
             log4j_config['rootLogger.appenderRef.file.ref'] = 'fileLogger'
-            log4j_config['rootLogger.appenderRef.file.ref'] = default_logger
+            log4j_config[f'rootLogger.appenderRef.{appender_ref}.ref'] = default_logger
 
         if logger_options.log4j_additional_properties:
             for key, value in logger_options.log4j_additional_properties.items():
@@ -284,15 +285,20 @@ class DebeziumExecutor:
         args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', tempdir_override,
                 '-jar', self._jar_path] + [
                    self._properties_path, result_folder_path] + additional_args
-        process = subprocess.Popen(args, stderr=subprocess.PIPE)
-
+        process_params = {'stderr': subprocess.PIPE}
+        if self.logger_options.gelf_enabled:
+            # mute stdout if GELF is enabled
+            process_params['stdout'] = subprocess.PIPE
+        process = subprocess.Popen(args, **process_params)
         logging.info(f'Running CDC Debezium Engine: {args}')
 
         process.wait()
         logging.info('Debezium CDC run finished, processing stderr...')
         err_string = process.stderr.read().decode('utf-8')
         if process.returncode != 0:
-            message, stack_trace = self.process_java_log_message(err_string)
+            message = ''
+            if not self.logger_options.gelf_enabled:
+                message, stack_trace = self.process_java_log_message(err_string)
 
             raise DebeziumException(
                 f'Failed to execute the the Debezium CDC Jar script: {message}. More detailed log in event detail.',
