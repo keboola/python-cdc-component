@@ -12,4 +12,4 @@ mock
 freezegun
 https://bitbucket.org/kds_consulting_team/datadirtest/get/1.8.1.zip#egg=datadirtest
 # db common requirements
-kbcstorage==0.7.2
+kbcstorage==0.9.1

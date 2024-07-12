@@ -1,7 +1,6 @@
 {
   "parameters": {
     "db_settings": {
-
       "ssh_options": [],
       "host": "{{env.MYSQL_HOST}}",
       "port":  3306,
@@ -10,9 +9,10 @@
       "use_ssh": false
     },
     "destination": {
-      "load_type": "append_full"
+      "load_type": "append_incremental"
     },
     "sync_options": {
+      "handle_binary": "base64",
       "source_signal_table": "inventory.debezium_signals",
       "max_wait_s": 5,
       "snapshot_mode": "initial",
@@ -21,14 +21,13 @@
     },
     "source_settings": {
       "tables": [
-        "inventory.sales",
-        "inventory.products"
+        "inventory.sales"
       ],
       "schemas": [
         "inventory"
       ]
     },
-    "debug": true
+    "debug": false
   },
   "authorization": {
     "workspace": {
@@ -51,6 +50,5 @@
     }
   },
   "action": "run",
-  "image_parameters": {
-  }
+  "image_parameters": {}
 }

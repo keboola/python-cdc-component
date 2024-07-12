@@ -29,7 +29,7 @@
       "column_filter_type": "exclude",
       "column_filter": ["^inventory\\.sales\\.user.*"]
     },
-    "debug": true
+    "debug": false
   },
   "authorization": {
     "workspace": {

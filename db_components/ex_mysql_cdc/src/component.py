@@ -124,7 +124,7 @@ class MySqlCDCComponent(ComponentBase):
                 raise Exception(f"Debezium jar not found at {DEBEZIUM_CORE_PATH}")
 
             log_artefact_path = os.path.join(self.data_folder_path, "artifacts", "out", "current", 'debezium.log')
-            logging_properties = LoggerOptions(result_log_path=log_artefact_path)
+            logging_properties = LoggerOptions(result_log_path=log_artefact_path, trace_mode=self._configuration.debug)
             if self.logging_type == 'gelf':
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
@@ -147,9 +147,10 @@ class MySqlCDCComponent(ComponentBase):
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel=channel)
 
             logging.info("Running Debezium Engine")
+            max_duration_s = sync_options.max_runtime_s or COMPONENT_TIMEOUT
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=COMPONENT_TIMEOUT,
+                                                      max_duration_s=max_duration_s,
                                                       max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 

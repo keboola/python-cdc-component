@@ -1,5 +1,5 @@
 # to be executed from the root folder
-FROM python:3.11-bookworm
+FROM python:3.12-bookworm
 ENV PYTHONIOENCODING utf-8
 ENV PYTHONPATH /code:/code/db_components:/code/db_components/db_common:/code/db_components/debezium
 

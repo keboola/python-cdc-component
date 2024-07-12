@@ -154,6 +154,7 @@ class SyncOptions(ConfigurationBase):
     source_signal_table: str = ''
     snapshot_mode: SnapshotMode = SnapshotMode.initial
     max_wait_s: int = 5
+    max_runtime_s: Optional[int] = None
     batch_size: int = 2048
     queue_size: int = 8192
     duckdb_threads: int = 2
@@ -180,7 +181,7 @@ class DestinationSettings(ConfigurationBase):
 
     @property
     def is_incremental_load(self) -> bool:
-        return self.load_type == LoadType.incremental_load
+        return self.load_type in (LoadType.incremental_load, LoadType.append_incremental)
 
 
 @dataclass
