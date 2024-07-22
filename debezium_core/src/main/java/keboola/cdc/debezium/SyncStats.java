@@ -20,6 +20,8 @@ public class SyncStats {
 	private final AtomicBoolean snapshotOnly;
 	private final AtomicBoolean taskStarted;
 	private final AtomicInteger recordCount;
+	private final AtomicReference<String> targetFile;
+	private final AtomicLong targetPosition;
 
 	private SyncStats() {
 		this.lastRecord = new AtomicReference<>();
@@ -29,6 +31,8 @@ public class SyncStats {
 		this.snapshotOnly = new AtomicBoolean(false);
 		this.started = new AtomicLong(0L);
 		this.processing = new AtomicBoolean(false);
+		this.targetFile = new AtomicReference<>();
+		this.targetPosition = new AtomicLong(0);
 	}
 
 	public static void setLastRecord(ZonedDateTime lastRecord) {
@@ -82,5 +86,25 @@ public class SyncStats {
 
 	public static boolean isInitialSnapshotOnly() {
 		return singleton.snapshotOnly.get();
+	}
+
+	public static void setTargetFile(String targetFile) {
+		singleton.targetFile.set(targetFile);
+	}
+
+	public static String getTargetFile() {
+		return singleton.targetFile.get();
+	}
+
+	public static void setTargetPosition(long targetPosition) {
+		singleton.targetPosition.set(targetPosition);
+	}
+
+	public static long getTargetPosition() {
+		return singleton.targetPosition.get();
+	}
+
+	public static boolean isTargetPositionDefined() {
+		return !singleton.targetFile.get().isBlank() && singleton.targetPosition.get() > 0;
 	}
 }
