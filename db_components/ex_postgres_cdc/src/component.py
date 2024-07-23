@@ -22,7 +22,7 @@ from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHExce
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
-    DefaultStoppingCondition
+    DefaultStoppingCondition, StoppingCondition
 from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor, \
     PostgresBaseTypeConverter
@@ -124,13 +124,8 @@ class PostgresCDCComponent(ComponentBase):
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
-
-            max_duration_s = COMPONENT_TIMEOUT
-            stopping_condition = DefaultStoppingCondition(max_duration_s, sync_options.max_wait_s)
-
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=duckdb_config,
-                                                 stopping_condition=stopping_condition,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection)
@@ -142,6 +137,7 @@ class PostgresCDCComponent(ComponentBase):
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      stopping_condition=self._build_stopping_condition(),
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
                                                       previous_schema=self.last_debezium_schema)
 
@@ -154,6 +150,16 @@ class PostgresCDCComponent(ComponentBase):
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables], result_schema)
 
             self.cleanup_duckdb()
+
+    def _build_stopping_condition(self) -> StoppingCondition:
+        """
+        Builds stopping condition based on the configuration specific for MySQL
+        Returns:
+
+        """
+
+        max_duration_s = COMPONENT_TIMEOUT
+        return DefaultStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s)
 
     def cleanup_duckdb(self):
         # cleanup duckdb (useful for local dev,to clean resources)
