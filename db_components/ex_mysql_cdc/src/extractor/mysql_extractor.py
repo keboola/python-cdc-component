@@ -249,6 +249,7 @@ class MySQLDebeziumExtractor:
         """
         query = "SHOW MASTER STATUS"
         results = list(self.connection.perform_query(query))
+        logging.info(f"Master status: {results}")
         return results[0][0], int(str(results[0][1]))
 
     def test_has_replication_privilege(self):
