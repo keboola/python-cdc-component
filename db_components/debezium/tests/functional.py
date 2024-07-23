@@ -113,7 +113,7 @@ class DebeziumCDCDatadirTest(TestDataDir):
 
         for in_table in in_tables:
             # we now we need to remove last 2columns
-            columns_to_remove = ['KBC__EVENT_TIMESTAMP_MS']
+            columns_to_remove = ['KBC__EVENT_TIMESTAMP_MS', 'KBC__POS', 'KBC__FILE']
             order_by_column = 'KBC__BATCH_EVENT_ORDER'
             if 'debezium_signals' in in_table:
                 # in case of debezium signal we need to remove id column

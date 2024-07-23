@@ -25,7 +25,7 @@ from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
-    MySQLStoppingCondition
+    MySQLStoppingCondition, StoppingCondition
 from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode, Adapter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
@@ -60,12 +60,16 @@ class MySqlCDCComponent(ComponentBase):
     SYSTEM_COLUMNS = [
         ColumnSchema(name="KBC__OPERATION", source_type="STRING"),
         ColumnSchema(name="KBC__EVENT_TIMESTAMP_MS", source_type="TIMESTAMP"),
+        ColumnSchema(name="KBC__FILE", source_type="STRING"),
+        ColumnSchema(name="KBC__POS", source_type="INTEGER"),
         ColumnSchema(name="KBC__DELETED", source_type="BOOLEAN"),
         ColumnSchema(name="KBC__BATCH_EVENT_ORDER", source_type="INTEGER")
     ]
 
     SYSTEM_COLUMN_NAME_MAPPING = {"kbc__operation": "KBC__OPERATION",
                                   "kbc__event_timestamp": "KBC__EVENT_TIMESTAMP_MS",
+                                  "kbc__file": "KBC__FILE",
+                                  "kbc__pos": "KBC__POS",
                                   "__deleted": "KBC__DELETED",
                                   "kbc__batch_event_order": "KBC__BATCH_EVENT_ORDER"}
 
@@ -135,14 +139,8 @@ class MySqlCDCComponent(ComponentBase):
                                              max_appender_cache_size=sync_options.max_duckdb_appender_cache_size,
                                              max_threads=sync_options.duckdb_threads)
 
-            max_duration_s = sync_options.max_runtime_s or COMPONENT_TIMEOUT
-            file_name, position = self._client.get_target_position()
-            stopping_condition = MySQLStoppingCondition(max_duration_s, sync_options.max_wait_s,
-                                                        file_name, position)
-
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=duckdb_config,
-                                                 stopping_condition=stopping_condition,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )
@@ -155,6 +153,7 @@ class MySqlCDCComponent(ComponentBase):
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      stopping_condition=self._build_stopping_condition(),
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
                                                       previous_schema=self.last_debezium_schema)
 
@@ -168,6 +167,18 @@ class MySqlCDCComponent(ComponentBase):
             self._store_schema_history_file()
 
             self.cleanup_duckdb()
+
+    def _build_stopping_condition(self) -> StoppingCondition:
+        """
+        Builds stopping condition based on the configuration specific for MySQL
+        Returns:
+
+        """
+
+        max_duration_s = self._configuration.sync_options.max_runtime_s or COMPONENT_TIMEOUT
+        file_name, position = self._client.get_target_position()
+        return MySQLStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s,
+                                      file_name, position)
 
     def cleanup_duckdb(self):
         # cleanup duckdb (useful for local dev,to clean resources)

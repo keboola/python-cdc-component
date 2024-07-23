@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 
 from datadirtest import TestDataDir
@@ -24,6 +25,7 @@ def run(context: TestDataDir):
             sql_client.perform_query(q)
     sql_client.perform_query('commit')
     sql_client.connection.close()
+    # wait for 10s
     traits.set_order_by_columns('inventory_products', ['id', 'KBC__EVENT_TIMESTAMP_MS'])
     traits.set_order_by_columns('inventory_debezium_signals', ['KBC__EVENT_TIMESTAMP_MS'])
     print("Running before script")
