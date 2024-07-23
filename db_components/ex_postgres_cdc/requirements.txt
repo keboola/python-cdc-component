@@ -1,12 +1,12 @@
 keboola.component==1.4.4
-keboola.utils
+keboola.utils==1.1.0
 jaydebeapi==1.2.3
-dataconf
+dataconf==3.2.0
 jproperties==2.1.1
-pandas
-duckdb
-sshtunnel
-paramiko
+pandas==2.2.2
+duckdb==1.0.0
+sshtunnel==0.4.0
+# paramiko==3.4.0
 # tests
 mock
 freezegun
