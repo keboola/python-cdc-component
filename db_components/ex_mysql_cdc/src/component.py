@@ -30,6 +30,7 @@ from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOption
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import SUPPORTED_TYPES
+from extractor.mysql_extractor import ExtractorUserException
 
 COMPONENT_TIMEOUT = 85500
 
@@ -688,7 +689,7 @@ if __name__ == "__main__":
         comp = MySqlCDCComponent()
         # this triggers the run method by default and is controlled by the configuration.action parameter
         comp.execute_action()
-    except UserException as exc:
+    except (UserException, ExtractorUserException) as exc:
         logging.exception(exc)
         exit(1)
     except DebeziumException as exc:
