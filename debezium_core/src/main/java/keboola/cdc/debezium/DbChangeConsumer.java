@@ -135,7 +135,8 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 			log.trace("Snapshot phase, do not stop processing.");
 			return false;
 		}
-		if (SyncStats.isTargetPositionDefined()) {
+		if (SyncStats.isTargetPositionDefined() && payload.get(KBC_FILE_FIELD) != null
+				&& payload.get(KBC_POS_FIELD) != null) {
 			var eventFileName = payload.getAsJsonPrimitive(KBC_FILE_FIELD).getAsString();
 			var eventPosition = payload.getAsJsonPrimitive(KBC_POS_FIELD).getAsLong();
 			var targetFile = SyncStats.getTargetFile();
