@@ -61,7 +61,7 @@ class StoppingCondition(ABC):
 @dataclass
 class DefaultStoppingCondition(StoppingCondition):
     max_duration_s: int = 3600
-    max_wait_s: int = 5
+    max_wait_s: int = 30
 
 
 @dataclass
@@ -161,11 +161,12 @@ class DebeziumExecutor:
         with open(self._keboola_properties_path, 'a') as config_file:
             # process stopping condition
             self._stopping_condition_run_params['md'] = stopping_condition.max_duration_s
+            self._stopping_condition_run_params['mw'] = stopping_condition.max_wait_s
             if isinstance(stopping_condition, MySQLStoppingCondition):
                 config_file.write(f'keboola.target.file={stopping_condition.file_name}\n')
                 config_file.write(f'keboola.target.position={stopping_condition.position}\n')
             elif isinstance(stopping_condition, DefaultStoppingCondition):
-                self._stopping_condition_run_params['mw'] = stopping_condition.max_wait_s
+                pass
             else:
                 raise DebeziumException('Unsupported stopping condition type')
 
