@@ -1,9 +1,13 @@
 import base64
 import contextlib
+import warnings
 from io import StringIO
 from typing import Tuple
 
 import binascii
+
+# Ignore CryptographyDeprecationWarning
+warnings.filterwarnings(action='ignore', category=UserWarning, module='paramiko.*')
 import paramiko
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization as crypt_serialization
