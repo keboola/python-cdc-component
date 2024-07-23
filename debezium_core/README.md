@@ -18,7 +18,7 @@ Path to `.properties` file containing Debezium properties related to the selecte
 (transforms.unwrap.type", "io.debezium.transforms.ExtractNewRecordState");
 (transforms.unwrap.drop.tombstones", "true");
 (transforms.unwrap.delete.handling.mode", "rewrite");
-(transforms.unwrap.add.fields", "table,source.ts_ms");
+(transforms.unwrap.add.fields", "op,source.ts_ms,source.file,source.pos");
 (transforms.unwrap.add.fields.prefix", "kbc__");
 ```
 
@@ -55,6 +55,8 @@ keboola.duckdb.temp.directory -> path to temporary directory for duckDB
 keboola.converter.dedupe.max_chunk_size -> maximum chunk size for deduplication mode
 keboola.converter.dedupe.max_appender_cache_size -> maximum appender cache size across all tables
 keboola.timezone -> timezone of module, default value is UTC 
+keboola.target.file -> bin log file name to be processed at most 
+keboola.target.position -> entry position to be processed at most
 ```
 
 **NOTE:** If no value is specified for given property, default value is applied:

@@ -24,7 +24,8 @@ from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHExce
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.common import get_schema_change_table_metadata
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
+    MySQLStoppingCondition
 from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode, Adapter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
@@ -134,8 +135,14 @@ class MySqlCDCComponent(ComponentBase):
                                              max_appender_cache_size=sync_options.max_duckdb_appender_cache_size,
                                              max_threads=sync_options.duckdb_threads)
 
+            max_duration_s = sync_options.max_runtime_s or COMPONENT_TIMEOUT
+            file_name, position = self._client.get_target_position()
+            stopping_condition = MySQLStoppingCondition(max_duration_s, sync_options.max_wait_s,
+                                                        file_name, position)
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=duckdb_config,
+                                                 stopping_condition=stopping_condition,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection, )
@@ -147,11 +154,8 @@ class MySqlCDCComponent(ComponentBase):
                 debezium_executor.signal_snapshot(newly_added_tables, 'blocking', channel=channel)
 
             logging.info("Running Debezium Engine")
-            max_duration_s = sync_options.max_runtime_s or COMPONENT_TIMEOUT
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=max_duration_s,
-                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()

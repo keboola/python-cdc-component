@@ -1,6 +1,5 @@
 import logging
 import logging.handlers
-import os
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -241,6 +240,17 @@ class MySQLDebeziumExtractor:
         # test if user has appropriate privileges
         self.test_has_replication_privilege()
         self.close_connection()
+
+    def get_target_position(self) -> tuple[str, str]:
+        """
+        Get the current position of the master.
+        Returns: file name and position
+
+        """
+        query = "SHOW MASTER STATUS"
+        results = list(self.connection.perform_query(query))
+        self.close_connection()
+        return results[0][0], results[0][1]
 
     def test_has_replication_privilege(self):
         # query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"

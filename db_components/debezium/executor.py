@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import uuid
+from abc import ABC
 from dataclasses import dataclass
 from typing import Tuple, Literal, Optional
 
@@ -45,6 +46,31 @@ class DuckDBParameters:
 
 
 @dataclass
+class StoppingCondition(ABC):
+    """
+    Configuration for the stopping condition of the Debezium CDC engine.
+
+    Attributes:
+        max_duration_s: The maximum duration of the CDC run in seconds.
+        max_wait_s: The maximum time to wait for the next event in seconds.
+    """
+    max_duration_s: int
+    max_wait_s: int
+
+
+@dataclass
+class DefaultStoppingCondition(StoppingCondition):
+    max_duration_s: int = 3600
+    max_wait_s: int = 5
+
+
+@dataclass
+class MySQLStoppingCondition(StoppingCondition):
+    file_name: str
+    position: str
+
+
+@dataclass
 class LoggerOptions:
     """
     Configuration for the GELF logger.
@@ -68,6 +94,7 @@ class LoggerOptions:
 class DebeziumExecutor:
 
     def __init__(self, properties_path: str, duckdb_config: DuckDBParameters, logger_options: LoggerOptions,
+                 stopping_condition: StoppingCondition,
                  jar_path='cdc.jar', source_connection: Optional[JDBCConnection] = None):
         """
         Initialize the Debezium CDC engine with the given properties file and jar path.
@@ -80,7 +107,8 @@ class DebeziumExecutor:
         """
         self._jar_path = jar_path
         self._properties_path = properties_path
-        self._keboola_properties_path = self.build_keboola_properties(duckdb_config)
+        self._stopping_condition_run_params = {}
+        self._keboola_properties_path = self.build_keboola_properties(duckdb_config, stopping_condition)
         # print contents of the properties file
         with open(properties_path, 'r') as f:
             logging.info(f.read())
@@ -100,11 +128,12 @@ class DebeziumExecutor:
                 db_configs_dict[key] = value.data
             return db_configs_dict
 
-    def build_keboola_properties(self, duckdb_config: DuckDBParameters):
+    def build_keboola_properties(self, duckdb_config: DuckDBParameters, stopping_condition: StoppingCondition) -> str:
         """
         Append DuckDB configuration to the properties file.
         Args:
             duckdb_config:
+            stopping_condition: Configuration for the stopping condition of the Debezium CDC engine.
 
         Returns:
 
@@ -119,6 +148,17 @@ class DebeziumExecutor:
             config_file.write(f'keboola.converter.dedupe.max_chunk_size={duckdb_config.dedupe_max_chunk_size}\n')
             config_file.write(
                 f'keboola.converter.dedupe.max_appender_cache_size={duckdb_config.max_appender_cache_size}\n')
+
+            # process stopping condition
+            self._stopping_condition_run_params['md'] = stopping_condition.max_duration_s
+            if isinstance(stopping_condition, MySQLStoppingCondition):
+                config_file.write(f'keboola.target.file={stopping_condition.file_name}\n')
+                config_file.write(f'keboola.target.position={stopping_condition.position}\n')
+            elif isinstance(stopping_condition, DefaultStoppingCondition):
+                self._stopping_condition_run_params['mw'] = stopping_condition.max_wait_s
+            else:
+                raise DebeziumException('Unsupported stopping condition type')
+
         return temp_file.name
 
     def build_logger_properties(self, logger_options: LoggerOptions) -> str:
@@ -259,17 +299,13 @@ class DebeziumExecutor:
         return args
 
     def execute(self, result_folder_path: str,
-                mode: Literal['APPEND', 'DEDUPE'] = 'APPEND',
-                max_duration_s: int = 3600,
-                max_wait_s: int = 5, previous_schema: dict = None) -> dict:
+                mode: Literal['APPEND', 'DEDUPE'] = 'APPEND', previous_schema: dict = None) -> dict:
 
         """
         Execute the Debezium CDC engine with the given properties file and additional arguments.
         Args:
             result_folder_path:
             mode: Mode of result processing, APPEND or DEDUPE. Dedupe keeps only latest event per record.
-            max_duration_s:
-            max_wait_s:
             previous_schema: Optional schema of the previous run to keep the expanding schema of tables
 
         Returns: Schema of the result
@@ -279,8 +315,9 @@ class DebeziumExecutor:
             with open(f'{result_folder_path}/schema.json', 'w+') as schema_file:
                 json.dump(previous_schema, schema_file)
 
-        additional_args = DebeziumExecutor._build_args_from_dict({"pf": self._keboola_properties_path,
-                                                                  "md": max_duration_s, "mw": max_wait_s, "m": mode})
+        additional_params = {"pf": self._keboola_properties_path, "m": mode} | self._stopping_condition_run_params
+        additional_args = DebeziumExecutor._build_args_from_dict(additional_params)
+
         tempdir_override = f"-Djava.io.tmpdir={os.environ.get('TMPDIR', '/tmp')}"
         args = ['java', f'-Dlog4j.configurationFile={self._log4j_properties}', tempdir_override,
                 '-jar', self._jar_path] + [

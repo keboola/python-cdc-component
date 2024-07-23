@@ -21,12 +21,15 @@ from keboola.component.sync_actions import SelectElement, ValidationResult
 from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
+    DefaultStoppingCondition
 from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor, \
     PostgresBaseTypeConverter
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import SUPPORTED_TYPES
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import build_postgres_property_file
+
+COMPONENT_TIMEOUT = 8000
 
 DUCK_DB_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'duckdb_stage')
 
@@ -121,8 +124,13 @@ class PostgresCDCComponent(ComponentBase):
                 logging_properties.gelf_host = f"tcp:{os.getenv('KBC_LOGGER_ADDR', 'localhost')}"
                 logging_properties.gelf_port = int(os.getenv('KBC_LOGGER_PORT', 12201))
 
+
+            max_duration_s = COMPONENT_TIMEOUT
+            stopping_condition = DefaultStoppingCondition(max_duration_s, sync_options.max_wait_s)
+
             debezium_executor = DebeziumExecutor(properties_path=debezium_properties,
                                                  duckdb_config=duckdb_config,
+                                                 stopping_condition=stopping_condition,
                                                  logger_options=logging_properties,
                                                  jar_path=DEBEZIUM_CORE_PATH,
                                                  source_connection=self._client.connection)
@@ -135,8 +143,6 @@ class PostgresCDCComponent(ComponentBase):
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=8000,
-                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()
