@@ -252,7 +252,7 @@ class MySQLDebeziumExtractor:
         results = list(self.connection.perform_query(query))
         if not results:
             raise UserException(
-                "Master status returned empty set. Please check if the binary logging is enabled."
+                "SHOW MASTER STATUS returned an empty set. Please check if the binary logging is enabled."
                 "If you recently performed some changes to the server config, please restart the server.")
         logging.info(f"Master status: {results}")
         return results[0][0], int(str(results[0][1]))
