@@ -21,7 +21,11 @@ import java.util.concurrent.TimeUnit;
 public class AbstractDebeziumTask {
 	public static final String KBC_FIELDS_PREFIX = "kbc__";
 	public static final String EVENT_TIMESTAMP_FIELD = "event_timestamp";
+	public static final String FILE_FIELD = "file";
+	public static final String POS_FIELD = "pos";
 	public static final String KBC_EVENT_TIMESTAMP_FIELD = KBC_FIELDS_PREFIX + EVENT_TIMESTAMP_FIELD;
+	public static final String KBC_FILE_FIELD = KBC_FIELDS_PREFIX + FILE_FIELD;
+	public static final String KBC_POS_FIELD = KBC_FIELDS_PREFIX + POS_FIELD;
 
 	public static int MAX_CHUNK_SIZE = 1000;
 	public static int MAX_APPENDER_CACHE_SIZE = 20000;
@@ -74,27 +78,20 @@ public class AbstractDebeziumTask {
 		this.resultFolder = resultFolder;
 		this.mode = mode;
 		this.maxWait = maxWait == null ? Duration.ofSeconds(10) : maxWait;
-		adjustMaxChunkSize(keboolaProperties);
-		adjustMaxAppenderCacheSize(keboolaProperties);
-		adjustTimezone(keboolaProperties);
+		apply(keboolaProperties);
 		setSnapshotMode(debeziumProperties);
 	}
 
-	private static void adjustTimezone(Properties keboolaProperties) {
-		var timezone = keboolaProperties.getProperty("keboola.timezone", "UTC");
-		TimeZone.setDefault(TimeZone.getTimeZone(timezone));
-	}
-
-	private static void adjustMaxChunkSize(Properties keboolaProperties) {
+	private static void apply(Properties keboolaProperties) {
 		MAX_CHUNK_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_chunk_size", "1000"));
+		MAX_APPENDER_CACHE_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_appender_cache_size", "20000"));
+		TimeZone.setDefault(TimeZone.getTimeZone(keboolaProperties.getProperty("keboola.timezone", "UTC")));
+		SyncStats.setTargetFile(keboolaProperties.getProperty("keboola.target.file", ""));
+		SyncStats.setTargetPosition(Long.parseLong(keboolaProperties.getProperty("keboola.target.position", "0")));
 	}
 
 	private static void setSnapshotMode(Properties debeziumProperties) {
 		SyncStats.setInitialSnapshotOnly(debeziumProperties.getProperty("snapshot.mode", "").equalsIgnoreCase("initial_only"));
-	}
-
-	private static void adjustMaxAppenderCacheSize(Properties keboolaProperties) {
-		MAX_APPENDER_CACHE_SIZE = Integer.parseInt(keboolaProperties.getProperty("keboola.converter.dedupe.max_appender_cache_size", "20000"));
 	}
 
 	public void run() throws Exception {
@@ -140,7 +137,7 @@ public class AbstractDebeziumTask {
 		props.setProperty("transforms.unwrap.type", "keboola.cdc.debezium.transforms.ExtractNewRecordStateSchemaChanges");
 		props.setProperty("transforms.unwrap.drop.tombstones", "true");
 		props.setProperty("transforms.unwrap.delete.handling.mode", "rewrite");
-		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:" + EVENT_TIMESTAMP_FIELD);
+		props.setProperty("transforms.unwrap.add.fields", "op:operation,source.ts_ms:" + EVENT_TIMESTAMP_FIELD + ",source.file:" + FILE_FIELD + ",source.pos:"+ POS_FIELD);
 		props.setProperty("transforms.unwrap.add.fields.prefix", KBC_FIELDS_PREFIX);
 		props.setProperty("notification.enabled.channels", KeboolaNotification.KEBOOLA_NOTIFICATION_CHANNEL);
 		return props;

@@ -21,12 +21,15 @@ from keboola.component.sync_actions import SelectElement, ValidationResult
 from db_components.db_common.ssh.ssh_utils import create_ssh_tunnel, SomeSSHException, generate_ssh_key_pair
 from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
-from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions
+from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
+    DefaultStoppingCondition, StoppingCondition
 from db_components.ex_postgres_cdc.src.configuration import Configuration, DbOptions, SnapshotMode
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import PostgresDebeziumExtractor, \
     PostgresBaseTypeConverter
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import SUPPORTED_TYPES
 from db_components.ex_postgres_cdc.src.extractor.postgres_extractor import build_postgres_property_file
+
+COMPONENT_TIMEOUT = 8000
 
 DUCK_DB_DIR = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'duckdb_stage')
 
@@ -134,9 +137,8 @@ class PostgresCDCComponent(ComponentBase):
 
             logging.info("Running Debezium Engine")
             result_schema = debezium_executor.execute(self.tables_out_path,
+                                                      stopping_condition=self._build_stopping_condition(),
                                                       mode='DEDUPE' if self.dedupe_required() else 'APPEND',
-                                                      max_duration_s=8000,
-                                                      max_wait_s=self._configuration.sync_options.max_wait_s,
                                                       previous_schema=self.last_debezium_schema)
 
             start = time.time()
@@ -148,6 +150,16 @@ class PostgresCDCComponent(ComponentBase):
             self._write_result_state(self._get_offest_string(), [res[1] for res in result_tables], result_schema)
 
             self.cleanup_duckdb()
+
+    def _build_stopping_condition(self) -> StoppingCondition:
+        """
+        Builds stopping condition based on the configuration specific for MySQL
+        Returns:
+
+        """
+
+        max_duration_s = COMPONENT_TIMEOUT
+        return DefaultStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s)
 
     def cleanup_duckdb(self):
         # cleanup duckdb (useful for local dev,to clean resources)

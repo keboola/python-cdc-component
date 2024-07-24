@@ -22,8 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static keboola.cdc.debezium.AbstractDebeziumTask.KBC_EVENT_TIMESTAMP_FIELD;
-import static keboola.cdc.debezium.AbstractDebeziumTask.MAX_APPENDER_CACHE_SIZE;
+import static keboola.cdc.debezium.AbstractDebeziumTask.*;
 
 @Slf4j
 public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEvent<String, String>> {
@@ -135,6 +134,18 @@ public class DbChangeConsumer implements DebeziumEngine.ChangeConsumer<ChangeEve
 		if (SyncStats.isSnapshotInProgress() || SyncStats.isInitialSnapshotOnly()) {
 			log.trace("Snapshot phase, do not stop processing.");
 			return false;
+		}
+		if (SyncStats.isTargetPositionDefined() && payload.get(KBC_FILE_FIELD) != null
+				&& payload.get(KBC_POS_FIELD) != null) {
+			var eventFileName = payload.getAsJsonPrimitive(KBC_FILE_FIELD).getAsString();
+			var eventPosition = payload.getAsJsonPrimitive(KBC_POS_FIELD).getAsLong();
+			var targetFile = SyncStats.getTargetFile();
+			if (eventFileName.compareTo(targetFile) > 0
+					|| (eventFileName.compareTo(targetFile) == 0 && eventPosition >= SyncStats.getTargetPosition())) {
+				log.info("Signalling close because record's binlog file : {} , position : {} is after target file : {}," +
+						" target position : {}", eventFileName, eventPosition, targetFile, SyncStats.getTargetPosition());
+				return true;
+			}
 		}
 		if (!payload.has(KBC_EVENT_TIMESTAMP_FIELD)) {
 			log.trace("No timestamp field in payload, do not stop processing.");

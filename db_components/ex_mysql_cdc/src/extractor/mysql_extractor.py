@@ -1,11 +1,11 @@
 import logging
 import logging.handlers
-import os
 import tempfile
 from pathlib import Path
 from typing import Optional
 
 from jaydebeapi import DatabaseError
+from keboola.component import UserException
 
 from db_components.db_common.db_connection import JDBCConnection
 from db_components.db_common.metadata import JDBCMetadataProvider
@@ -241,6 +241,21 @@ class MySQLDebeziumExtractor:
         # test if user has appropriate privileges
         self.test_has_replication_privilege()
         self.close_connection()
+
+    def get_target_position(self) -> tuple[str, int]:
+        """
+        Get the current position of the master.
+        Returns: file name and position
+
+        """
+        query = "SHOW MASTER STATUS"
+        results = list(self.connection.perform_query(query))
+        if not results:
+            raise UserException(
+                "SHOW MASTER STATUS returned an empty set. Please check if the binary logging is enabled."
+                "If you recently performed some changes to the server config, please restart the server.")
+        logging.info(f"Master status: {results}")
+        return results[0][0], int(str(results[0][1]))
 
     def test_has_replication_privilege(self):
         # query = f"SELECT  rolreplication, rolcanlogin FROM pg_catalog.pg_roles r WHERE r.rolname = '{self.user}'"
