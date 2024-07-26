@@ -25,7 +25,7 @@ from db_components.db_common.staging import Staging, DuckDBStagingExporter
 from db_components.db_common.table_schema import TableSchema, ColumnSchema, init_table_schema_from_dict
 from db_components.debezium.common import get_schema_change_table_metadata
 from db_components.debezium.executor import DebeziumExecutor, DebeziumException, DuckDBParameters, LoggerOptions, \
-    MySQLStoppingCondition, StoppingCondition
+    MySQLStoppingCondition, StoppingCondition, DefaultStoppingCondition
 from db_components.ex_mysql_cdc.src.configuration import Configuration, DbOptions, SnapshotMode, Adapter
 from db_components.ex_mysql_cdc.src.extractor.mysql_extractor import MySQLDebeziumExtractor, \
     build_debezium_property_file, MySQLBaseTypeConverter
@@ -177,9 +177,14 @@ class MySqlCDCComponent(ComponentBase):
         """
 
         max_duration_s = self._configuration.sync_options.max_runtime_s or COMPONENT_TIMEOUT
-        file_name, position = self._client.get_target_position()
-        return MySQLStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s,
-                                      file_name, position)
+        if self.is_initial_run:
+            # on init run we do not need to stop based on the binlog
+            stopping_condition = DefaultStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s)
+        else:
+            file_name, position = self._client.get_target_position()
+            stopping_condition = MySQLStoppingCondition(max_duration_s, self._configuration.sync_options.max_wait_s,
+                                                        file_name, position)
+        return stopping_condition
 
     def cleanup_duckdb(self):
         # cleanup duckdb (useful for local dev,to clean resources)
